@@ -516,6 +516,21 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			context.runOnClient(client -> Modules.CLEAR_VIEW.setEnabled(true));
 			server.runCommand("execute at @p run fill ~-1 ~ ~-1 ~1 ~1 ~1 air");
 
+			// Clear View: bez mgły w wodzie i lawie (z modułem), potem vanilla dla porównania.
+			server.runCommand("effect give @p fire_resistance 60 0 true");
+			for (String liquid : new String[] {"water", "lava"}) {
+				server.runCommand("execute at @p run fill ~-8 ~ ~-8 ~8 ~3 ~8 " + liquid + " replace air");
+				context.waitTicks(10);
+				context.takeScreenshot("16e_" + liquid + "_no_fog");
+				context.runOnClient(client -> Modules.CLEAR_VIEW.setEnabled(false));
+				context.waitTicks(3);
+				context.takeScreenshot("16f_" + liquid + "_fog");
+				context.runOnClient(client -> Modules.CLEAR_VIEW.setEnabled(true));
+				server.runCommand("execute at @p run fill ~-8 ~ ~-8 ~8 ~3 ~8 air replace " + liquid);
+			}
+			server.runCommand("effect clear @p fire_resistance");
+			server.runCommand("execute at @p run kill @e[type=item,distance=..16]");
+
 			// Instant Hit: włączenie tylko przez okno ostrzeżenia, potem blokada do restartu gry, stan nie zapisuje się.
 			context.runOnClient(client -> {
 				Modules.INSTANT_HIT.setEnabled(false);

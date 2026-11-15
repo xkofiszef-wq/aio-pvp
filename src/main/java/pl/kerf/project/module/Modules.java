@@ -285,9 +285,11 @@ public final class Modules {
 		public final Setting.Bool spyglass = this.add(new Setting.Bool("spyglass", "Nakładka lunety", true));
 		public final Setting.Bool bobber = this.add(new Setting.Bool("bobber", "Spławik zaczepiony o ciebie", true));
 		public final Setting.Bool inWall = this.add(new Setting.Bool("in_wall", "Ciemny ekran w bloku", true));
+		public final Setting.Bool waterFog = this.add(new Setting.Bool("water_fog", "Mgła w wodzie", true));
+		public final Setting.Bool lavaFog = this.add(new Setting.Bool("lava_fog", "Mgła w lawie", true));
 
 		ClearView() {
-			super("clear_view", "Clear View", "Usuwa nakładkę dyni, lunety, ciemny ekran w bloku i spławik zaczepiony o ciebie.", Category.VISUALS, false);
+			super("clear_view", "Clear View", "Usuwa nakładkę dyni, lunety, ciemny ekran w bloku, mgłę w wodzie i lawie oraz spławik zaczepiony o ciebie.", Category.VISUALS, false);
 		}
 	}
 

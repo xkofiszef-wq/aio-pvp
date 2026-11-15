@@ -18,6 +18,7 @@
         "LightmapTextureManagerMixin",
         "LivingEntityRenderStateMixin",
         "LivingEntityRendererMixin",
+        "LiquidFogMixin",
         "MinecraftClientMixin",
         "MouseMixin",
         "OverlayTextureAccessor",
