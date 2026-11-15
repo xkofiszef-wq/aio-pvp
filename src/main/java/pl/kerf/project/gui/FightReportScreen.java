@@ -172,8 +172,6 @@ public final class FightReportScreen extends Screen {
 		}
 
 		Draw.card(context, x, y, W, h, Ui.PANEL_R, fade(Theme.GLASS_STRONG, appear), fade(Theme.BORDER_STRONG, appear));
-		// Pasek w kolorze wyniku rysuje się od lewej.
-		context.fill(x + 4, y + 1, x + 4 + Math.round((W - 8) * this.phase(120, 420)), y + 3, accent);
 		this.text(context, "Fight Report", x + PAD, y + 10, Theme.TEXT_3, appear);
 		boolean closeHover = Ui.inside(mouseX, mouseY, x + W - 20, y + 6, 14, 14);
 		if (closeHover) {
