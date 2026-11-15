@@ -1,0 +1,185 @@
+package pl.kerf.project.hud;
+
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.render.RenderTickCounter;
+import net.minecraft.client.sound.PositionedSoundInstance;
+import net.minecraft.entity.EquipmentSlot;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.sound.SoundEvent;
+import pl.kerf.project.config.Setting;
+import pl.kerf.project.module.HudModule;
+
+public final class ArmorHud extends HudModule {
+	private static final EquipmentSlot[] SLOTS = {EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET};
+	private static final ItemStack[] SAMPLE = {
+		new ItemStack(Items.DIAMOND_HELMET), new ItemStack(Items.DIAMOND_CHESTPLATE), new ItemStack(Items.DIAMOND_LEGGINGS), new ItemStack(Items.DIAMOND_BOOTS)
+	};
+	private static final int LAYOUT_HORIZONTAL = 0;
+	private static final int INFO_BAR = 0;
+	private static final int INFO_PERCENT = 1;
+	private static final int INFO_POINTS = 2;
+	private static final int RED = 0xFFFF5555;
+	/** Ostrzeżenie o pękającej zbroi: assets/aio_pvp/sounds/tool_breaking.ogg (z Durability Viewer, MIT). */
+	private static final SoundEvent TOOL_BREAKING = SoundEvent.of(net.minecraft.util.Identifier.of("aio_pvp", "tool_breaking"));
+
+	public final Setting.Mode style = this.add(new Setting.Mode("style", "Wygląd", 1, "Zwykły", "Vanilla GUI (hotbar)"));
+	public final Setting.Mode layout = this.add(new Setting.Mode("layout", "Układ", 0, "Poziomo", "Pionowo"));
+	public final Setting.Mode info = this.add(new Setting.Mode("info", "Zużycie", 1, "Pasek", "Procent", "Punkty", "Brak"));
+	public final Setting.Bool colored = this.add(new Setting.Bool("colored", "Kolor liczb wg zużycia", false));
+	public final Setting.Bool warning = this.add(new Setting.Bool("warning", "Ostrzeżenie", true));
+	public final Setting.Num threshold = this.add(new Setting.Num("threshold", "Próg ostrzeżenia", 15, 1, 50, 1, "%"));
+	public final Setting.Bool sound = this.add(new Setting.Bool("sound", "Dźwięk ostrzeżenia", true));
+	public final Setting.Num volume = this.add(new Setting.Num("volume", "Głośność dźwięku", 80, 0, 100, 5, "%"));
+
+	private final boolean[] wasLow = new boolean[SLOTS.length];
+	private final boolean[] hadItem = new boolean[SLOTS.length];
+	private final int[] lastDamage = new int[SLOTS.length];
+	private final net.minecraft.item.Item[] lastItem = new net.minecraft.item.Item[SLOTS.length];
+	private final ItemStack[] stacks = new ItemStack[SLOTS.length];
+
+	public ArmorHud() {
+		// Domyślnie po lewej stronie hotbara, za slotem offhandu (który kończy się 120 px w lewo od środka).
+		super("armor_hud", "Armor HUD", "Zbroja i jej zużycie obok hotbara, z ostrzeżeniem o niskim durability.", true, 0.5F, 1.0F, 1.0F, 1.0F, -130.0F, -3.0F);
+	}
+
+	private boolean vanilla() {
+		return this.style.is(1);
+	}
+
+	private int pitch() {
+		return this.vanilla() ? VanillaGui.SLOT_PITCH : 18;
+	}
+
+	@Override
+	public int margin() {
+		return this.vanilla() ? VanillaGui.SLOT_MARGIN : 0;
+	}
+
+	private boolean hasText() {
+		return this.info.is(INFO_PERCENT) || this.info.is(INFO_POINTS);
+	}
+
+	/** Uzupełnia {@link #stacks}; zwraca false, gdy nie ma czego pokazać. */
+	private boolean collect(MinecraftClient client, boolean editing) {
+		boolean anyWorn = false;
+		for (int i = 0; i < SLOTS.length; i++) {
+			this.stacks[i] = client.player.getEquippedStack(SLOTS[i]);
+			anyWorn |= !this.stacks[i].isEmpty();
+		}
+
+		if (!anyWorn && editing) {
+			System.arraycopy(SAMPLE, 0, this.stacks, 0, SAMPLE.length);
+			return true;
+		}
+
+		return anyWorn;
+	}
+
+	@Override
+	public int width(MinecraftClient client, boolean editing) {
+		if (!this.collect(client, editing)) {
+			return 0;
+		}
+
+		return this.layout.is(LAYOUT_HORIZONTAL) ? (SLOTS.length - 1) * this.pitch() + 16 : 16;
+	}
+
+	@Override
+	public int height(MinecraftClient client, boolean editing) {
+		return this.layout.is(LAYOUT_HORIZONTAL) ? 16 : (SLOTS.length - 1) * this.pitch() + 16;
+	}
+
+	private static float fraction(ItemStack stack) {
+		return (stack.getMaxDamage() - stack.getDamage()) / (float) stack.getMaxDamage();
+	}
+
+	private boolean isLow(ItemStack stack) {
+		return stack.isDamageable() && fraction(stack) * 100.0F <= this.threshold.f();
+	}
+
+	@Override
+	protected void draw(DrawContext context, MinecraftClient client, RenderTickCounter tickCounter, boolean editing) {
+		boolean horizontal = this.layout.is(LAYOUT_HORIZONTAL);
+		int pitch = this.pitch();
+		if (this.vanilla()) {
+			VanillaGui.slots(context, 0, 0, SLOTS.length, horizontal);
+		}
+
+		for (int i = 0; i < SLOTS.length; i++) {
+			ItemStack stack = this.stacks[i];
+			if (stack.isEmpty()) {
+				continue;
+			}
+
+			int x = horizontal ? i * pitch : 0;
+			int y = horizontal ? 0 : i * pitch;
+			context.drawItem(stack, x, y);
+			boolean low = this.isLow(stack);
+			if (this.info.is(INFO_BAR)) {
+				context.drawStackOverlay(client.textRenderer, stack, x, y);
+			} else if (this.hasText() && stack.isDamageable()) {
+				float fraction = fraction(stack);
+				int left = stack.getMaxDamage() - stack.getDamage();
+				String text = this.info.is(INFO_PERCENT) ? String.valueOf(Math.round(fraction * 100.0F)) : compact(left);
+				int color = low ? RED : this.colored.on() ? durabilityColor(fraction) : 0xFFFFFFFF;
+				// Dokładnie tak jak liczba przedmiotów w slocie: ta sama czcionka, cień i miejsce (prawy dolny róg).
+				context.drawText(client.textRenderer, text, x + 19 - 2 - client.textRenderer.getWidth(text), y + 6 + 3, color, true);
+			}
+
+			if (low && this.warning.on()) {
+				context.drawText(client.textRenderer, "!", x + 1, y - 1, RED, true);
+			}
+		}
+	}
+
+	/** Punkty zużycia w 3 znakach, żeby zmieściły się w slocie: 1561 -> "1.5k". */
+	private static String compact(int value) {
+		if (value < 1000) {
+			return String.valueOf(value);
+		}
+
+		return value < 10000 ? String.format(java.util.Locale.ROOT, "%.1fk", value / 1000.0F) : value / 1000 + "k";
+	}
+
+	/** Zielony przy pełnym, przez żółty do pomarańczowego. Czerwony jest zarezerwowany dla progu ostrzeżenia. */
+	private static int durabilityColor(float fraction) {
+		if (fraction > 0.6F) {
+			return 0xFF55FF55;
+		}
+
+		return fraction > 0.3F ? 0xFFFFFF55 : 0xFFFFAA00;
+	}
+
+	/**
+	 * Wywoływane co tick, tylko dla zbroi własnego gracza. Gdy część jest poniżej progu, dźwięk pękania gra
+	 * przy KAŻDYM uderzeniu w nią (każda utrata wytrzymałości), a niżej przy zniszczeniu.
+	 */
+	public void tick(MinecraftClient client) {
+		if (client.player == null) {
+			return;
+		}
+
+		for (int i = 0; i < SLOTS.length; i++) {
+			ItemStack stack = client.player.getEquippedStack(SLOTS[i]);
+			boolean low = !stack.isEmpty() && this.isLow(stack);
+			int damage = stack.isEmpty() ? -1 : stack.getDamage();
+			// Ta sama część zbroi i większe zużycie niż tick temu = dostała uderzenie.
+			boolean hit = low && this.hadItem[i] && stack.getItem() == this.lastItem[i] && damage > this.lastDamage[i];
+			boolean broke = stack.isEmpty() && this.hadItem[i] && this.wasLow[i];
+			if (this.on() && this.warning.on() && this.sound.on() && (hit || broke)) {
+				float volume = this.volume.f() / 100.0F;
+				if (volume > 0.0F) {
+					// Dźwięk z Durability Viewer (Guntram Blohm, licencja MIT); przy zniszczeniu części niżej.
+					client.getSoundManager().play(PositionedSoundInstance.ui(TOOL_BREAKING, broke ? 0.8F : 1.0F, volume));
+				}
+			}
+
+			this.wasLow[i] = low;
+			this.hadItem[i] = !stack.isEmpty();
+			this.lastDamage[i] = damage;
+			this.lastItem[i] = stack.getItem();
+		}
+	}
+}

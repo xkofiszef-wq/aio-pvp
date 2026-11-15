@@ -1,0 +1,29 @@
+AIO PvP — All Rights Reserved
+
+Copyright (c) 2026 Kerfuss_
+
+This software and its source code are proprietary and confidential.
+
+You are granted a personal, non-exclusive, non-transferable license to use
+the compiled mod (the ".jar" file) in your own Minecraft client.
+
+You MAY NOT, without prior written permission from the copyright holder:
+  - copy, reproduce or redistribute this mod or its source code;
+  - decompile, reverse engineer, deobfuscate or otherwise attempt to
+    derive the source code, except where this right cannot be restricted
+    by applicable law;
+  - modify, adapt or create derivative works based on this mod;
+  - sell, rent, sublicense or otherwise commercially exploit this mod;
+  - remove or alter this notice.
+
+Third-party asset: the sound file assets/aio_pvp/sounds/tool_breaking.ogg
+is from the Durability Viewer mod by Guntram Blohm and is used under the MIT
+license; see assets/aio_pvp/sounds/LICENSE-DurabilityViewer.txt. That file
+and its license notice are NOT covered by the restrictions above.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE
+OR OTHER DEALINGS IN THE SOFTWARE.

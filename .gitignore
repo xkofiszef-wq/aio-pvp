@@ -1,0 +1,18 @@
+# Gradle i budowanie
+.gradle/
+build/
+bin/
+out/
+
+# Gra testowa (logi, światy, options.txt) i profilowanie
+run/
+*.jfr
+
+# Ustawienia lokalne edytora
+.vscode/
+.idea/
+*.iml
+
+# System
+.DS_Store
+Thumbs.db
