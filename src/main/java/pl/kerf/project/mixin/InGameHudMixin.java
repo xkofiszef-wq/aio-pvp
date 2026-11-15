@@ -12,6 +12,7 @@ import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.PlayerLikeEntity;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.hit.EntityHitResult;
 import org.spongepowered.asm.mixin.Final;
@@ -22,6 +23,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import pl.kerf.project.module.Modules;
 import pl.kerf.project.render.CustomCrosshairRenderer;
+import pl.kerf.project.render.SaturationOutline;
 
 @Mixin(InGameHud.class)
 public class InGameHudMixin {
@@ -94,6 +96,13 @@ public class InGameHudMixin {
 	@Inject(method = "renderBossBarHud", at = @At("RETURN"))
 	private void aio$bossbarPop(DrawContext context, RenderTickCounter tickCounter, CallbackInfo ci) {
 		context.getMatrices().popMatrix();
+	}
+
+	@Inject(method = "renderFood", at = @At("TAIL"))
+	private void aio$saturation(DrawContext context, PlayerEntity player, int top, int right, CallbackInfo ci) {
+		if (Modules.SATURATION.on()) {
+			SaturationOutline.render(context, player, top, right);
+		}
 	}
 
 	@Inject(method = "renderStatusEffectOverlay", at = @At("HEAD"), cancellable = true)

@@ -77,6 +77,10 @@ public final class Modules {
 	public static final CompassHud COMPASS = new CompassHud();
 	public static final MediaHud MEDIA = new MediaHud();
 	public static final HudTweaker HUD_TWEAKER = new HudTweaker();
+	/** Złota obwódka na ikonkach głodu = saturacja (jak AppleSkin); kształt brany z ikonki aktywnego texturepacka. */
+	public static final Module SATURATION = new Module(
+		"saturation", "Saturation", "Złota obwódka na pasku głodu pokazuje saturację, w kształcie ikonek z twojego texturepacka.", Category.HUD, false
+	);
 
 	// Combat
 	public static final Crosshair CROSSHAIR = new Crosshair();
@@ -128,7 +132,7 @@ public final class Modules {
 
 	public static final List<Module> ALL = List.of(
 		ARMOR_HUD, ITEM_PREVIEW, POTION_STATUS, KEY_OVERLAY, ELYTRA_PITCH, BOW_PITCH,
-		COORDINATES, FPS, PING, CPS, DAY, CLOCK, SPRINT_STATUS, LAG_DETECTOR, COMPASS, MEDIA, HUD_TWEAKER,
+		COORDINATES, FPS, PING, CPS, DAY, CLOCK, SPRINT_STATUS, LAG_DETECTOR, COMPASS, MEDIA, HUD_TWEAKER, SATURATION,
 		CROSSHAIR, HITBOXES, HIT_COLOR, HEALTH, FIGHT_REPORT, INSTANT_HIT, DAMAGE_CALC, COOLDOWN_FIX,
 		LOW_FIRE, NO_POTION_PARTICLES, NO_EXPLOSION_PARTICLES, FULLBRIGHT, BLOCK_OUTLINE, NAMETAGS, OWN_NAME, NO_CAMERA_SHAKE, CLEAR_VIEW, FREELOOK,
 		VIEW_MODEL, SHIELD, TOTEM, BOAT_VIEW, FAST_XP, INVISIBLE_HAND, OLD_ANIMATIONS,

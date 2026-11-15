@@ -529,6 +529,17 @@ public class AioPvpClientTest implements FabricClientGameTest {
 				server.runCommand("execute at @p run fill ~-8 ~ ~-8 ~8 ~3 ~8 air replace " + liquid);
 			}
 			server.runCommand("effect clear @p fire_resistance");
+
+			// Saturation: 7 punktów = 3 pełne złote obwódki + połówka na pasku głodu (od prawej).
+			server.runOnServer(s -> {
+				net.minecraft.entity.player.HungerManager hunger = s.getPlayerManager().getPlayerList().get(0).getHungerManager();
+				hunger.setFoodLevel(20);
+				hunger.setSaturationLevel(7.0F);
+			});
+			context.runOnClient(client -> Modules.SATURATION.setEnabled(true));
+			context.waitTicks(5);
+			context.takeScreenshot("16g_saturation");
+			context.runOnClient(client -> Modules.SATURATION.setEnabled(false));
 			server.runCommand("execute at @p run kill @e[type=item,distance=..16]");
 
 			// Instant Hit: włączenie tylko przez okno ostrzeżenia, potem blokada do restartu gry, stan nie zapisuje się.

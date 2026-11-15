@@ -58,6 +58,7 @@ public final class Previews {
 		icon(Modules.COOLDOWN_FIX, Items.IRON_AXE);
 		icon(Modules.OWN_NAME, Items.PLAYER_HEAD);
 		icon(Modules.CLEAR_VIEW, Items.CARVED_PUMPKIN);
+		icon(Modules.SATURATION, Items.GOLDEN_CARROT);
 		icon(Modules.NO_CAMERA_SHAKE, Items.ENDER_EYE);
 		icon(Modules.INVISIBLE_HAND, Items.FERMENTED_SPIDER_EYE);
 		icon(Modules.NO_SIGN_GUI, Items.OAK_HANGING_SIGN);
