@@ -24,7 +24,6 @@ import pl.kerf.project.module.Modules;
 public class HudEditorScreen extends Screen {
 	private static final int SNAP = 4;
 	private static final int HANDLE = 5;
-	private static final int GUIDE = Theme.ACCENT;
 	private static final int TILE_H = 42;
 	private static final String HINT = "Przeciągnij  ·  rogi: rozmiar  ·  kółko: skala  ·  PPM: reset  ·  strzałki: 1 px  ·  G: siatka  ·  S: przyciąganie";
 	private static boolean snapping = true;
@@ -577,12 +576,12 @@ public class HudEditorScreen extends Screen {
 
 		if (this.guideX != null) {
 			int gx = Math.round(this.guideX);
-			context.fill(gx, 0, gx + 1, this.height, GUIDE);
+			context.fill(gx, 0, gx + 1, this.height, Theme.ACCENT);
 		}
 
 		if (this.guideY != null) {
 			int gy = Math.round(this.guideY);
-			context.fill(0, gy, this.width, gy + 1, GUIDE);
+			context.fill(0, gy, this.width, gy + 1, Theme.ACCENT);
 		}
 
 		boolean hudsHover = this.overHudsButton(mouseX, mouseY);
@@ -651,7 +650,7 @@ public class HudEditorScreen extends Screen {
 			int border = module.on() ? Theme.alpha(accent, 0xB0) : hover ? Theme.BORDER_STRONG : Theme.BORDER;
 			Draw.card(context, tx, ty, this.tileW(), TILE_H, 4, hover ? Theme.SURFACE_2 : Theme.SURFACE, border);
 			int boxW = this.tileW() - 6;
-			Draw.round(context, tx + 3, ty + 3, boxW, 26, 3, Ui.INSET_BG);
+			Draw.round(context, tx + 3, ty + 3, boxW, 26, 3, Theme.INSET);
 			context.enableScissor(tx + 4, Math.max(ty + 4, this.tilesTop()), tx + 2 + boxW, Math.min(ty + 28, this.tilesBottom()));
 			if (module.hasPreview() && this.client.player != null) {
 				module.renderPreview(context, this.client, tx + 3, ty + 3, boxW, 26, 1.0F);

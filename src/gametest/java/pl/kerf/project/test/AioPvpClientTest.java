@@ -7,6 +7,7 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContex
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import org.lwjgl.glfw.GLFW;
+import pl.kerf.project.gui.theme.Theme;
 import pl.kerf.project.AioPvp;
 import pl.kerf.project.gui.ColorScreen;
 import pl.kerf.project.gui.HudEditorScreen;
@@ -549,6 +550,86 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			if (!"true/true/false".equals(locked)) {
 				throw new AssertionError("Instant Hit: blokada nie dziala (po potwierdzeniu/po probach wylaczenia/zapis): " + locked);
 			}
+
+			// Damage Calculator: wzory policzone ręcznie. Miecz diamentowy (7) + Ostrość V (0.5*5+0.5 = 3) bez zbroi = 10;
+			// bez ostrości w pełnym netherycie (20 pkt, 12 wytrz.): 7 * (1 - (20 - 7/5) / 25) = 1.792; 10 HP na cios = 2 ciosy.
+			float plain = pl.kerf.project.module.DamageCalc.hit(5, 5, 0, false, 0, 0, 0);
+			float netherite = pl.kerf.project.module.DamageCalc.hit(5, 0, 0, false, 6, 0, 0);
+			// Ciosy po 10 HP co 12.5 ticku: bez saturacji 2 ciosy; z pełną saturacją przeciwnik w 10 ticków leczy 1 HP,
+			// więc po drugim ciosie ma 1 HP i trzeba trzeciego.
+			int twoHits = pl.kerf.project.module.DamageCalc.hitsToKill(10.0F, 0.0F, 12.5F, false);
+			int threeHits = pl.kerf.project.module.DamageCalc.hitsToKill(10.0F, 0.0F, 12.5F, true);
+			if (Math.abs(plain - 10.0F) > 1e-4 || Math.abs(netherite - 1.792F) > 1e-3 || twoHits != 2 || threeHits != 3) {
+				throw new AssertionError("Damage Calculator: zle wyniki " + plain + " / " + netherite + " / " + twoHits + " / " + threeHits);
+			}
+
+			context.runOnClient(client -> SettingsScreen.select(Modules.DAMAGE_CALC));
+			context.setScreen(() -> new SettingsScreen(null));
+			context.waitTicks(2);
+			context.takeScreenshot("20_damage_calc");
+			context.setScreen(() -> null);
+
+			// Freelook (jak Perspective Mod): trzymany klawisz + ruch myszy obraca kamerę, a postać nie; po puszczeniu widok wraca.
+			context.runOnClient(client -> Modules.FREELOOK.setEnabled(true));
+			float yawBefore = context.computeOnClient(client -> client.player.getYaw());
+			context.getInput().holdKey(options -> pl.kerf.project.module.Freelook.key);
+			context.waitTicks(2);
+			// Okno testu nie łapie kursora, więc ruch myszy podajemy tak, jak przekazałby go hak w Mouse.updateMouse.
+			context.runOnClient(client -> Modules.FREELOOK.turn(400.0, 0.0));
+			context.waitTicks(3);
+			context.takeScreenshot("21_freelook");
+			String look = context.computeOnClient(client -> Modules.FREELOOK.active() + "/"
+				+ (Math.abs(client.player.getYaw() - yawBefore) < 0.01F) + "/" + (Math.abs(client.gameRenderer.getCamera().getYaw() - yawBefore) > 5.0F));
+			context.getInput().releaseKey(options -> pl.kerf.project.module.Freelook.key);
+			context.waitTicks(2);
+			boolean restored = context.computeOnClient(client -> !Modules.FREELOOK.active() && client.options.getPerspective().isFirstPerson());
+			context.runOnClient(client -> Modules.FREELOOK.setEnabled(false));
+			if (!"true/true/true".equals(look) || !restored) {
+				throw new AssertionError("Freelook: (aktywny/postac stoi/kamera obrocona) = " + look + ", widok wrocil = " + restored);
+			}
+
+			// /calc: kolejność działań, nawiasy, przecinek, potęga; złe wyrażenie daje błąd zamiast wyniku.
+			String calc = pl.kerf.project.MathExpr.format(pl.kerf.project.MathExpr.eval("2+2*3")) + " "
+				+ pl.kerf.project.MathExpr.format(pl.kerf.project.MathExpr.eval("(1+2)^2")) + " "
+				+ pl.kerf.project.MathExpr.format(pl.kerf.project.MathExpr.eval("2,5*2")) + " "
+				+ pl.kerf.project.MathExpr.format(pl.kerf.project.MathExpr.eval("sqrt(16)-10/4"));
+			boolean rejected;
+			try {
+				pl.kerf.project.MathExpr.eval("2+");
+				rejected = false;
+			} catch (IllegalArgumentException e) {
+				rejected = true;
+			}
+
+			if (!"8 9 5 1.5".equals(calc) || !rejected) {
+				throw new AssertionError("/calc: " + calc + ", odrzuca bledne = " + rejected);
+			}
+
+			context.runOnClient(client -> client.player.networkHandler.sendChatCommand("calc 2+2*3"));
+			context.waitTicks(3);
+			context.takeScreenshot("22_calc_chat");
+
+			// GUI Theme: menu w motywie "Las", potem z własnym (pomarańczowym) akcentem; na koniec domyślny.
+			context.runOnClient(client -> SettingsScreen.select(Modules.GUI_THEME));
+			context.setScreen(() -> new SettingsScreen(null));
+			for (int i = 0; i < Theme.THEME_NAMES.length; i++) {
+				int theme = i;
+				context.runOnClient(client -> Modules.GUI_THEME.theme.set(theme));
+				context.waitTicks(3);
+				context.takeScreenshot("23_theme_" + theme);
+			}
+			context.runOnClient(client -> {
+				Modules.GUI_THEME.theme.set(2);
+				Modules.GUI_THEME.customAccent.set(true);
+				Modules.GUI_THEME.accent.set(0xFFFF8A00);
+			});
+			context.waitTicks(2);
+			context.takeScreenshot("23b_theme_polnoc_custom_accent");
+			context.runOnClient(client -> {
+				Modules.GUI_THEME.reset();
+				Modules.GUI_THEME.sync();
+			});
+			context.setScreen(() -> null);
 
 			// MC-263293 (wbudowane): Toggle Sprint i Toggle Sneak zostają włączone po śmierci i respawnie.
 			context.runOnClient(client -> {

@@ -1,5 +1,6 @@
 package pl.kerf.project.gui;
 
+import pl.kerf.project.gui.theme.Theme;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gl.RenderPipelines;

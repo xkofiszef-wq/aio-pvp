@@ -1,6 +1,10 @@
 package pl.kerf.project.mixin;
 
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.ClientPlayerEntity;
+import pl.kerf.project.module.Modules;
 import net.minecraft.client.Mouse;
 import net.minecraft.client.input.MouseInput;
 import org.spongepowered.asm.mixin.Mixin;
@@ -22,5 +26,15 @@ public class MouseMixin {
 
 		// Stan przycisków dla bindów i skrótów na myszce (np. boczne przyciski).
 		ModuleKeys.mouseButton(input.button(), action == GLFW.GLFW_PRESS);
+	}
+
+	/** Freelook: przy trzymanym klawiszu ruch myszy obraca kamerę, a postać zostaje skierowana tak jak była. */
+	@WrapOperation(method = "updateMouse", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/network/ClientPlayerEntity;changeLookDirection(DD)V"))
+	private void aio$freelook(ClientPlayerEntity player, double dx, double dy, Operation<Void> original) {
+		if (Modules.FREELOOK.active()) {
+			Modules.FREELOOK.turn(dx, dy);
+		} else {
+			original.call(player, dx, dy);
+		}
 	}
 }

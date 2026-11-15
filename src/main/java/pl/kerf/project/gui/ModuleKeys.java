@@ -15,6 +15,7 @@ import pl.kerf.project.config.ConfigManager;
 import pl.kerf.project.gui.theme.Theme;
 import pl.kerf.project.module.Module;
 import pl.kerf.project.module.Modules;
+import pl.kerf.project.module.RiskyModule;
 
 /** Opcjonalne skróty funkcji. Działają tylko w grze (bez otwartego menu) i tylko te, które gracz sam ustawił. */
 public final class ModuleKeys {
@@ -41,6 +42,7 @@ public final class ModuleKeys {
 	public static void register() {
 		KeyBinding.Category category = KeyBinding.Category.create(Identifier.of("aio_pvp", "main"));
 		openMenu = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.aio_pvp.open_menu", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_RIGHT_SHIFT, category));
+		pl.kerf.project.module.Freelook.key = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.aio_pvp.freelook", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_LEFT_ALT, category));
 		noSignGui = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.aio_pvp.no_sign_gui", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, category));
 	}
 
@@ -128,8 +130,8 @@ public final class ModuleKeys {
 	private static void toggle(Module module) {
 		module.toggle();
 		ConfigManager.save();
-		if (module == Modules.INSTANT_HIT) {
-			// Instant Hit sam pokazuje okno ostrzeżenia albo "zablokowany do restartu"; zwykłe "Włączone/Wyłączone" by kłamało.
+		if (module instanceof RiskyModule) {
+			// Moduł z szarej strefy sam pokazuje okno ostrzeżenia albo "zablokowany do restartu"; zwykłe "Włączone/Wyłączone" by kłamało.
 			return;
 		}
 

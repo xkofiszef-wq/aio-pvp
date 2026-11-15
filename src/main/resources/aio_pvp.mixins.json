@@ -3,6 +3,7 @@
     "package": "pl.kerf.project.mixin",
     "compatibilityLevel": "JAVA_21",
     "client": [
+        "CameraMixin",
         "ChatHudMixin",
         "ClientConnectionMixin",
         "ClientPlayNetworkHandlerMixin",

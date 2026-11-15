@@ -1,5 +1,6 @@
 package pl.kerf.project.gui;
 
+import pl.kerf.project.gui.theme.Theme;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import net.minecraft.client.gui.Click;
@@ -436,7 +437,7 @@ public class CrosshairEditorScreen extends Screen {
 	}
 
 	private void drawTabs(DrawContext context, int mouseX, int mouseY) {
-		context.drawTextWithShadow(this.textRenderer, this.title, this.centerLeft + 8, Ui.PAD + 7, Ui.TEXT);
+		context.drawTextWithShadow(this.textRenderer, this.title, this.centerLeft + 8, Ui.PAD + 7, Theme.TEXT);
 		if (!this.module.custom.on()) {
 			// Krótka informacja w nagłówku, gdy "Własny celownik" jest wyłączony (rysunek nie pojawi się w grze).
 			String warning = "wyłączony w grze";
@@ -451,32 +452,32 @@ public class CrosshairEditorScreen extends Screen {
 			boolean active = state == i;
 			boolean hover = Ui.inside(mouseX, mouseY, x, y, this.tabW(), 16);
 			context.fill(x, y, x + this.tabW(), y + 16, active ? 0xFF2F4A6E : hover ? 0xFF33333F : 0xFF22222A);
-			context.drawStrokedRectangle(x, y, this.tabW(), 16, active ? Ui.ACCENT : Ui.PANEL_BORDER);
+			context.drawStrokedRectangle(x, y, this.tabW(), 16, active ? Theme.ACCENT : Theme.BORDER);
 			// Miniatura rysunku z tej zakładki obok nazwy.
 			CustomCrosshairRenderer.draw(context, this.grids[i], x + 4, y + 1, 1.0F);
-			context.drawText(this.textRenderer, STATE_NAMES[i], x + 22, y + 4, active ? Ui.TEXT : Ui.TEXT_SOFT, false);
+			context.drawText(this.textRenderer, STATE_NAMES[i], x + 22, y + 4, active ? Theme.TEXT : Theme.TEXT_2, false);
 		}
 	}
 
 	private void drawTools(DrawContext context, int mouseX, int mouseY) {
 		int x = this.toolsX + 6;
 		int w = this.toolsW - 12;
-		context.drawTextWithShadow(this.textRenderer, "Narzędzia", x, Ui.PAD + 8, Ui.TEXT);
+		context.drawTextWithShadow(this.textRenderer, "Narzędzia", x, Ui.PAD + 8, Theme.TEXT);
 		for (int i = 0; i < TOOL_NAMES.length; i++) {
 			this.toolButton(context, mouseX, mouseY, x, this.toolRowY(i), w, TOOL_NAMES[i], tool == i);
 		}
 
-		context.drawTextWithShadow(this.textRenderer, "Lustro", x, this.mirrorY0() - 11, Ui.TEXT_DIM);
+		context.drawTextWithShadow(this.textRenderer, "Lustro", x, this.mirrorY0() - 11, Theme.TEXT_3);
 		this.toolButton(context, mouseX, mouseY, x, this.mirrorY0(), w, "Poziomo  " + (mirrorX ? "ON" : "OFF"), mirrorX);
 		this.toolButton(context, mouseX, mouseY, x, this.mirrorY0() + 16, w, "Pionowo  " + (mirrorY ? "ON" : "OFF"), mirrorY);
 
-		context.drawTextWithShadow(this.textRenderer, "Kolor", x, this.brushY() - 11, Ui.TEXT_DIM);
+		context.drawTextWithShadow(this.textRenderer, "Kolor", x, this.brushY() - 11, Theme.TEXT_3);
 		int by = this.brushY();
 		boolean hover = Ui.inside(mouseX, mouseY, x, by, w, 18);
 		context.fill(x, by, x + w, by + 18, 0xFF000000);
 		Ui.checker(context, x + 1, by + 1, w - 2, 16);
 		context.fill(x + 1, by + 1, x + w - 1, by + 17, this.module.brush.argb());
-		context.drawStrokedRectangle(x, by, w, 18, hover ? 0xFFFFFFFF : Ui.PANEL_BORDER);
+		context.drawStrokedRectangle(x, by, w, 18, hover ? 0xFFFFFFFF : Theme.BORDER);
 		for (int i = 0; i < PALETTE.length; i++) {
 			int px = x + i % 4 * 20;
 			int py = this.paletteY() + i / 4 * 20;
@@ -496,8 +497,8 @@ public class CrosshairEditorScreen extends Screen {
 	private void toolButton(DrawContext context, int mouseX, int mouseY, int x, int y, int w, String label, boolean active) {
 		boolean hover = Ui.inside(mouseX, mouseY, x, y, w, 14);
 		context.fill(x, y, x + w, y + 14, active ? 0xFF2F4A6E : hover ? 0xFF33333F : 0xFF22222A);
-		context.drawStrokedRectangle(x, y, w, 14, active ? Ui.ACCENT : Ui.PANEL_BORDER);
-		context.drawText(this.textRenderer, label, x + 5, y + 3, active ? Ui.TEXT : Ui.TEXT_SOFT, false);
+		context.drawStrokedRectangle(x, y, w, 14, active ? Theme.ACCENT : Theme.BORDER);
+		context.drawText(this.textRenderer, label, x + 5, y + 3, active ? Theme.TEXT : Theme.TEXT_2, false);
 	}
 
 	private void drawCanvas(DrawContext context, int mouseX, int mouseY) {
@@ -528,12 +529,12 @@ public class CrosshairEditorScreen extends Screen {
 
 	private void drawPreview(DrawContext context) {
 		int x = this.previewX + 6;
-		context.drawTextWithShadow(this.textRenderer, "Podgląd na żywo", x, Ui.PAD + 8, Ui.TEXT_DIM);
+		context.drawTextWithShadow(this.textRenderer, "Podgląd na żywo", x, Ui.PAD + 8, Theme.TEXT_3);
 		float scale = this.module.scale.f();
 		int box = Math.max(24, (int) Math.ceil(N * scale) + 8);
 		int y = Ui.PAD + 22;
 		for (int s = 0; s < 2; s++) {
-			context.drawTextWithShadow(this.textRenderer, STATE_NAMES[s], x, y, s == state ? Ui.TEXT : Ui.TEXT_SOFT);
+			context.drawTextWithShadow(this.textRenderer, STATE_NAMES[s], x, y, s == state ? Theme.TEXT : Theme.TEXT_2);
 			y += 10;
 			for (int i = 0; i < BACKGROUNDS.length; i++) {
 				int bx = x + i * (box + 4);

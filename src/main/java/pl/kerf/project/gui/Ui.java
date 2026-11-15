@@ -11,12 +11,6 @@ import pl.kerf.project.gui.theme.Theme;
  */
 public final class Ui {
 	public static final int PAD = 6;
-	public static final int PANEL_BORDER = Theme.BORDER;
-	public static final int INSET_BG = Theme.INSET;
-	public static final int TEXT = Theme.TEXT;
-	public static final int TEXT_DIM = Theme.TEXT_3;
-	public static final int TEXT_SOFT = Theme.TEXT_2;
-	public static final int ACCENT = Theme.ACCENT;
 	/** Promień rogów dużych okien (o 2 px większy niż przycisków, bo okno je obejmuje); komponent "Panel szklany" w Figmie. */
 	public static final int PANEL_R = 6;
 
@@ -30,7 +24,7 @@ public final class Ui {
 	}
 
 	public static void inset(DrawContext context, int x, int y, int w, int h) {
-		Draw.round(context, x, y, w, h, 4, INSET_BG);
+		Draw.round(context, x, y, w, h, 4, Theme.INSET);
 		Draw.outline(context, x, y, w, h, 4, Theme.BORDER);
 	}
 

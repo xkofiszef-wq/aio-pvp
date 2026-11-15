@@ -67,6 +67,9 @@ public final class Previews {
 		icon(Modules.LAG_DETECTOR, Items.REDSTONE_TORCH);
 		icon(Modules.OLD_ANIMATIONS, Items.GOLDEN_SWORD);
 		icon(Modules.INSTANT_HIT, Items.LIGHTNING_ROD);
+		icon(Modules.FREELOOK, Items.ENDER_EYE);
+		icon(Modules.DAMAGE_CALC, Items.NETHERITE_SWORD);
+		icon(Modules.GUI_THEME, Items.CYAN_DYE);
 		CATEGORY_ICONS.put(Module.Category.HUD, new ItemStack(Items.COMPASS));
 		CATEGORY_ICONS.put(Module.Category.COMBAT, new ItemStack(Items.NETHERITE_SWORD));
 		CATEGORY_ICONS.put(Module.Category.VISUALS, new ItemStack(Items.ENDER_EYE));
@@ -122,6 +125,8 @@ public final class Previews {
 			nametag(context, client, label, 0, above ? -10 : 2, 0);
 			nametag(context, client, Text.literal("Kerfuss_"), 0, above ? 2 : -10, 0x40000000);
 			context.getMatrices().popMatrix();
+		} else if (module == Modules.DAMAGE_CALC) {
+			damageCalc(context, client, cx, cy);
 		} else if (module == Modules.NAMETAGS) {
 			boolean white = Modules.NAMETAGS.on() && Modules.NAMETAGS.whiteText.on();
 			int bg = !Modules.NAMETAGS.on() ? 0x40000000 : Modules.NAMETAGS.backgroundEnabled.on() ? Modules.NAMETAGS.background.argb() : 0;
@@ -200,6 +205,29 @@ public final class Previews {
 
 			context.getMatrices().popMatrix();
 			context.drawCenteredTextWithShadow(client.textRenderer, target ? "Na celu" : "Bez celu", px, cy + 30, 0xFFD0D0D8);
+		}
+	}
+
+	/** Wynik kalkulatora na żywo: obrażenia ciosu w sercach i liczba ciosów do zabicia. */
+	private static void damageCalc(DrawContext context, MinecraftClient client, int cx, int cy) {
+		var calc = Modules.DAMAGE_CALC;
+		float hit = calc.hit();
+		int hits = calc.hitsToKill();
+		String damage = String.format(java.util.Locale.ROOT, "%.2f", hit / 2.0F);
+		int dw = client.textRenderer.getWidth(damage) * 2;
+		context.getMatrices().pushMatrix();
+		context.getMatrices().translate(cx - (dw + 13) / 2.0F, cy - 20);
+		context.getMatrices().scale(2.0F, 2.0F);
+		context.drawText(client.textRenderer, damage, 0, 0, 0xFFF0F1F5, true);
+		context.getMatrices().popMatrix();
+		context.drawGuiTexture(net.minecraft.client.gl.RenderPipelines.GUI_TEXTURED, net.minecraft.util.Identifier.ofVanilla("hud/heart/full"),
+			cx - (dw + 13) / 2 + dw + 4, cy - 17, 9, 9);
+		String kill = hits < 0 ? "Nie zabijesz: leczy się szybciej" : hits + (hits == 1 ? " cios" : hits < 5 ? " ciosy" : " ciosów") + " do zabicia";
+		int killColor = hits < 0 ? 0xFFE5675F : 0xFF6CC98E;
+		context.drawCenteredTextWithShadow(client.textRenderer, kill, cx, cy + 2, killColor);
+		if (hits > 0) {
+			float seconds = (hits - 1) * calc.interval() / 20.0F;
+			context.drawCenteredTextWithShadow(client.textRenderer, String.format(java.util.Locale.ROOT, "około %.1f s pełnych ciosów", seconds), cx, cy + 14, 0xFF8C92A0);
 		}
 	}
 

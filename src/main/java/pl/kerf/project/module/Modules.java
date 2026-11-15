@@ -85,6 +85,7 @@ public final class Modules {
 	public static final Health HEALTH = new Health();
 	public static final FightReport FIGHT_REPORT = new FightReport();
 	public static final InstantHit INSTANT_HIT = new InstantHit();
+	public static final DamageCalc DAMAGE_CALC = new DamageCalc();
 	/** Serwer resetuje ładowanie ataku przy każdym machnięciu ręką, klient nie (MC-218570); to wyrównuje wskaźnik. */
 	public static final Module COOLDOWN_FIX = new Module(
 		"cooldown_fix", "Cooldown Fix", "Wskaźnik ataku zgodny z serwerem, np. po zniszczeniu bloku (MC-218570).", Category.COMBAT, true
@@ -106,6 +107,7 @@ public final class Modules {
 		"no_camera_shake", "No Camera Shake", "Kamera nie buja się przy chodzeniu (View Bobbing), ręka dalej tak.", Category.VISUALS, false
 	);
 	public static final ClearView CLEAR_VIEW = new ClearView();
+	public static final Freelook FREELOOK = new Freelook();
 
 	// Items
 	public static final ViewModel VIEW_MODEL = new ViewModel();
@@ -122,14 +124,15 @@ public final class Modules {
 		"no_sign_gui", "No Sign GUI", "Postawiona tabliczka nie otwiera okna edycji. Skrót też w Sterowaniu.", Category.MISC, false
 	);
 	public static final CommandKeys COMMAND_KEYS = new CommandKeys();
+	public static final GuiTheme GUI_THEME = new GuiTheme();
 
 	public static final List<Module> ALL = List.of(
 		ARMOR_HUD, ITEM_PREVIEW, POTION_STATUS, KEY_OVERLAY, ELYTRA_PITCH, BOW_PITCH,
 		COORDINATES, FPS, PING, CPS, DAY, CLOCK, SPRINT_STATUS, LAG_DETECTOR, COMPASS, MEDIA, HUD_TWEAKER,
-		CROSSHAIR, HITBOXES, HIT_COLOR, HEALTH, FIGHT_REPORT, INSTANT_HIT, COOLDOWN_FIX,
-		LOW_FIRE, NO_POTION_PARTICLES, NO_EXPLOSION_PARTICLES, FULLBRIGHT, BLOCK_OUTLINE, NAMETAGS, OWN_NAME, NO_CAMERA_SHAKE, CLEAR_VIEW,
+		CROSSHAIR, HITBOXES, HIT_COLOR, HEALTH, FIGHT_REPORT, INSTANT_HIT, DAMAGE_CALC, COOLDOWN_FIX,
+		LOW_FIRE, NO_POTION_PARTICLES, NO_EXPLOSION_PARTICLES, FULLBRIGHT, BLOCK_OUTLINE, NAMETAGS, OWN_NAME, NO_CAMERA_SHAKE, CLEAR_VIEW, FREELOOK,
 		VIEW_MODEL, SHIELD, TOTEM, BOAT_VIEW, FAST_XP, INVISIBLE_HAND, OLD_ANIMATIONS,
-		CHAT_HISTORY, NO_SIGN_GUI, COMMAND_KEYS
+		CHAT_HISTORY, NO_SIGN_GUI, COMMAND_KEYS, GUI_THEME
 	);
 
 	public static final List<HudModule> HUD = List.of(
@@ -478,6 +481,26 @@ public final class Modules {
 						this.binds.add(new Bind(key, command.length() > MAX_LENGTH ? command.substring(0, MAX_LENGTH) : command));
 					}
 				}
+			}
+		}
+	}
+
+	/** Motyw menu moda: gotowe palety i opcjonalny własny kolor akcentu. Wyłączony = domyślny granat. */
+	public static final class GuiTheme extends Module {
+		public final Setting.Mode theme = this.add(new Setting.Mode("theme", "Motyw", 0, pl.kerf.project.gui.theme.Theme.THEME_NAMES));
+		public final Setting.Bool customAccent = this.add(new Setting.Bool("custom_accent", "Własny kolor akcentu", false));
+		public final Setting.Color accent = this.add(new Setting.Color("accent", "Kolor akcentu", 0xFF8C8CF0, false));
+
+		GuiTheme() {
+			super("gui_theme", "GUI Theme", "Motyw i kolory menu moda: gotowe palety albo własny kolor akcentu.", Category.MISC, true);
+		}
+
+		/** Wołane co tick: zmiana w ustawieniach od razu widać w otwartym menu. */
+		public void sync() {
+			if (this.on()) {
+				pl.kerf.project.gui.theme.Theme.apply(this.theme.get(), this.customAccent.on() ? this.accent.argb() : null);
+			} else {
+				pl.kerf.project.gui.theme.Theme.apply(0, null);
 			}
 		}
 	}

@@ -1,5 +1,6 @@
 package pl.kerf.project;
 
+import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
@@ -40,6 +41,7 @@ public class AioPvp implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 		ConfigManager.load();
+		Modules.GUI_THEME.sync();
 		ModuleKeys.register();
 
 		HudElementRegistry.addLast(Identifier.of(MOD_ID, "hud"), AioPvp::renderHud);
@@ -51,6 +53,8 @@ public class AioPvp implements ClientModInitializer {
 			ModuleKeys.tick(client);
 			FightTracker.tick(client);
 			LagDetectorHud.tick(client);
+			Modules.FREELOOK.tick(client);
+			Modules.GUI_THEME.sync();
 			if (FightTracker.consumeOpenRequest() && FightTracker.last() != null) {
 				client.setScreen(new FightReportScreen(null, FightTracker.last()));
 			}
@@ -74,6 +78,20 @@ public class AioPvp implements ClientModInitializer {
 				FightTracker.requestOpen();
 				return 1;
 			})
+		));
+		// /calc 2+2*3: zwykły kalkulator na czacie (tylko u ciebie, nic nie idzie na serwer).
+		ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(
+			ClientCommandManager.literal("calc").then(ClientCommandManager.argument("wyrazenie", StringArgumentType.greedyString()).executes(context -> {
+				String expression = StringArgumentType.getString(context, "wyrazenie");
+				try {
+					String result = MathExpr.format(MathExpr.eval(expression));
+					context.getSource().sendFeedback(Text.literal(expression + " = ").withColor(0xC2C6D0).append(Text.literal(result).withColor(0x8C8CF0)));
+					return 1;
+				} catch (IllegalArgumentException e) {
+					context.getSource().sendError(Text.literal("Kalkulator: " + e.getMessage()));
+					return 0;
+				}
+			}))
 		));
 		// Powiadomienia: w grze nad HUD-em, a w menu nad każdym ekranem.
 		HudElementRegistry.addLast(Identifier.of(MOD_ID, "notifications"), (context, tickCounter) -> {
