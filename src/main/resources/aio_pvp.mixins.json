@@ -23,6 +23,7 @@
         "MouseMixin",
         "OverlayTextureAccessor",
         "ParticleManagerMixin",
+        "SpriteContentsAccessor",
         "PlayerArmMixin",
         "PlayerEntityRendererMixin"
     ],

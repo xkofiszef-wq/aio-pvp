@@ -530,6 +530,23 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			}
 			server.runCommand("effect clear @p fire_resistance");
 
+			// Saturation: rozpoznanie obwódki na ikonkach 3x3 (B = czarny, R = czerwony, 0 = przezroczysty).
+			int b = 0xFF000000;
+			int r = 0xFFD42A2A;
+			var none = new pl.kerf.project.render.SaturationOutline.Icon(3, 3, new int[9]);
+			var ring = pl.kerf.project.render.SaturationOutline.outline(
+				new pl.kerf.project.render.SaturationOutline.Icon(3, 3, new int[] {b, b, b, b, b, b, b, b, b}),
+				new pl.kerf.project.render.SaturationOutline.Icon(3, 3, new int[] {0, 0, 0, 0, r, 0, 0, 0, 0}), 3, 3);
+			var drawnIn = pl.kerf.project.render.SaturationOutline.outline(none,
+				new pl.kerf.project.render.SaturationOutline.Icon(3, 3, new int[] {b, b, b, b, r, b, b, b, b}), 3, 3);
+			var added = pl.kerf.project.render.SaturationOutline.outline(none,
+				new pl.kerf.project.render.SaturationOutline.Icon(3, 3, new int[] {0, 0, 0, 0, r, 0, 0, 0, 0}), 3, 3);
+			// Maska ma zapas 1 piksela: [x + 1][y + 1].
+			if (!ring[1][1] || ring[2][2] || ring[0][0] || !drawnIn[3][3] || drawnIn[2][2]
+				|| !added[1][2] || !added[2][1] || added[2][2] || added[1][1] || added[0][2]) {
+				throw new AssertionError("Saturation: zła obwódka (pusta ikonka / wrysowana / dorysowana)");
+			}
+
 			// Saturation: 7 punktów = 3 pełne złote obwódki + połówka na pasku głodu (od prawej).
 			server.runOnServer(s -> {
 				net.minecraft.entity.player.HungerManager hunger = s.getPlayerManager().getPlayerList().get(0).getHungerManager();
