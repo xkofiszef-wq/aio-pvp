@@ -86,6 +86,7 @@ public final class FightTracker {
 	private static int armorLost;
 	private static final ArrayDeque<Integer> RECENT_HURTS = new ArrayDeque<>();
 	private static boolean openRequested;
+	private static boolean opponentDied;
 
 	private FightTracker() {
 	}
@@ -164,6 +165,16 @@ public final class FightTracker {
 		lastEvent = ticks;
 	}
 
+	/**
+	 * Przeciwnik zginął (status 3 z serwera). Na serwerach, które nie wysyłają HP innych graczy i od razu usuwają
+	 * zabitego, samo zdrowie nie pokazałoby śmierci i walka kończyłaby się jako nierozstrzygnięta.
+	 */
+	public static void died(Entity entity) {
+		if (entity != null && entity == opponent) {
+			opponentDied = true;
+		}
+	}
+
 	/** Zużyty totem (status 35 z serwera). */
 	public static void totemPop(Entity entity) {
 		if (entity != null && entity == opponent) {
@@ -174,6 +185,7 @@ public final class FightTracker {
 
 	private static void start(ClientPlayerEntity player, LivingEntity living) {
 		opponent = living;
+		opponentDied = false;
 		opponentName = living.getName().getString();
 		startTick = ticks;
 		attempts = 0;
@@ -255,7 +267,7 @@ public final class FightTracker {
 
 		if (player.isDead()) {
 			finish(client, Outcome.LOSS);
-		} else if (opponent.isDead()) {
+		} else if (opponent.isDead() || opponentDied) {
 			finish(client, Outcome.WIN);
 		} else if (opponent.isRemoved() || ticks - lastEvent > IDLE_END) {
 			finish(client, Outcome.ENDED);

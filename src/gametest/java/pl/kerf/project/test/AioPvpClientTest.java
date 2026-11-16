@@ -337,6 +337,25 @@ public class AioPvpClientTest implements FabricClientGameTest {
 				throw new AssertionError("Fight Report: zly raport po walce: " + report);
 			}
 
+			// Serwer bez prawdziwego HP przeciwnika: sam sygnał śmierci (status 3) też ma dać wygraną, nie "Undecided".
+			server.runCommand("execute at @p run summon mannequin ^ ^ ^-2 {CustomName:\"Rywal2_\"}");
+			context.waitTicks(10);
+			attackTwice(context, entity -> "Rywal2_".equals(entity.getName().getString()));
+			context.runOnClient(client -> {
+				for (net.minecraft.entity.Entity entity : client.world.getEntities()) {
+					if ("Rywal2_".equals(entity.getName().getString())) {
+						pl.kerf.project.module.FightTracker.died(entity);
+					}
+				}
+			});
+			context.waitTicks(2);
+			pl.kerf.project.module.FightTracker.Report statusWin = context.computeOnClient(client -> pl.kerf.project.module.FightTracker.last());
+			server.runCommand("kill @e[type=mannequin,name=Rywal2_]");
+			context.waitTicks(5);
+			if (statusWin == null || !"Rywal2_".equals(statusWin.opponent()) || statusWin.outcome() != pl.kerf.project.module.FightTracker.Outcome.WIN) {
+				throw new AssertionError("Fight Report: smierc ze statusu 3 nie dala wygranej: " + statusWin);
+			}
+
 			context.takeScreenshot("07h_fight_report_chat");
 			context.runOnClient(client -> client.player.networkHandler.sendChatCommand(pl.kerf.project.module.FightTracker.COMMAND));
 			context.waitTicks(3);
@@ -686,8 +705,18 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			float yawBefore = context.computeOnClient(client -> client.player.getYaw());
 			context.getInput().holdKey(options -> pl.kerf.project.module.Freelook.key);
 			context.waitTicks(2);
-			// Okno testu nie łapie kursora, więc ruch myszy podajemy tak, jak przekazałby go hak w Mouse.updateMouse.
-			context.runOnClient(client -> Modules.FREELOOK.turn(400.0, 0.0));
+			// Prawdziwy ruch myszy: okno testu nie ma fokusu, więc dajemy mu go i łapiemy kursor jak w grze.
+			context.runOnClient(client -> {
+				client.onWindowFocusChanged(true);
+				client.mouse.lockCursor();
+			});
+			context.waitTick();
+			double[] cursor = context.computeOnClient(client -> new double[] {client.mouse.getX(), client.mouse.getY()});
+			for (int step = 1; step <= 10; step++) {
+				context.getInput().setCursorPos(cursor[0] + step * 40.0, cursor[1]);
+				context.waitTick();
+			}
+
 			context.waitTicks(3);
 			context.takeScreenshot("21_freelook");
 			String look = context.computeOnClient(client -> Modules.FREELOOK.active() + "/"

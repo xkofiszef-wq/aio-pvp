@@ -19,8 +19,15 @@ public class ClientPlayNetworkHandlerMixin {
 	@Inject(method = "onEntityStatus", at = @At("TAIL"))
 	private void aio$totemPop(EntityStatusS2CPacket packet, CallbackInfo ci) {
 		MinecraftClient client = MinecraftClient.getInstance();
-		if (packet.getStatus() == 35 && client.world != null) {
+		if (client.world == null) {
+			return;
+		}
+
+		if (packet.getStatus() == 35) {
 			FightTracker.totemPop(packet.getEntity(client.world));
+		} else if (packet.getStatus() == 3) {
+			// Status 3 = śmierć (serwer wysyła go zawsze, nawet gdy nie podaje prawdziwego HP innych graczy).
+			FightTracker.died(packet.getEntity(client.world));
 		}
 	}
 
