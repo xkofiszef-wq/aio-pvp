@@ -1,5 +1,6 @@
 package pl.kerf.project.gui;
 
+import pl.kerf.project.Lang;
 import pl.kerf.project.gui.theme.Theme;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
@@ -314,15 +315,15 @@ abstract class EditorElement {
 
 		@Override
 		float[] local(TextRenderer font) {
-			float w = font.getWidth(TEXT) + 4;
+			float w = font.getWidth(Lang.t(TEXT)) + 4;
 			return new float[] {-w / 2.0F, -6.0F, w, 13.0F};
 		}
 
 		@Override
 		void drawLocal(DrawContext context, TextRenderer font) {
-			int w = font.getWidth(TEXT);
+			int w = font.getWidth(Lang.t(TEXT));
 			context.fill(-w / 2 - 2, -6, w / 2 + 2, 7, 0x60000000);
-			context.drawText(font, TEXT, -w / 2, -4, 0xFFFFFFFF, true);
+			context.drawText(font, Lang.t(TEXT), -w / 2, -4, 0xFFFFFFFF, true);
 		}
 	}
 
@@ -347,7 +348,7 @@ abstract class EditorElement {
 		private static int width(TextRenderer font) {
 			int w = font.getWidth(TITLE);
 			for (String[] line : LINES) {
-				w = Math.max(w, font.getWidth(line[0]) + font.getWidth(": ") + font.getWidth(line[1]));
+				w = Math.max(w, font.getWidth(Lang.t(line[0])) + font.getWidth(": ") + font.getWidth(line[1]));
 			}
 
 			return w;
@@ -375,7 +376,7 @@ abstract class EditorElement {
 			context.drawText(font, TITLE, left + w / 2 - font.getWidth(TITLE) / 2, u - 9, 0xFFFFFFFF, false);
 			for (int i = 0; i < rows; i++) {
 				int y = u + i * 9;
-				context.drawText(font, LINES[i][0], left, y, 0xFFFFFFFF, false);
+				context.drawText(font, Lang.t(LINES[i][0]), left, y, 0xFFFFFFFF, false);
 				context.drawText(font, LINES[i][1], -1 - font.getWidth(LINES[i][1]), y, 0xFFFF5555, false);
 			}
 		}

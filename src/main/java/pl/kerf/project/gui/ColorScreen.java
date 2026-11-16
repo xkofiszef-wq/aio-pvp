@@ -295,7 +295,7 @@ public class ColorScreen extends Screen {
 		if (this.previewW > 0) {
 			int x = this.previewX + 6;
 			int w = this.previewW - 12;
-			context.drawTextWithShadow(this.textRenderer, "Podgląd na żywo", x, Ui.PAD + 7, Theme.TEXT_3);
+			context.drawTextWithShadow(this.textRenderer, Lang.t("Podgląd na żywo"), x, Ui.PAD + 7, Theme.TEXT_3);
 			int boxY = Ui.PAD + 20;
 			int boxH = Math.min(170, this.height - Ui.PAD - 34 - boxY);
 			Ui.inset(context, x, boxY, w, boxH);

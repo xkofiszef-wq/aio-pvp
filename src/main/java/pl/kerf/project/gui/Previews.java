@@ -146,7 +146,7 @@ public final class Previews {
 		} else {
 			bigIcon(context, icon(module), cx, cy);
 			if (module instanceof HudModule || module == Modules.HIT_COLOR || module == Modules.HITBOXES) {
-				context.drawCenteredTextWithShadow(client.textRenderer, "Podgląd w świecie", cx, y + h - 12, 0xFF8A8A96);
+				context.drawCenteredTextWithShadow(client.textRenderer, Lang.t("Podgląd w świecie"), cx, y + h - 12, 0xFF8A8A96);
 			}
 		}
 	}
@@ -212,7 +212,7 @@ public final class Previews {
 			}
 
 			context.getMatrices().popMatrix();
-			context.drawCenteredTextWithShadow(client.textRenderer, target ? "Na celu" : "Bez celu", px, cy + 30, 0xFFD0D0D8);
+			context.drawCenteredTextWithShadow(client.textRenderer, target ? Lang.t("Na celu") : Lang.t("Bez celu"), px, cy + 30, 0xFFD0D0D8);
 		}
 	}
 
