@@ -380,7 +380,7 @@ public class SettingsScreen extends Screen {
 		this.panelScrollTarget = 0.0;
 		this.panelScroll.set(0.0F);
 
-		this.controls.add(new ToggleControl(Text.literal("Włączona"), module::on, module::toggle, true));
+		this.controls.add(new ToggleControl(Text.literal("Włączona"), module::on, module::toggle));
 		this.controls.add(new KeybindControl(module));
 		if (module == Modules.CROSSHAIR) {
 			this.controls.add(new ActionControl("Rysuj celownik: bez celu i na celu", () -> this.client.setScreen(new CrosshairEditorScreen(this))));
@@ -407,7 +407,7 @@ public class SettingsScreen extends Screen {
 
 			Text label = label(setting);
 			if (setting instanceof Setting.Bool bool) {
-				this.controls.add(new ToggleControl(label, bool::on, () -> bool.set(!bool.on()), false));
+				this.controls.add(new ToggleControl(label, bool::on, () -> bool.set(!bool.on())));
 			} else if (setting instanceof Setting.Mode mode) {
 				this.controls.add(new DropdownControl(label, mode));
 			} else if (setting instanceof Setting.Num num) {
@@ -821,12 +821,11 @@ public class SettingsScreen extends Screen {
 		this.renderScrollbar(context, this.contentX + this.contentW - 5, this.cardsTop(), this.cardsBottom(), this.cardsContentH(), this.cardScroll.get());
 	}
 
-	/** Karta jak w Shine: pasek kategorii na całą wysokość, ikona, nazwa, opis; przełącznik w prawym dolnym rogu. */
+	/** Karta modułu z Figmy: ikona, nazwa, opis; przełącznik w prawym dolnym rogu. */
 	private void renderCard(DrawContext context, Module module, int x, int y, int w, boolean hovered) {
 		TextRenderer font = this.textRenderer;
 		float hover = this.cardHover.computeIfAbsent(module, m -> new Anim(0.0F, 16.0F)).to(hovered);
 		float on = this.cardSwitch.computeIfAbsent(module, m -> new Anim(m.on() ? 1.0F : 0.0F, 16.0F)).to(module.on());
-		int accent = Theme.category(module.category);
 		// Rogi 4 px jak przyciski (projekt w Figmie, komponent "Karta modułu").
 		Draw.round(context, x, y, w, CARD_H, 4, Theme.mix(Theme.CARD, Theme.CARD_HOVER, hover));
 		Draw.outline(context, x, y, w, CARD_H, 4, Theme.mix(Theme.BORDER, Theme.BORDER_ACTIVE, hover));
@@ -840,7 +839,7 @@ public class SettingsScreen extends Screen {
 			Tip.offer(module.description);
 		}
 
-		Draw.toggle(context, x + w - 28, y + 26, on, accent);
+		Draw.toggle(context, x + w - 28, y + 26, on);
 	}
 
 	/** Prawy panel: duży podgląd z podpisem na dole, pod nim krótkie informacje. */
@@ -1075,14 +1074,12 @@ public class SettingsScreen extends Screen {
 		private final Text label;
 		private final BooleanSupplier state;
 		private final Runnable toggle;
-		private final boolean master;
 		private final Anim anim;
 
-		ToggleControl(Text label, BooleanSupplier state, Runnable toggle, boolean master) {
+		ToggleControl(Text label, BooleanSupplier state, Runnable toggle) {
 			this.label = label;
 			this.state = state;
 			this.toggle = toggle;
-			this.master = master;
 			this.anim = new Anim(state.getAsBoolean() ? 1.0F : 0.0F, 16.0F);
 		}
 
@@ -1090,12 +1087,11 @@ public class SettingsScreen extends Screen {
 		void render(DrawContext context, int x, int y, int w, boolean hover, int mouseX, int mouseY) {
 			this.row(context, x, y, w, hover, this.label);
 			float t = this.anim.to(this.state.getAsBoolean());
-			int accent = this.master ? Theme.category(SettingsScreen.this.panelModule.category) : Theme.ACCENT;
 			String status = this.state.getAsBoolean() ? "Wł." : "Wył.";
 			int sx = x + w - 28;
 			Draw.text(context, SettingsScreen.this.textRenderer, status, sx - 4 - SettingsScreen.this.textRenderer.getWidth(status), y + 6,
 				this.state.getAsBoolean() ? Theme.TEXT_2 : Theme.TEXT_4);
-			Draw.toggle(context, sx, y + 5, t, accent);
+			Draw.toggle(context, sx, y + 5, t);
 		}
 
 		@Override

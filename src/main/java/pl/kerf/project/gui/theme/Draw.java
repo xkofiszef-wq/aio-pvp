@@ -1,8 +1,10 @@
 package pl.kerf.project.gui.theme;
 
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.text.Text;
+import org.joml.Matrix3x2fStack;
 import pl.kerf.project.module.Module;
 
 /**
@@ -84,16 +86,27 @@ public final class Draw {
 		}
 	}
 
-	/** Przełącznik "pigułka" z okrągłą gałką (projekt z Figmy: 20x10, gałka 8x8). {@code t} = 0 (wył.) .. 1 (wł.). */
-	public static void toggle(DrawContext context, int x, int y, float t, int accent) {
-		int w = 20;
-		int h = 10;
-		int on = Theme.alpha(accent, 0xFF);
-		roundExact(context, x, y, w, h, 5, Theme.mix(0xFF1A1D26, on, t));
-		outlineExact(context, x, y, w, h, 5, Theme.mix(Theme.BORDER_STRONG, on, t));
-		int knob = 8;
-		int kx = x + 1 + Math.round((w - knob - 2) * Anim.ease(t));
-		roundExact(context, kx, y + 1, knob, knob, 4, Theme.mix(0xFF8C92A0, 0xFFF0F1F5, t));
+	/**
+	 * Przełącznik z Figmy (komponent "Przełącznik"): pigułka 20x10 z ramką 1 px, gałka 8x8, włączony w kolorze akcentu
+	 * motywu. Rysowany w pikselach ekranu, nie GUI, żeby łuki były gładkie jak w Figmie, a nie schodkowe.
+	 * {@code t} = 0 (wył.) .. 1 (wł.).
+	 */
+	public static void toggle(DrawContext context, int x, int y, float t) {
+		int s = Math.max(1, (int) MinecraftClient.getInstance().getWindow().getScaleFactor());
+		Matrix3x2fStack matrices = context.getMatrices();
+		matrices.pushMatrix();
+		matrices.scale(1.0F / s, 1.0F / s);
+		int px = x * s;
+		int py = y * s;
+		int w = 20 * s;
+		int h = 10 * s;
+		int knob = 8 * s;
+		// Ramka = pigułka w kolorze ramki, na niej środek o 1 px GUI mniejszy.
+		roundExact(context, px, py, w, h, h / 2, Theme.mix(Theme.BORDER_STRONG, Theme.ACCENT, t));
+		roundExact(context, px + s, py + s, w - 2 * s, h - 2 * s, (h - 2 * s) / 2, Theme.mix(0xFF1A1D26, Theme.alpha(Theme.ACCENT, 0xE6), t));
+		int kx = px + s + Math.round((w - knob - 2 * s) * Anim.ease(t));
+		roundExact(context, kx, py + s, knob, knob, knob / 2, Theme.mix(0xFF8C92A0, 0xFFF0F1F5, t));
+		matrices.popMatrix();
 	}
 
 	/** Tekst dopasowany do szerokości, z wielokropkiem. */
