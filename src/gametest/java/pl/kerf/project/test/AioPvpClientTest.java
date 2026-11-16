@@ -148,6 +148,23 @@ public class AioPvpClientTest implements FabricClientGameTest {
 
 		context.setScreen(() -> new SettingsScreen(null));
 		context.takeScreenshot("01_menu_hud");
+		// Pasek przewijania bez kółka myszy: chwyć uchwyt u góry, przeciągnij na dół toru, lista ma się przewinąć do końca.
+		double[] bar = context.computeOnClient(client -> {
+			double[] b = ((SettingsScreen) client.currentScreen).cardScrollbarForTest();
+			double scale = client.getWindow().getScaleFactor();
+			return new double[] {(b[0] + 1) * scale, (b[1] + 4) * scale, (b[2] - 1) * scale};
+		});
+		context.getInput().setCursorPos(bar[0], bar[1]);
+		context.getInput().holdMouse(GLFW.GLFW_MOUSE_BUTTON_LEFT);
+		context.waitTick();
+		context.getInput().setCursorPos(bar[0], bar[2]);
+		context.waitTicks(3);
+		context.takeScreenshot("01b_menu_scrollbar_dragged");
+		context.getInput().releaseMouse(GLFW.GLFW_MOUSE_BUTTON_LEFT);
+		double scrolled = context.computeOnClient(client -> ((SettingsScreen) client.currentScreen).cardScrollbarForTest()[3]);
+		if (scrolled <= 0.0) {
+			throw new AssertionError("Pasek przewijania: przeciągnięcie nie przewinęło listy (" + scrolled + ")");
+		}
 		SettingsScreen.select(Modules.ARMOR_HUD);
 		context.setScreen(() -> new SettingsScreen(null));
 		context.takeScreenshot("02_module_armor");

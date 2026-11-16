@@ -57,6 +57,11 @@ public class SettingsScreen extends Screen {
 	private final Anim dropdownAnim = new Anim(0.0F, 20.0F);
 	private double cardScrollTarget;
 	private double panelScrollTarget;
+	/** Przeciągany pasek przewijania (0 = żaden) i odstęp kursora od góry uchwytu. */
+	private int draggingBar;
+	private double barGrab;
+	private static final int BAR_CARDS = 1;
+	private static final int BAR_PANEL = 2;
 	/** Funkcja pokazywana w prawym panelu, gdy kursor nie stoi nad żadnym kafelkiem. */
 	private Module hoveredCard;
 
@@ -526,6 +531,14 @@ public class SettingsScreen extends Screen {
 			return true;
 		}
 
+		// Paski przewijania: chwyć i przeciągnij (dla myszy bez kółka), klik obok uchwytu przeskakuje w to miejsce.
+		if (button == 0) {
+			boolean panelShown = this.panel.get() > 0.5F && this.panelOpen();
+			if (panelShown ? this.grabBar(mx, my, BAR_PANEL) : this.grabBar(mx, my, BAR_CARDS)) {
+				return true;
+			}
+		}
+
 		// Podczas czekania na klawisz: środkowy i boczne przyciski myszy (od 2 w górę) się przypisują,
 		// lewy i prawy anulują (przypisanie ich do skrótu blokowałoby atak i używanie).
 		int mouseCode = button >= 2 ? ModuleKeys.MOUSE + button : -1;
@@ -634,13 +647,71 @@ public class SettingsScreen extends Screen {
 			return true;
 		}
 
+		if (this.draggingBar != 0) {
+			this.dragBar(click.y());
+			return true;
+		}
+
 		return super.mouseDragged(click, offsetX, offsetY);
 	}
 
 	@Override
 	public boolean mouseReleased(Click click) {
 		this.draggingSlider = null;
+		this.draggingBar = 0;
 		return super.mouseReleased(click);
+	}
+
+	// --- paski przewijania ---
+
+	/** Geometria paska: x, góra, dół, wysokość treści, przewinięcie (dla listy modułów albo panelu ustawień). */
+	private int[] bar(int which) {
+		return which == BAR_PANEL
+			? new int[] {this.panelX() + this.panelW() - 5, this.rowsTop(), this.rowsBottom(), this.panelContentH}
+			: new int[] {this.contentX + this.contentW - 5, this.cardsTop(), this.cardsBottom(), this.cardsContentH()};
+	}
+
+	private boolean grabBar(double mx, double my, int which) {
+		int[] bar = this.bar(which);
+		int view = bar[2] - bar[1];
+		if (bar[3] <= view || mx < bar[0] - 3 || mx >= bar[0] + 6 || my < bar[1] || my >= bar[2]) {
+			return false;
+		}
+
+		int barH = barHeight(view, bar[3]);
+		double scroll = which == BAR_PANEL ? this.panelScrollTarget : this.cardScrollTarget;
+		double barY = bar[1] + (view - barH) * scroll / (bar[3] - view);
+		// Chwycony uchwyt jedzie za kursorem z tym samym odstępem; klik w tor centruje uchwyt pod kursorem.
+		this.barGrab = my >= barY && my < barY + barH ? my - barY : barH / 2.0;
+		this.draggingBar = which;
+		this.dragBar(my);
+		return true;
+	}
+
+	private void dragBar(double my) {
+		int[] bar = this.bar(this.draggingBar);
+		int view = bar[2] - bar[1];
+		int barH = barHeight(view, bar[3]);
+		double fraction = Math.max(0.0, Math.min(1.0, (my - this.barGrab - bar[1]) / Math.max(1, view - barH)));
+		double target = fraction * Math.max(0, bar[3] - view);
+		// Bez animacji: uchwyt ma być dokładnie pod kursorem.
+		if (this.draggingBar == BAR_PANEL) {
+			this.panelScrollTarget = target;
+			this.panelScroll.set((float) target);
+		} else {
+			this.cardScrollTarget = target;
+			this.cardScroll.set((float) target);
+		}
+	}
+
+	private static int barHeight(int view, int content) {
+		return Math.max(14, view * view / content);
+	}
+
+	/** Do testu: pasek listy modułów (x, góra, dół) i obecne przewinięcie w pikselach GUI. */
+	public double[] cardScrollbarForTest() {
+		int[] bar = this.bar(BAR_CARDS);
+		return new double[] {bar[0], bar[1], bar[2], this.cardScrollTarget};
 	}
 
 	@Override
@@ -956,9 +1027,11 @@ public class SettingsScreen extends Screen {
 			return;
 		}
 
-		int barH = Math.max(14, view * view / content);
+		int barH = barHeight(view, content);
 		int barY = top + Math.round((view - barH) * scroll / (content - view));
-		Draw.round(context, x, barY, 3, barH, 1, Theme.alpha(Theme.TEXT_3, 0x90));
+		// Słaby tor pokazuje, że pasek da się chwycić; przeciągany uchwyt jaśniejszy.
+		Draw.roundExact(context, x, top, 3, view, 1, Theme.alpha(Theme.TEXT_3, 0x22));
+		Draw.roundExact(context, x, barY, 3, barH, 1, this.draggingBar != 0 ? Theme.alpha(Theme.TEXT_2, 0xD0) : Theme.alpha(Theme.TEXT_3, 0x90));
 	}
 
 	private void renderPanel(DrawContext context, int mouseX, int mouseY) {
