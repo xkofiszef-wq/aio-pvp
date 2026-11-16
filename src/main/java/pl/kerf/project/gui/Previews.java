@@ -119,7 +119,12 @@ public final class Previews {
 		} else if (module == Modules.BLOCK_OUTLINE) {
 			IsoBlockPreview.draw(context, cx, cy + h / 12, Math.min(w, h) / 3);
 		} else if (module == Modules.HEALTH) {
-			Text label = HealthLabel.build(13.0F, 20.0F, Modules.HEALTH.absorption.on() ? 4.0F : 0.0F);
+			// Twoje prawdziwe zdrowie (tak samo wyglądają serca nad innymi graczami); bez świata pełne 10 serc.
+			boolean world = client.player != null;
+			float health = world ? client.player.getHealth() : 20.0F;
+			float max = world ? client.player.getMaxHealth() : 20.0F;
+			float absorption = world && Modules.HEALTH.absorption.on() ? client.player.getAbsorptionAmount() : 0.0F;
+			Text label = HealthLabel.build(health, max, absorption);
 			boolean above = Modules.HEALTH.position.is(0);
 			context.getMatrices().pushMatrix();
 			context.getMatrices().translate(cx, cy);
