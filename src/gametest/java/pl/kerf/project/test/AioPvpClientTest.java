@@ -719,6 +719,22 @@ public class AioPvpClientTest implements FabricClientGameTest {
 
 			context.waitTicks(3);
 			context.takeScreenshot("21_freelook");
+			// Kółko myszy oddala kamerę (w dół = dalej), a slot w hotbarze się nie zmienia.
+			double[] zoom = context.computeOnClient(client -> new double[] {
+				client.gameRenderer.getCamera().getCameraPos().distanceTo(client.player.getEyePos()), client.player.getInventory().getSelectedSlot()
+			});
+			for (int notch = 0; notch < 6; notch++) {
+				context.getInput().scroll(-1.0);
+			}
+
+			context.waitTicks(3);
+			context.takeScreenshot("21b_freelook_zoom_out");
+			double[] zoomed = context.computeOnClient(client -> new double[] {
+				client.gameRenderer.getCamera().getCameraPos().distanceTo(client.player.getEyePos()), client.player.getInventory().getSelectedSlot()
+			});
+			if (zoomed[0] < zoom[0] + 2.0 || zoomed[1] != zoom[1]) {
+				throw new AssertionError("Freelook: kolko nie oddala kamery (odleglosc " + zoom[0] + " -> " + zoomed[0] + ", slot " + zoom[1] + " -> " + zoomed[1] + ")");
+			}
 			String look = context.computeOnClient(client -> Modules.FREELOOK.active() + "/"
 				+ (Math.abs(client.player.getYaw() - yawBefore) < 0.01F) + "/" + (Math.abs(client.gameRenderer.getCamera().getYaw() - yawBefore) > 5.0F));
 			context.getInput().releaseKey(options -> pl.kerf.project.module.Freelook.key);

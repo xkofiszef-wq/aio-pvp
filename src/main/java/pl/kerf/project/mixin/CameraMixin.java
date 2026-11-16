@@ -5,6 +5,7 @@ import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.client.render.Camera;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.ModifyArg;
 import pl.kerf.project.module.Modules;
 
 @Mixin(Camera.class)
@@ -25,5 +26,11 @@ public class CameraMixin {
 		} else {
 			original.call(camera, yaw, pitch);
 		}
+	}
+
+	/** Freelook: odległość kamery z kółka myszy; clipToSpace dalej skraca ją przy ścianach, jak w vanilli. */
+	@ModifyArg(method = "update", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/Camera;clipToSpace(F)F"))
+	private float aio$freelookDistance(float distance) {
+		return Modules.FREELOOK.active() ? distance * Modules.FREELOOK.distanceScale() : distance;
 	}
 }

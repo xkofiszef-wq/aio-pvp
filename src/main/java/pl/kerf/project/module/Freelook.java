@@ -22,6 +22,9 @@ public final class Freelook extends RiskyModule {
 	private float yaw;
 	private float pitch;
 	private Perspective previous;
+	/** Odległość kamery w trzeciej osobie (bloki), zmieniana kółkiem myszy; na start jak w vanilli. */
+	private float distance = DEFAULT_DISTANCE;
+	private static final float DEFAULT_DISTANCE = 4.0F;
 
 	public Freelook() {
 		super("freelook", "Freelook", "Trzymaj klawisz (domyślnie lewy Alt), żeby rozglądać się kamerą bez obracania postaci. Na części serwerów zabronione.",
@@ -38,6 +41,21 @@ public final class Freelook extends RiskyModule {
 
 	public float pitch() {
 		return this.pitch;
+	}
+
+	/** Mnożnik vanillowej odległości kamery (1 = bez zmian). */
+	public float distanceScale() {
+		return this.distance / DEFAULT_DISTANCE;
+	}
+
+	/** Kółko myszy przy Freelooku w trzeciej osobie: pół bloku na ząbek, od 1 do 20 bloków. */
+	public boolean scroll(MinecraftClient client, double amount) {
+		if (!this.active || client.options.getPerspective().isFirstPerson() || amount == 0.0) {
+			return false;
+		}
+
+		this.distance = MathHelper.clamp(this.distance - (float) Math.signum(amount) * 0.5F, 1.0F, 20.0F);
+		return true;
 	}
 
 	public void tick(MinecraftClient client) {
@@ -59,6 +77,7 @@ public final class Freelook extends RiskyModule {
 
 		if (want && !this.active) {
 			this.active = true;
+			this.distance = DEFAULT_DISTANCE;
 			this.yaw = client.player.getYaw();
 			this.pitch = client.player.getPitch();
 			this.previous = client.options.getPerspective();
