@@ -98,6 +98,21 @@ public class InGameHudMixin {
 		context.getMatrices().popMatrix();
 	}
 
+	@Inject(method = "renderFood", at = @At("HEAD"))
+	private void aio$foodBegin(DrawContext context, PlayerEntity player, int top, int right, CallbackInfo ci) {
+		SaturationOutline.beginFood();
+	}
+
+	/** Saturation: zapamiętuje, gdzie vanilla rysuje każdą ikonkę głodu (przy saturacji 0 drgają), żeby obwódki trafiały. */
+	@WrapOperation(
+		method = "renderFood",
+		at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/DrawContext;drawGuiTexture(Lcom/mojang/blaze3d/pipeline/RenderPipeline;Lnet/minecraft/util/Identifier;IIII)V", ordinal = 0)
+	)
+	private void aio$foodIcon(DrawContext context, RenderPipeline pipeline, Identifier sprite, int x, int y, int w, int h, Operation<Void> original) {
+		SaturationOutline.iconAt(x, y);
+		original.call(context, pipeline, sprite, x, y, w, h);
+	}
+
 	@Inject(method = "renderFood", at = @At("TAIL"))
 	private void aio$saturation(DrawContext context, PlayerEntity player, int top, int right, CallbackInfo ci) {
 		if (Modules.SATURATION.on()) {

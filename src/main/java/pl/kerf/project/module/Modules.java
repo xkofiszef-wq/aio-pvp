@@ -77,10 +77,7 @@ public final class Modules {
 	public static final CompassHud COMPASS = new CompassHud();
 	public static final MediaHud MEDIA = new MediaHud();
 	public static final HudTweaker HUD_TWEAKER = new HudTweaker();
-	/** Złota obwódka na ikonkach głodu = saturacja (jak AppleSkin); kształt brany z ikonki aktywnego texturepacka. */
-	public static final Module SATURATION = new Module(
-		"saturation", "Saturation", "Złota obwódka na pasku głodu pokazuje saturację, w kształcie ikonek z twojego texturepacka.", Category.HUD, false
-	);
+	public static final Saturation SATURATION = new Saturation();
 
 	// Combat
 	public static final Crosshair CROSSHAIR = new Crosshair();
@@ -492,6 +489,16 @@ public final class Modules {
 	}
 
 	/** Motyw menu moda: gotowe palety i opcjonalny własny kolor akcentu. Wyłączony = domyślny granat. */
+	/** Złota obwódka na ikonkach głodu = saturacja (jak AppleSkin); kształt brany z ikonki aktywnego texturepacka. */
+	public static final class Saturation extends Module {
+		/** Trzymane jedzenie: mrugające ikonki głodu i obwódki saturacji, które to jedzenie doda. */
+		public final Setting.Bool foodPreview = this.add(new Setting.Bool("food_preview", "Podgląd jedzenia w ręce", true));
+
+		Saturation() {
+			super("saturation", "Saturation", "Złota obwódka na pasku głodu pokazuje saturację; z jedzeniem w ręce mruga, ile ono doda.", Category.HUD, false);
+		}
+	}
+
 	public static final class GuiTheme extends Module {
 		public final Setting.Mode theme = this.add(new Setting.Mode("theme", "Motyw", 0, pl.kerf.project.gui.theme.Theme.THEME_NAMES));
 		public final Setting.Bool customAccent = this.add(new Setting.Bool("custom_accent", "Własny kolor akcentu", false));

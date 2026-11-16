@@ -7,13 +7,18 @@ import net.minecraft.client.texture.NativeImage;
 import net.minecraft.client.texture.NativeImageBackedTexture;
 import net.minecraft.client.texture.Sprite;
 import net.minecraft.client.texture.SpriteAtlasTexture;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.FoodComponent;
 import net.minecraft.entity.effect.StatusEffects;
+import net.minecraft.entity.player.HungerManager;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.Atlases;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.Util;
 import org.joml.Matrix3x2fStack;
 import pl.kerf.project.AioPvp;
 import pl.kerf.project.mixin.SpriteContentsAccessor;
+import pl.kerf.project.module.Modules;
 
 /**
  * Saturation: złota obwódka ikonek głodu, jak w AppleSkin. Obwódka powstaje z ikonek aktywnego texturepacka:
@@ -51,27 +56,92 @@ public final class SaturationOutline {
 	private SaturationOutline() {
 	}
 
-	/** Te same pozycje co vanilla renderFood: ikonka j od prawej, co 8 px. Drżenie paska jest tylko przy saturacji 0. */
+	/** Gdzie vanilla narysowała ikonki w tej klatce (przy saturacji 0 pasek losowo drga, więc pozycje nie są stałe). */
+	private static final int[] ICON_X = new int[10];
+	private static final int[] ICON_Y = new int[10];
+	private static int recorded;
+
+	/** Początek vanilla renderFood: nowe pozycje ikonek. */
+	public static void beginFood() {
+		recorded = 0;
+	}
+
+	/** Vanilla rysuje tło ikonki j (od prawej) w tym miejscu. */
+	public static void iconAt(int x, int y) {
+		if (recorded < ICON_X.length) {
+			ICON_X[recorded] = x;
+			ICON_Y[recorded] = y;
+			recorded++;
+		}
+	}
+
+	/**
+	 * Obwódki saturacji, a z jedzeniem w ręce (opcja "Podgląd jedzenia w ręce") mrugające ikonki głodu i obwódki,
+	 * które to jedzenie doda. Wartości jak w HungerManager: głód do 20, saturacja najwyżej tyle co głód.
+	 */
 	public static void render(DrawContext context, PlayerEntity player, int top, int right) {
-		float saturation = player.getHungerManager().getSaturationLevel();
-		if (saturation <= 0.0F) {
+		HungerManager hunger = player.getHungerManager();
+		int food = hunger.getFoodLevel();
+		float saturation = hunger.getSaturationLevel();
+		int set = player.hasStatusEffect(StatusEffects.HUNGER) ? 1 : 0;
+		build(set);
+		for (int j = 0; j < 10 && saturation > j * 2; j++) {
+			outline(context, set, saturation >= j * 2 + 2 ? 0 : 1, x(j, right), y(j, top), 0xFFFFFFFF);
+		}
+
+		FoodComponent eaten = Modules.SATURATION.foodPreview.on() ? heldFood(player) : null;
+		if (eaten == null) {
 			return;
 		}
 
-		int set = player.hasStatusEffect(StatusEffects.HUNGER) ? 1 : 0;
-		build(set);
+		int newFood = Math.min(20, food + eaten.nutrition());
+		float newSaturation = Math.min(newFood, saturation + eaten.saturation());
+		int color = blinkAlpha() << 24 | 0xFFFFFF;
+		for (int j = 0; j < 10; j++) {
+			int x = x(j, right);
+			int y = y(j, top);
+			if (food < j * 2 + 2 && newFood >= j * 2 + 1) {
+				context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, SPRITES[set][newFood >= j * 2 + 2 ? 1 : 2], x, y, 9, 9, color);
+			}
+
+			// Obwódka, której jeszcze nie ma: cała ikonka albo połówka, gdy obecna saturacja jej nie pokrywa.
+			boolean whole = newSaturation >= j * 2 + 2;
+			if (saturation < j * 2 + 2 && newSaturation > j * 2 && (whole || saturation <= j * 2)) {
+				outline(context, set, whole ? 0 : 1, x, y, color);
+			}
+		}
+	}
+
+	private static int x(int j, int right) {
+		return j < recorded ? ICON_X[j] : right - j * 8 - 9;
+	}
+
+	private static int y(int j, int top) {
+		return j < recorded ? ICON_Y[j] : top;
+	}
+
+	/** Jedzenie w głównej ręce, a bez niego w drugiej; null = nic do zjedzenia. */
+	private static FoodComponent heldFood(PlayerEntity player) {
+		FoodComponent main = player.getMainHandStack().get(DataComponentTypes.FOOD);
+		return main != null ? main : player.getOffHandStack().get(DataComponentTypes.FOOD);
+	}
+
+	/** Płynne mruganie raz na sekundę, od ledwo widocznego do pełnego. */
+	private static int blinkAlpha() {
+		double wave = 0.5 + 0.5 * Math.sin(Util.getMeasuringTimeMs() / 1000.0 * 2.0 * Math.PI);
+		return (int) Math.round(255.0 * (0.2 + 0.8 * wave));
+	}
+
+	/** Tekstura ma 1 piksel zapasu z każdej strony (na dorysowaną obwódkę) i skalę ikonki z packa (np. 16x16 w 9x9). */
+	private static void outline(DrawContext context, int set, int part, int x, int y, int color) {
 		int w = WIDTH[set];
 		int h = HEIGHT[set];
 		Matrix3x2fStack matrices = context.getMatrices();
-		for (int j = 0; j < 10 && saturation > j * 2; j++) {
-			Identifier outline = OUTLINES[set][saturation >= j * 2 + 2 ? 0 : 1];
-			// Tekstura ma 1 piksel zapasu z każdej strony (na dorysowaną obwódkę) i skalę ikonki z packa (np. 16x16 w 9x9).
-			matrices.pushMatrix();
-			matrices.translate(right - j * 8 - 9, top);
-			matrices.scale(9.0F / w, 9.0F / h);
-			context.drawTexture(RenderPipelines.GUI_TEXTURED, outline, -1, -1, 0.0F, 0.0F, w + 2, h + 2, w + 2, h + 2);
-			matrices.popMatrix();
-		}
+		matrices.pushMatrix();
+		matrices.translate(x, y);
+		matrices.scale(9.0F / w, 9.0F / h);
+		context.drawTexture(RenderPipelines.GUI_TEXTURED, OUTLINES[set][part], -1, -1, 0.0F, 0.0F, w + 2, h + 2, w + 2, h + 2, w + 2, h + 2, color);
+		matrices.popMatrix();
 	}
 
 	private static void build(int set) {

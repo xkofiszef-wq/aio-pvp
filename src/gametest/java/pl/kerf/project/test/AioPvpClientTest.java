@@ -566,6 +566,16 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			context.runOnClient(client -> Modules.SATURATION.setEnabled(true));
 			context.waitTicks(5);
 			context.takeScreenshot("16g_saturation");
+			// Podgląd jedzenia: złota marchewka (6 głodu, 14,4 saturacji) przy głodzie 10 i saturacji 2 mruga do 16 i 16.
+			server.runOnServer(s -> {
+				net.minecraft.entity.player.HungerManager hunger = s.getPlayerManager().getPlayerList().get(0).getHungerManager();
+				hunger.setFoodLevel(10);
+				hunger.setSaturationLevel(2.0F);
+			});
+			server.runCommand("item replace entity @p weapon.mainhand with golden_carrot");
+			context.waitTicks(5);
+			context.takeScreenshot("16h_saturation_food_preview");
+			server.runCommand("item replace entity @p weapon.mainhand with air");
 			context.runOnClient(client -> Modules.SATURATION.setEnabled(false));
 			server.runCommand("execute at @p run kill @e[type=item,distance=..16]");
 

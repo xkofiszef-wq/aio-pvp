@@ -241,7 +241,7 @@ public class SettingsScreen extends Screen {
 		if (!this.confirmReset || now - this.confirmResetAt > 3000L) {
 			this.confirmReset = true;
 			this.confirmResetAt = now;
-			this.reset.setMessage(Text.literal("Kliknij, aby potwierdzić").withColor(Theme.DANGER & 0xFFFFFF));
+			this.reset.setMessage(Text.literal("Na pewno?").withColor(Theme.DANGER & 0xFFFFFF));
 			return;
 		}
 
