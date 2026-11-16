@@ -31,6 +31,8 @@ import pl.kerf.project.module.Module.Category;
 public final class Modules {
 	/** Tworzony raz: zegar w HUD-zie formatuje godzinę co klatkę. */
 	private static final DateTimeFormatter CLOCK_FORMAT = DateTimeFormatter.ofPattern("HH:mm");
+	/** Zegar 12-godzinny: 3:45 PM (AM/PM po angielsku, bo tak się je zapisuje). */
+	private static final DateTimeFormatter CLOCK_FORMAT_12 = DateTimeFormatter.ofPattern("h:mm a", java.util.Locale.ENGLISH);
 	// HUD
 	public static final ArmorHud ARMOR_HUD = new ArmorHud();
 	public static final ItemPreviewHud ITEM_PREVIEW = new ItemPreviewHud();
@@ -65,8 +67,9 @@ public final class Modules {
 	);
 	public static final InfoHud CLOCK = new InfoHud(
 		"clock", "Clock", "Aktualna godzina (zegar komputera).", 0.0F, 0.0F, 0.0F, 0.0F, 4.0F, 94.0F,
-		(client, editing) -> Text.literal(LocalTime.now().format(CLOCK_FORMAT))
+		(client, editing) -> Text.literal(LocalTime.now().format(Modules.CLOCK_12H.is(1) ? CLOCK_FORMAT_12 : CLOCK_FORMAT))
 	);
+	public static final Setting.Mode CLOCK_12H = CLOCK.add(new Setting.Mode("format", "Format godziny", 0, "24h", "12h (AM/PM)"));
 	/** Stan sprintu/skradania jak w klientach PvP; znika, gdy nic nie jest aktywne (w edytorze pokazuje przykład). */
 	public static final InfoHud SPRINT_STATUS = new InfoHud(
 		"sprint_status", "Sprint/Sneak Status", "Napis [Sprint (Toggled)] / [Sneak], przydatne z Toggle Sprint.", 0.5F, 0.0F, 0.5F, 0.0F, 0.0F, 46.0F,

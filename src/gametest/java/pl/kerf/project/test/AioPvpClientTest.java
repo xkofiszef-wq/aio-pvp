@@ -226,6 +226,7 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			context.runOnClient(client -> {
 				Modules.COORDINATES.layout.set(1);
 				Modules.POTION_STATUS.layout.set(1);
+				Modules.CLOCK_12H.set(1);
 			});
 			context.waitTick();
 			context.takeScreenshot("06h_hud_layouts");
@@ -243,6 +244,7 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			context.runOnClient(client -> {
 				Modules.COORDINATES.layout.set(0);
 				Modules.POTION_STATUS.layout.set(0);
+				Modules.CLOCK_12H.set(0);
 			});
 			// Sprint/Sneak Status z włączonym Toggle Sprint.
 			context.runOnClient(client -> client.options.getSprintToggled().setValue(true));
