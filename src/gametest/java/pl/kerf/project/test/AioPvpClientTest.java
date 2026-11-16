@@ -205,6 +205,17 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			context.waitTick();
 			context.takeScreenshot("06f_health_below_label");
 			context.runOnClient(client -> Modules.HEALTH.position.set(0));
+			// Układy HUD: koordynaty pionowo, efekty mikstur poziomo.
+			context.runOnClient(client -> {
+				Modules.COORDINATES.layout.set(1);
+				Modules.POTION_STATUS.layout.set(1);
+			});
+			context.waitTick();
+			context.takeScreenshot("06h_hud_layouts");
+			context.runOnClient(client -> {
+				Modules.COORDINATES.layout.set(0);
+				Modules.POTION_STATUS.layout.set(0);
+			});
 			// Sprint/Sneak Status z włączonym Toggle Sprint.
 			context.runOnClient(client -> client.options.getSprintToggled().setValue(true));
 			context.getInput().pressKey(options -> options.sprintKey);

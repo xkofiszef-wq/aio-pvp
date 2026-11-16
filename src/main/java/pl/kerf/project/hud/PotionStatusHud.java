@@ -25,6 +25,7 @@ public final class PotionStatusHud extends HudModule {
 	public final Setting.Mode style = this.add(new Setting.Mode("style", "Wygląd", 0, "Zwykły", "Vanilla GUI (ekwipunek)"));
 	public final Setting.Bool showName = this.add(new Setting.Bool("show_name", "Nazwa efektu", true));
 	public final Setting.Bool hideAmbient = this.add(new Setting.Bool("hide_ambient", "Pomiń efekty z beaconów", false));
+	public final Setting.Mode layout = this.add(new Setting.Mode("layout", "Układ", 0, "Pionowo", "Poziomo"));
 
 	private final List<StatusEffectInstance> rows = new ArrayList<>();
 	private final List<Text> names = new ArrayList<>();
@@ -80,6 +81,32 @@ public final class PotionStatusHud extends HudModule {
 		return this.vanilla() ? VANILLA_ROW : ROW;
 	}
 
+	private boolean horizontal() {
+		return this.layout.is(1);
+	}
+
+	/** Odstęp między efektami (pionowo między wierszami, poziomo między kolumnami). */
+	private int gap() {
+		return this.vanilla() ? 1 : 2;
+	}
+
+	/** Szerokość jednego efektu. Układ panelu jak w ekwipunku: ikona w (7,7), tekst od x=32, 7 px marginesu z prawej. */
+	private int cellW() {
+		return this.vanilla() ? 32 + this.textWidth + 7 : 18 + 4 + this.textWidth;
+	}
+
+	private int column() {
+		return this.cellW() + this.gap() + (this.vanilla() ? 0 : 4);
+	}
+
+	private int cellX(int i) {
+		return this.horizontal() ? i * this.column() : 0;
+	}
+
+	private int cellY(int i) {
+		return this.horizontal() ? 0 : i * this.row();
+	}
+
 	private int textWidth(MinecraftClient client) {
 		int text = 0;
 		for (int i = 0; i < this.rows.size(); i++) {
@@ -99,14 +126,16 @@ public final class PotionStatusHud extends HudModule {
 			return 0;
 		}
 
-		// Układ panelu jak w ekwipunku: ikona w (7,7), tekst od x=32, 7 px marginesu z prawej.
-		return this.vanilla() ? 32 + this.textWidth + 7 : 18 + 4 + this.textWidth;
+		return this.horizontal() ? (this.rows.size() - 1) * this.column() + this.cellW() : this.cellW();
 	}
 
 	@Override
 	public int height(MinecraftClient client, boolean editing) {
-		int gap = this.vanilla() ? 1 : 2;
-		return Math.max(0, this.rows.size() * this.row() - gap);
+		if (this.horizontal()) {
+			return this.rows.isEmpty() ? 0 : this.row() - this.gap();
+		}
+
+		return Math.max(0, this.rows.size() * this.row() - this.gap());
 	}
 
 	@Override
@@ -119,27 +148,28 @@ public final class PotionStatusHud extends HudModule {
 		// Warstwami (panele, ikony, napisy), nie wiersz po wierszu: mniej warstw GUI = mniej pracy przy każdym elemencie.
 		if (vanilla) {
 			for (int i = 0; i < this.rows.size(); i++) {
-				VanillaGui.effectPanel(context, 0, i * this.row(), panelW, 32, this.rows.get(i).isAmbient());
+				VanillaGui.effectPanel(context, this.cellX(i), this.cellY(i), panelW, 32, this.rows.get(i).isAmbient());
 			}
 		}
 
 		for (int i = 0; i < this.rows.size(); i++) {
-			context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, InGameHud.getEffectTexture(this.rows.get(i).getEffectType()), iconX, i * this.row() + iconY, 18, 18);
+			context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, InGameHud.getEffectTexture(this.rows.get(i).getEffectType()), this.cellX(i) + iconX, this.cellY(i) + iconY, 18, 18);
 		}
 
 		for (int i = 0; i < this.rows.size(); i++) {
 			StatusEffectInstance effect = this.rows.get(i);
-			int y = i * this.row();
+			int x = this.cellX(i) + textX;
+			int y = this.cellY(i);
 			// Końcówka efektu (poniżej 10 s) na czerwono.
 			boolean ending = !effect.isInfinite() && effect.getDuration() <= 200;
 			int timeColor = ending ? 0xFFFF5555 : 0xFFAAAAAA;
 			if (this.showName.on()) {
 				int textY = y + (vanilla ? 7 : 0);
-				context.drawText(client.textRenderer, this.names.get(i), textX, textY, 0xFFFFFFFF, true);
-				context.drawText(client.textRenderer, this.times.get(i), textX, textY + (vanilla ? 9 : 10), timeColor, true);
+				context.drawText(client.textRenderer, this.names.get(i), x, textY, 0xFFFFFFFF, true);
+				context.drawText(client.textRenderer, this.times.get(i), x, textY + (vanilla ? 9 : 10), timeColor, true);
 			} else {
 				int textY = y + (vanilla ? 12 : 5);
-				context.drawText(client.textRenderer, this.times.get(i), textX, textY, ending ? timeColor : 0xFFFFFFFF, true);
+				context.drawText(client.textRenderer, this.times.get(i), x, textY, ending ? timeColor : 0xFFFFFFFF, true);
 			}
 		}
 	}

@@ -10,8 +10,8 @@ import pl.kerf.project.module.HudModule;
 
 /** Prosty element HUD-u z jedną linią tekstu na półprzezroczystym tle (styl jak tekst w F3). */
 public class InfoHud extends HudModule {
-	private static final int PAD_X = 3;
-	private static final int PAD_Y = 3;
+	protected static final int PAD_X = 3;
+	protected static final int PAD_Y = 3;
 
 	public final Setting.Bool background = this.add(new Setting.Bool("background", "Tło", true));
 	public final Setting.Color backgroundColor = this.add(new Setting.Color("background_color", "Kolor tła", 0x90505050, true));
