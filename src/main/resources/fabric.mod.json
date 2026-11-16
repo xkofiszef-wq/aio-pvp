@@ -5,7 +5,7 @@
     "name": "AIO PvP",
     "description": "All-in-one PvP HUD and visual tweaks in vanilla style.",
     "authors": ["Kerfuss_"],
-    "license": "ARR",
+    "license": "MIT",
     "icon": "assets/aio_pvp/icon.png",
     "environment": "client",
     "entrypoints": {
