@@ -13,7 +13,8 @@ plugins {
 
 }
 
-version = project.mod_version
+// Nazwa jara i wersja w grze: aio-pvp-<wersja moda>+<wersja Minecrafta>, np. aio-pvp-1.0.23+1.21.11.jar.
+version = "${project.mod_version}+${project.minecraft_version}"
 group = project.maven_group
 
 base {

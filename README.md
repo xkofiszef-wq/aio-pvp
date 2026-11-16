@@ -15,7 +15,7 @@ Client side only. It works on any server and in singleplayer.
 ## Installation
 
 1. Install Fabric Loader for Minecraft 1.21.11.
-2. Put Fabric API and `aio_pvp-<version>.jar` into your `mods` folder.
+2. Put Fabric API and `aio-pvp-<version>+<minecraft version>.jar` (for example `aio-pvp-1.0.23+1.21.11.jar`) into your `mods` folder.
 3. Start the game.
 
 ## How to use
@@ -116,7 +116,7 @@ Some servers forbid mods like these. Both open a warning before they turn on, an
 ./gradlew build
 ```
 
-The jar is written to `build/libs/aio_pvp-<version>.jar`. Upload that file, not the `-obf` or `-sources` ones.
+The jar is written to `build/libs/aio-pvp-<version>+<minecraft version>.jar`. Upload that file, not the `-obf` or `-sources` ones.
 
 ## License
 
