@@ -31,8 +31,6 @@ public final class FlatButton extends ClickableWidget {
 	private Style style = Style.SECONDARY;
 	private Draw.Icon icon;
 	private String tip;
-	/** Kolorowy pasek z lewej (jak przyciski w Shine); 0 = brak. */
-	private int stripe;
 	private final Anim hover = new Anim(0.0F, 18.0F);
 
 	private FlatButton(int x, int y, int width, int height, Text message, PressAction action) {
@@ -57,11 +55,6 @@ public final class FlatButton extends ClickableWidget {
 	/** Podpowiedź pokazywana po chwili najechania (rysowana przez {@link Tip}). */
 	public FlatButton tip(String tip) {
 		this.tip = tip;
-		return this;
-	}
-
-	public FlatButton stripe(int color) {
-		this.stripe = color;
 		return this;
 	}
 
@@ -102,10 +95,6 @@ public final class FlatButton extends ClickableWidget {
 			default -> {
 				Draw.roundExact(context, x, y, w, ht, r, Theme.mix(Theme.CARD, Theme.CARD_HOVER, h));
 				Draw.outlineExact(context, x, y, w, ht, r, Theme.mix(Theme.BORDER, Theme.BORDER_STRONG, h));
-				if (this.stripe != 0) {
-					// Pasek omija zaokrąglone rogi (r = 4), żeby nie wystawał poza kształt.
-					context.fill(x + 1, y + 3, x + 3, y + ht - 3, this.active ? this.stripe : Theme.alpha(this.stripe, 0x50));
-				}
 				textColor = this.active ? Theme.mix(Theme.TEXT_2, Theme.TEXT, h) : Theme.TEXT_4;
 			}
 		}
@@ -116,8 +105,7 @@ public final class FlatButton extends ClickableWidget {
 		int maxText = w - 10 - iconW;
 		String shown = Draw.fit(font, message.getString(), maxText);
 		int contentW = iconW + font.getWidth(shown);
-		// Z paskiem treść od lewej, jak przyciski paska bocznego w Shine.
-		int cx = this.stripe != 0 ? x + 8 : x + (w - contentW) / 2;
+		int cx = x + (w - contentW) / 2;
 		int cy = y + (ht - 8) / 2;
 		if (this.icon != null) {
 			Draw.icon(context, this.icon, cx, cy - 1, textColor);

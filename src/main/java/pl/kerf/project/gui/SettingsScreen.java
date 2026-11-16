@@ -181,7 +181,6 @@ public class SettingsScreen extends Screen {
 			.style(FlatButton.Style.SECONDARY)
 			.build()
 			.icon(Draw.Icon.LAYOUT)
-			.stripe(Theme.ACCENT)
 			.tip(this.client.player != null ? "Przesuwaj i skaluj elementy HUD-u" : "Dostępny w świecie"));
 		this.hudEditor.active = this.client.player != null;
 		this.menuKey = this.addDrawableChild(FlatButton.builder(this.menuKeyLabel(), button -> {
@@ -893,8 +892,6 @@ public class SettingsScreen extends Screen {
 			boolean active = row == activeRow;
 			int color = entry == null ? Theme.ACCENT : Theme.category(entry);
 			frameButton(context, x, y, w, h, active, hovered == row - 1 ? 1.0F : 0.0F);
-			// Kolorowy pasek z lewej, mocny przy aktywnej kategorii.
-			context.fill(x + 1, y + 3, x + 3, y + h - 3, Theme.alpha(color, active ? 0xFF : 0x70));
 			Draw.Icon icon = entry == null ? Draw.Icon.ALL : Draw.Icon.of(entry);
 			int textY = y + (h - 8) / 2;
 			Draw.icon(context, icon, x + 9, textY - 1, active ? color : Theme.mix(color, Theme.TEXT_3, 0.35F));
