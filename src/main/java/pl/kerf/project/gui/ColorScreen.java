@@ -59,7 +59,7 @@ public class ColorScreen extends Screen {
 	private int presetsY;
 
 	public ColorScreen(Screen parent, Setting.Color setting, Module module) {
-		super(Text.literal(setting.label));
+		super(Text.literal(Lang.t(setting.label)));
 		this.parent = parent;
 		this.setting = setting;
 		this.module = module;
@@ -136,7 +136,7 @@ public class ColorScreen extends Screen {
 		this.hexField.setMaxLength(9);
 		this.hexField.setText(this.hex());
 		this.hexField.setChangedListener(this::onHexTyped);
-		this.hexField.setTooltip(Tooltip.of(Text.literal("Kod koloru, np. #3060FF" + (this.setting.hasAlpha ? " albo #803060FF z kryciem" : ""))));
+		this.hexField.setTooltip(Tooltip.of(Text.literal(Lang.t("Kod koloru, np. #3060FF") + (this.setting.hasAlpha ? Lang.t(" albo #803060FF z kryciem") : ""))));
 		this.addDrawableChild(this.hexField);
 
 		this.presetsY = hexY + 24;
@@ -145,7 +145,7 @@ public class ColorScreen extends Screen {
 			int rgb = PRESETS[i];
 			this.addDrawableChild(FlatButton.builder(Text.empty(), button -> this.applyArgb(this.setting.get() & 0xFF000000 | rgb))
 				.dimensions(presetX + i * 20, this.presetsY, 18, 18)
-				.tooltip(Tooltip.of(Text.literal(PRESET_NAMES[i])))
+				.tooltip(Tooltip.of(Text.literal(Lang.t(PRESET_NAMES[i]))))
 				.build());
 		}
 

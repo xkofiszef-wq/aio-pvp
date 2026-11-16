@@ -88,7 +88,7 @@ public class AioPvp implements ClientModInitializer {
 					context.getSource().sendFeedback(Text.literal(expression + " = ").withColor(0xC2C6D0).append(Text.literal(result).withColor(0x8C8CF0)));
 					return 1;
 				} catch (IllegalArgumentException e) {
-					context.getSource().sendError(Text.literal("Kalkulator: " + e.getMessage()));
+					context.getSource().sendError(Text.literal(Lang.t("Kalkulator: ") + e.getMessage()));
 					return 0;
 				}
 			}))

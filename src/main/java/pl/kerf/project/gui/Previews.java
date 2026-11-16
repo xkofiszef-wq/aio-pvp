@@ -190,7 +190,7 @@ public final class Previews {
 			}
 
 			String label = module.players.on() ? labels[i] : "wyłączone";
-			context.drawCenteredTextWithShadow(client.textRenderer, label, c, y + h - 11, module.players.on() ? 0xFFD0D0D8 : 0xFF8A8A96);
+			context.drawCenteredTextWithShadow(client.textRenderer, Lang.t(label), c, y + h - 11, module.players.on() ? 0xFFD0D0D8 : 0xFF8A8A96);
 		}
 	}
 

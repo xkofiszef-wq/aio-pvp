@@ -1,5 +1,6 @@
 package pl.kerf.project.hud;
 
+import pl.kerf.project.Lang;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gl.RenderPipelines;
@@ -53,8 +54,8 @@ public final class MediaHud extends HudModule {
 		TextRenderer font = client.textRenderer;
 		MediaSession.State state = MediaSession.state();
 		boolean active = state.active();
-		String title = active ? state.title() : MediaSession.supported() ? "Nic nie gra" : "Tylko Windows";
-		String artist = active ? state.artist() : "Włącz Spotify lub muzykę w przeglądarce";
+		String title = active ? state.title() : Lang.t(MediaSession.supported() ? "Nic nie gra" : "Tylko Windows");
+		String artist = active ? state.artist() : Lang.t("Włącz Spotify lub muzykę w przeglądarce");
 		int w = this.width.i();
 		if (this.backgroundEnabled.on()) {
 			context.fill(0, 0, w, HEIGHT, this.background.argb());
