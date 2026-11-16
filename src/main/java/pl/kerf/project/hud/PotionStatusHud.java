@@ -22,7 +22,7 @@ public final class PotionStatusHud extends HudModule {
 		new StatusEffectInstance(StatusEffects.STRENGTH, 1800, 1), new StatusEffectInstance(StatusEffects.SPEED, 150, 1)
 	);
 
-	public final Setting.Mode style = this.add(new Setting.Mode("style", "Wygląd", 0, "Zwykły", "Vanilla GUI (ekwipunek)"));
+	public final Setting.Mode style = this.add(new Setting.Mode("style", "Wygląd", 0, "Zwykły", "Vanilla GUI", "Resourcepack GUI"));
 	public final Setting.Bool showName = this.add(new Setting.Bool("show_name", "Nazwa efektu", true));
 	public final Setting.Bool hideAmbient = this.add(new Setting.Bool("hide_ambient", "Pomiń efekty z beaconów", false));
 	public final Setting.Mode layout = this.add(new Setting.Mode("layout", "Układ", 0, "Pionowo", "Poziomo"));
@@ -73,7 +73,7 @@ public final class PotionStatusHud extends HudModule {
 	}
 
 	private boolean vanilla() {
-		return this.style.is(1);
+		return !this.style.is(0);
 	}
 
 	/** Odstęp między wierszami: panel vanilla ma 32 px, zwykły wiersz to ikona 18 px + odstęp. */
@@ -148,7 +148,7 @@ public final class PotionStatusHud extends HudModule {
 		// Warstwami (panele, ikony, napisy), nie wiersz po wierszu: mniej warstw GUI = mniej pracy przy każdym elemencie.
 		if (vanilla) {
 			for (int i = 0; i < this.rows.size(); i++) {
-				VanillaGui.effectPanel(context, this.cellX(i), this.cellY(i), panelW, 32, this.rows.get(i).isAmbient());
+				VanillaGui.effectPanel(context, this.cellX(i), this.cellY(i), panelW, 32, this.rows.get(i).isAmbient(), this.style.is(2));
 			}
 		}
 

@@ -24,7 +24,7 @@ public final class ArmorHud extends HudModule {
 	/** Ostrzeżenie o pękającej zbroi: assets/aio_pvp/sounds/tool_breaking.ogg (z Durability Viewer, MIT). */
 	private static final SoundEvent TOOL_BREAKING = SoundEvent.of(net.minecraft.util.Identifier.of("aio_pvp", "tool_breaking"));
 
-	public final Setting.Mode style = this.add(new Setting.Mode("style", "Wygląd", 1, "Zwykły", "Vanilla GUI (hotbar)"));
+	public final Setting.Mode style = this.add(new Setting.Mode("style", "Wygląd", 1, "Zwykły", "Vanilla GUI", "Resourcepack GUI"));
 	public final Setting.Mode layout = this.add(new Setting.Mode("layout", "Układ", 0, "Poziomo", "Pionowo"));
 	public final Setting.Mode info = this.add(new Setting.Mode("info", "Zużycie", 1, "Pasek", "Procent", "Punkty", "Brak"));
 	public final Setting.Bool colored = this.add(new Setting.Bool("colored", "Kolor liczb wg zużycia", false));
@@ -45,7 +45,7 @@ public final class ArmorHud extends HudModule {
 	}
 
 	private boolean vanilla() {
-		return this.style.is(1);
+		return !this.style.is(0);
 	}
 
 	private int pitch() {
@@ -104,7 +104,7 @@ public final class ArmorHud extends HudModule {
 		boolean horizontal = this.layout.is(LAYOUT_HORIZONTAL);
 		int pitch = this.pitch();
 		if (this.vanilla()) {
-			VanillaGui.slots(context, 0, 0, SLOTS.length, horizontal);
+			VanillaGui.slots(context, 0, 0, SLOTS.length, horizontal, this.style.is(2));
 		}
 
 		for (int i = 0; i < SLOTS.length; i++) {

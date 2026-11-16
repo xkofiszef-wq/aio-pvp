@@ -100,7 +100,7 @@ public abstract class HudModule extends Module {
 		this.boundsW = w * this.scale;
 		this.boundsH = h * this.scale;
 		this.boundsX = context.getScaledWindowWidth() * this.ax + this.ox - this.boundsW * this.px;
-		this.boundsY = context.getScaledWindowHeight() * this.ay + this.oy - this.boundsH * this.py;
+		this.boundsY = context.getScaledWindowHeight() * this.ay + this.oy - this.boundsH * this.py - this.lift();
 		// Przy małym oknie albo dużej skali GUI element (razem z ramką) nie może wyjechać poza ekran.
 		float m = this.margin() * this.scale;
 		this.boundsX = Math.max(m, Math.min(context.getScaledWindowWidth() - this.boundsW - m, this.boundsX));
@@ -126,6 +126,11 @@ public abstract class HudModule extends Module {
 		context.createNewRootLayer();
 	}
 
+	/** Elementy przyklejone do dołu ekranu jadą w górę razem z hotbarem (HUD Tweaker -> Podniesienie hotbara). */
+	private float lift() {
+		return this.ay >= 1.0F ? Modules.HUD_TWEAKER.hotbarLift() : 0.0F;
+	}
+
 	/**
 	 * Ustawia lewy górny róg. Kotwica to tercja ekranu, w której leży środek elementu; w środkowej tercji
 	 * pivot wskazuje stronę bliższą środka ekranu, żeby element obok hotbara rósł od niego na zewnątrz.
@@ -140,7 +145,7 @@ public abstract class HudModule extends Module {
 		this.px = this.ax != 0.5F ? this.ax : centerX < 0.47F ? 1.0F : centerX > 0.53F ? 0.0F : 0.5F;
 		this.py = this.ay;
 		this.ox = x + this.boundsW * this.px - screenW * this.ax;
-		this.oy = y + this.boundsH * this.py - screenH * this.ay;
+		this.oy = y + this.boundsH * this.py - screenH * this.ay + this.lift();
 		this.boundsX = x;
 		this.boundsY = y;
 	}

@@ -1,5 +1,6 @@
 package pl.kerf.project.gui.theme;
 
+import pl.kerf.project.Lang;
 import java.util.List;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
@@ -22,6 +23,7 @@ public final class Tip {
 	}
 
 	public static void offer(String text) {
+		text = Lang.t(text);
 		offered = text;
 	}
 

@@ -1,5 +1,7 @@
 package pl.kerf.project.module;
 
+import pl.kerf.project.Lang;
+
 import com.google.gson.JsonObject;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.ConfirmScreen;
@@ -15,19 +17,16 @@ import pl.kerf.project.gui.theme.Theme;
  * aż do ponownego uruchomienia gry. Stan włączenia nie jest zapisywany, więc każda sesja gry zaczyna się bez niego.
  */
 public class RiskyModule extends Module {
-	private final Text warningTitle;
-	private final Text warningMessage;
+	/** Co robi moduł (pierwsze zdanie okna ostrzeżenia); tekst okna składany przy otwarciu, w aktualnym języku. */
+	private final String what;
+	private static final String WARNING = " Na części serwerów takie mody są zabronione i możesz za niego dostać bana.\n\n"
+		+ "Po włączeniu NIE da się go wyłączyć aż do ponownego uruchomienia gry. Nie wchodź z nim na serwery, które tego zabraniają.";
 	/** Włączony przez okno ostrzeżenia: od tej chwili do końca sesji gry nie da się go wyłączyć. */
 	private boolean locked;
 
 	protected RiskyModule(String id, String name, String description, Category category, String what) {
 		super(id, name, description, category, false);
-		this.warningTitle = Text.literal(name + " może dać bana").formatted(Formatting.RED);
-		this.warningMessage = Text.literal(
-			what + " Na części serwerów takie mody są zabronione i możesz za niego dostać bana.\n\n"
-				+ "Po włączeniu NIE da się go wyłączyć aż do ponownego uruchomienia gry. Nie wchodź z nim na serwery, "
-				+ "które tego zabraniają."
-		);
+		this.what = what;
 	}
 
 	public boolean locked() {
@@ -50,7 +49,7 @@ public class RiskyModule extends Module {
 			}
 
 			client.setScreen(parent);
-		}, this.warningTitle, this.warningMessage, Text.literal("Włącz do końca sesji").formatted(Formatting.RED), Text.literal("Anuluj")));
+		}, Text.literal(this.name + Lang.t(" może dać bana")).formatted(Formatting.RED), Text.literal(Lang.t(this.what) + Lang.t(WARNING)), Text.literal(Lang.t("Włącz do końca sesji")).formatted(Formatting.RED), Text.literal(Lang.t("Anuluj"))));
 	}
 
 	private void enableForSession() {

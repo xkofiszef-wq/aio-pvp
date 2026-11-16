@@ -1,5 +1,7 @@
 package pl.kerf.project.gui;
 
+import pl.kerf.project.Lang;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -9,11 +11,13 @@ import java.util.function.BooleanSupplier;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.screen.ConfirmScreen;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.client.input.KeyInput;
 import net.minecraft.text.OrderedText;
 import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 import org.lwjgl.glfw.GLFW;
 import pl.kerf.project.config.ConfigManager;
 import pl.kerf.project.config.Setting;
@@ -53,8 +57,6 @@ public class SettingsScreen extends Screen {
 	private final Anim dropdownAnim = new Anim(0.0F, 20.0F);
 	private double cardScrollTarget;
 	private double panelScrollTarget;
-	private boolean confirmReset;
-	private long confirmResetAt;
 	/** Funkcja pokazywana w prawym panelu, gdy kursor nie stoi nad żadnym kafelkiem. */
 	private Module hoveredCard;
 
@@ -75,7 +77,6 @@ public class SettingsScreen extends Screen {
 	private FlatButton menuKey;
 	/** Czeka na klawisz otwierający to menu (przycisk nad "Resetuj"). */
 	private boolean capturingMenuKey;
-	private FlatButton reset;
 
 	/** Cały obszar trzech paneli (wy/wh służą też jako granice list rozwijanych). */
 	private int wx;
@@ -89,6 +90,8 @@ public class SettingsScreen extends Screen {
 	private int rightW;
 	/** Układ z GUI Theme, z którym zbudowano ekran (zmiana w ustawieniach przebudowuje go od razu). */
 	private int layout;
+	/** Język, w którym zbudowano przyciski (zmiana języka przebudowuje ekran). */
+	private boolean english;
 	/** Pływający układ: wyszukiwarka to osobna pigułka nad panelami, moduły i podgląd są w jednym panelu. */
 	private boolean floating;
 	private int sideX;
@@ -99,7 +102,7 @@ public class SettingsScreen extends Screen {
 	private int panelR;
 
 	public SettingsScreen(Screen parent) {
-		super(Text.literal("AIO PvP"));
+		super(Text.literal(Lang.t("AIO PvP")));
 		this.parent = parent;
 	}
 
@@ -136,6 +139,7 @@ public class SettingsScreen extends Screen {
 		this.sideW = this.ww >= 560 ? 140 : 110;
 		this.rightW = this.ww >= 400 ? Math.max(100, Math.min(190, this.ww * 24 / 100)) : 0;
 		this.layout = layoutSetting();
+		this.english = Lang.english();
 		this.floating = this.layout > 0;
 		this.panelR = this.floating ? 12 : Ui.PANEL_R;
 		this.sideY = this.wy;
@@ -154,10 +158,10 @@ public class SettingsScreen extends Screen {
 		this.rightX = this.contentX + this.contentW + GAP;
 
 		this.search = this.floating
-			? new TextFieldWidget(this.textRenderer, this.contentX + 14, this.searchY + 6, this.mainW() - 28, 12, Text.literal("Szukaj"))
-			: new TextFieldWidget(this.textRenderer, this.contentX + 15, this.wy + 46, this.contentW - 30, 12, Text.literal("Szukaj"));
+			? new TextFieldWidget(this.textRenderer, this.contentX + 14, this.searchY + 6, this.mainW() - 28, 12, Text.literal(Lang.t("Szukaj")))
+			: new TextFieldWidget(this.textRenderer, this.contentX + 15, this.wy + 46, this.contentW - 30, 12, Text.literal(Lang.t("Szukaj")));
 		this.search.setDrawsBackground(false);
-		this.search.setPlaceholder(Text.literal("Szukaj funkcji…").withColor(Theme.TEXT_4 & 0xFFFFFF));
+		this.search.setPlaceholder(Text.literal(Lang.t("Szukaj funkcji…")).withColor(Theme.TEXT_4 & 0xFFFFFF));
 		this.search.setText(query);
 		this.search.setChangedListener(text -> {
 			query = text;
@@ -167,7 +171,7 @@ public class SettingsScreen extends Screen {
 		this.addDrawableChild(this.search);
 
 		int bw = this.sideW - 12;
-		this.hudEditor = this.addDrawableChild(FlatButton.builder(Text.literal("Edytor HUD"), button -> this.client.setScreen(new HudEditorScreen(this)))
+		this.hudEditor = this.addDrawableChild(FlatButton.builder(Text.literal(Lang.t("Edytor HUD")), button -> this.client.setScreen(new HudEditorScreen(this)))
 			.dimensions(this.sideX + 6, this.sideY + 38, bw, 20)
 			.style(FlatButton.Style.SECONDARY)
 			.build()
@@ -182,16 +186,16 @@ public class SettingsScreen extends Screen {
 			.dimensions(this.sideX + 6, this.sideY + this.sideH - 50, bw, 20)
 			.style(FlatButton.Style.SECONDARY)
 			.build()
-			.icon(Draw.Icon.GEAR)
 			.tip("Klawisz otwierający to menu (ten sam co w Opcje -> Sterowanie). Kliknij i naciśnij klawisz albo boczny/środkowy przycisk myszy, Backspace usuwa."));
-		this.reset =this.addDrawableChild(FlatButton.builder(Text.literal("Resetuj"), button -> this.resetAll())
+		// Ustawienia samego moda (motyw, układ, język, reset wszystkiego) otwierają się jak panel modułu.
+		this.addDrawableChild(FlatButton.builder(Text.literal(Lang.t("Ustawienia")), button -> this.buildPanel(Modules.GUI_THEME))
 			.dimensions(this.sideX + 6, this.sideY + this.sideH - 26, bw, 20)
 			.style(FlatButton.Style.SECONDARY)
 			.build()
-			.stripe(Theme.DANGER)
-			.tip("Przywraca domyślne ustawienia wszystkich funkcji i pozycje HUD-u"));
+			.icon(Draw.Icon.GEAR)
+			.tip("Motyw, układ i język menu oraz reset wszystkich ustawień."));
 
-		this.defaultsButton = this.addDrawableChild(FlatButton.builder(Text.literal("Przywróć domyślne"), button -> {
+		this.defaultsButton = this.addDrawableChild(FlatButton.builder(Text.literal(Lang.t("Przywróć domyślne")), button -> {
 			if (this.panelModule != null) {
 				this.panelModule.reset();
 				Notifications.push(this.panelModule.name, "Przywrócono domyślne ustawienia", Theme.ACCENT);
@@ -210,7 +214,8 @@ public class SettingsScreen extends Screen {
 		this.visible.clear();
 		String q = query.trim().toLowerCase(Locale.ROOT);
 		for (Module module : Modules.ALL) {
-			boolean match = q.isEmpty() ? category == null || module.category == category : matches(module, q);
+			// Settings (motyw, język, reset) ma własny przycisk w pasku bocznym, nie kartę.
+			boolean match = module != Modules.GUI_THEME && (q.isEmpty() ? category == null || module.category == category : matches(module, q));
 			if (match) {
 				this.visible.add(module);
 			}
@@ -219,12 +224,12 @@ public class SettingsScreen extends Screen {
 
 	/** Wyszukiwanie po nazwie, opisie i nazwach ustawień (np. "kolor" znajdzie wszystko z kolorem). */
 	private static boolean matches(Module module, String q) {
-		if (module.name.toLowerCase(Locale.ROOT).contains(q) || module.description.toLowerCase(Locale.ROOT).contains(q)) {
+		if (module.name.toLowerCase(Locale.ROOT).contains(q) || Lang.t(module.description).toLowerCase(Locale.ROOT).contains(q)) {
 			return true;
 		}
 
 		for (Setting<?> setting : module.settings) {
-			if (!setting.hidden && setting.label.toLowerCase(Locale.ROOT).contains(q)) {
+			if (!setting.hidden && Lang.t(setting.label).toLowerCase(Locale.ROOT).contains(q)) {
 				return true;
 			}
 		}
@@ -233,26 +238,22 @@ public class SettingsScreen extends Screen {
 	}
 
 	private Text menuKeyLabel() {
-		return this.capturingMenuKey ? Text.literal("Naciśnij…").withColor(Theme.ACCENT & 0xFFFFFF) : Text.literal("Menu: " + ModuleKeys.menuKeyName());
+		return this.capturingMenuKey ? Text.literal(Lang.t("Naciśnij…")).withColor(Theme.ACCENT & 0xFFFFFF) : Text.literal("Menu: " + ModuleKeys.menuKeyName());
 	}
 
+	/** Reset wszystkiego (z panelu Settings) dopiero po potwierdzeniu w osobnym oknie. */
 	private void resetAll() {
-		long now = System.currentTimeMillis();
-		if (!this.confirmReset || now - this.confirmResetAt > 3000L) {
-			this.confirmReset = true;
-			this.confirmResetAt = now;
-			this.reset.setMessage(Text.literal("Na pewno?").withColor(Theme.DANGER & 0xFFFFFF));
-			return;
-		}
+		this.client.setScreen(new ConfirmScreen(confirmed -> {
+			if (confirmed) {
+				Modules.ALL.forEach(Module::reset);
+				ConfigManager.save();
+				Notifications.push("Ustawienia zresetowane", "Wszystkie funkcje mają wartości domyślne", Theme.WARNING);
+			}
 
-		Modules.ALL.forEach(Module::reset);
-		ConfigManager.save();
-		this.confirmReset = false;
-		this.reset.setMessage(Text.literal("Resetuj"));
-		Notifications.push("Ustawienia zresetowane", "Wszystkie funkcje mają wartości domyślne", Theme.WARNING);
-		if (this.panelModule != null) {
-			this.buildPanel(this.panelModule);
-		}
+			this.client.setScreen(this);
+		}, Text.literal(Lang.t("Zresetować wszystkie ustawienia?")),
+			Text.literal(Lang.t("Wszystkie funkcje wrócą do ustawień domyślnych, a elementy HUD na swoje miejsca.")),
+			Text.literal(Lang.t("Tak, resetuj")).formatted(Formatting.RED), Text.literal(Lang.t("Anuluj"))));
 	}
 
 	// --- geometria kafelków ---
@@ -407,8 +408,12 @@ public class SettingsScreen extends Screen {
 		this.panelScrollTarget = 0.0;
 		this.panelScroll.set(0.0F);
 
-		this.controls.add(new ToggleControl(Text.literal("Włączona"), module::on, module::toggle));
-		this.controls.add(new KeybindControl(module));
+		// Settings nie da się wyłączyć ani przypisać mu skrótu: to ustawienia samego menu.
+		if (module != Modules.GUI_THEME) {
+			this.controls.add(new ToggleControl(Text.literal(Lang.t("Włączona")), module::on, module::toggle));
+			this.controls.add(new KeybindControl(module));
+		}
+
 		if (module == Modules.CROSSHAIR) {
 			this.controls.add(new ActionControl("Rysuj celownik: bez celu i na celu", () -> this.client.setScreen(new CrosshairEditorScreen(this))));
 		}
@@ -466,6 +471,10 @@ public class SettingsScreen extends Screen {
 			this.controls.add(new NoteControl("Ta funkcja nie ma dodatkowych ustawień."));
 		}
 
+		if (module == Modules.GUI_THEME) {
+			this.controls.add(new ActionControl("Resetuj wszystkie ustawienia", this::resetAll));
+		}
+
 		int y = 0;
 		for (Control control : this.controls) {
 			control.y = y;
@@ -493,12 +502,12 @@ public class SettingsScreen extends Screen {
 	/** Etykieta ustawienia; dla osi X/Y/Z ostatnia litera w kolorze osi. */
 	private static Text label(Setting<?> setting) {
 		if (setting instanceof Setting.Num num && num.axis != 0 && !num.label.isEmpty()) {
-			String prefix = num.label.substring(0, num.label.length() - 1);
+			String prefix = Lang.t(num.label.substring(0, num.label.length() - 1));
 			String letter = num.label.substring(num.label.length() - 1);
 			return Text.literal(prefix).append(Text.literal(letter).withColor(Modules.COORDINATES.axisColor(num.axis) & 0xFFFFFF));
 		}
 
-		return Text.literal(setting.label);
+		return Text.literal(Lang.t(setting.label));
 	}
 
 	// --- wejście ---
@@ -524,7 +533,7 @@ public class SettingsScreen extends Screen {
 			if (mouseCode >= 0) {
 				this.capturing.module.key = mouseCode;
 				ConfigManager.save();
-				Notifications.push(this.capturing.module.name, "Skrót: " + ModuleKeys.name(mouseCode), Theme.ACCENT);
+				Notifications.push(this.capturing.module.name, Lang.t("Skrót: ") + ModuleKeys.name(mouseCode), Theme.ACCENT);
 			}
 
 			this.capturing = null;
@@ -535,7 +544,7 @@ public class SettingsScreen extends Screen {
 			this.capturingMenuKey = false;
 			if (mouseCode >= 0) {
 				ModuleKeys.setMenuKey(mouseCode);
-				Notifications.push("Menu AIO PvP", "Klawisz: " + ModuleKeys.menuKeyName(), Theme.ACCENT);
+				Notifications.push("Menu AIO PvP", Lang.t("Klawisz: ") + ModuleKeys.menuKeyName(), Theme.ACCENT);
 			}
 
 			this.menuKey.setMessage(this.menuKeyLabel());
@@ -666,7 +675,7 @@ public class SettingsScreen extends Screen {
 				module.key = clear ? -1 : input.key();
 				this.capturing = null;
 				ConfigManager.save();
-				Notifications.push(module.name, clear ? "Skrót usunięty" : "Skrót: " + ModuleKeys.name(module.key), Theme.ACCENT);
+				Notifications.push(module.name, clear ? "Skrót usunięty" : Lang.t("Skrót: ") + ModuleKeys.name(module.key), Theme.ACCENT);
 			}
 
 			return true;
@@ -689,7 +698,7 @@ public class SettingsScreen extends Screen {
 			if (input.key() != GLFW.GLFW_KEY_ESCAPE) {
 				boolean clear = input.key() == GLFW.GLFW_KEY_BACKSPACE || input.key() == GLFW.GLFW_KEY_DELETE;
 				ModuleKeys.setMenuKey(clear ? -1 : input.key());
-				Notifications.push("Menu AIO PvP", clear ? "Klawisz usunięty (zostaje Mod Menu)" : "Klawisz: " + ModuleKeys.menuKeyName(), Theme.ACCENT);
+				Notifications.push("Menu AIO PvP", clear ? "Klawisz usunięty (zostaje Mod Menu)" : Lang.t("Klawisz: ") + ModuleKeys.menuKeyName(), Theme.ACCENT);
 			}
 
 			this.menuKey.setMessage(this.menuKeyLabel());
@@ -727,7 +736,7 @@ public class SettingsScreen extends Screen {
 
 	/** Układ menu z GUI Theme (wyłączony moduł = klasyczny). */
 	private static int layoutSetting() {
-		return Modules.GUI_THEME.on() ? Modules.GUI_THEME.layout.get() : 0;
+		return Modules.GUI_THEME.layout.get();
 	}
 
 	/** Szerokość głównego panelu w pływającym układzie: moduły plus podgląd. */
@@ -748,12 +757,8 @@ public class SettingsScreen extends Screen {
 		this.cardScroll.to((float) this.cardScrollTarget);
 		this.panelScroll.to((float) this.panelScrollTarget);
 		this.panel.to(this.panelOpen());
-		if (this.confirmReset && System.currentTimeMillis() - this.confirmResetAt > 3000L) {
-			this.confirmReset = false;
-			this.reset.setMessage(Text.literal("Resetuj"));
-		}
 
-		if (layoutSetting() != this.layout) {
+		if (layoutSetting() != this.layout || Lang.english() != this.english) {
 			this.clearAndInit();
 		}
 
@@ -803,7 +808,7 @@ public class SettingsScreen extends Screen {
 		// Nagłówek jak "Active preset" w Shine: co to jest i ile jest włączone.
 		long enabled = Modules.ALL.stream().filter(Module::on).count();
 		Draw.text(context, font, Draw.fit(font, "Aktywne funkcje", w - 2), x + 2, this.sideY + 9, Theme.TEXT_2);
-		Draw.text(context, font, enabled + " z " + Modules.ALL.size(), x + 2, this.sideY + 21, Theme.TEXT);
+		Draw.text(context, font, enabled + Lang.t(" z ") + Modules.ALL.size(), x + 2, this.sideY + 21, Theme.TEXT);
 
 		Module.Category[] categories = Module.Category.values();
 		boolean searching = !query.isBlank();
@@ -822,7 +827,7 @@ public class SettingsScreen extends Screen {
 			Draw.Icon icon = entry == null ? Draw.Icon.ALL : Draw.Icon.of(entry);
 			int textY = y + (h - 8) / 2;
 			Draw.icon(context, icon, x + 9, textY - 1, active ? color : Theme.mix(color, Theme.TEXT_3, 0.35F));
-			String name = entry == null ? "Wszystkie" : entry.label;
+			String name = entry == null ? Lang.t("Wszystkie") : entry.label;
 			// "› " tylko gdy się mieści; przy wąskim pasku aktywność widać po tle, ramce i pasku.
 			String label = active && font.getWidth("› " + name) <= w - 28 ? "› " + name : name;
 			Draw.text(context, font, Draw.fit(font, label, w - 28), x + 23, textY, active ? Theme.TEXT : Theme.TEXT_2);
@@ -834,7 +839,7 @@ public class SettingsScreen extends Screen {
 		int hx = this.contentX + 9;
 		String heading = !query.isBlank() ? "Wyniki wyszukiwania" : category == null ? "Wszystkie funkcje" : category.label;
 		Draw.text(context, font, heading, hx, this.wy + 9, Theme.TEXT);
-		String hint = !query.isBlank() ? this.visible.size() + " pasujących funkcji" : categoryHint(category);
+		String hint = !query.isBlank() ? this.visible.size() + Lang.t(" pasujących funkcji") : categoryHint(category);
 		Draw.text(context, font, Draw.fit(font, hint, this.contentW - 40), hx, this.wy + 21, Theme.TEXT_3);
 
 		// Zamknięcie.
@@ -857,7 +862,7 @@ public class SettingsScreen extends Screen {
 		}
 
 		if (this.visible.isEmpty()) {
-			String empty = "Nic nie pasuje do \"" + query.trim() + "\"";
+			String empty = Lang.t("Nic nie pasuje do \"") + query.trim() + "\"";
 			context.drawCenteredTextWithShadow(font, Draw.fit(font, empty, this.contentW - 20), this.contentX + this.contentW / 2, this.cardsTop() + 24, Theme.TEXT_3);
 			return;
 		}
@@ -1110,8 +1115,8 @@ public class SettingsScreen extends Screen {
 
 		@Override
 		void render(DrawContext context, int x, int y, int w, boolean hover, int mouseX, int mouseY) {
-			Draw.text(context, SettingsScreen.this.textRenderer, this.title.toUpperCase(Locale.ROOT), x + 6, y + 6, Theme.TEXT_4);
-			context.fill(x + 12 + SettingsScreen.this.textRenderer.getWidth(this.title.toUpperCase(Locale.ROOT)), y + 12, x + w - 6, y + 13, Theme.DIVIDER);
+			Draw.text(context, SettingsScreen.this.textRenderer, Lang.t(this.title).toUpperCase(Locale.ROOT), x + 6, y + 6, Theme.TEXT_4);
+			context.fill(x + 12 + SettingsScreen.this.textRenderer.getWidth(Lang.t(this.title).toUpperCase(Locale.ROOT)), y + 12, x + w - 6, y + 13, Theme.DIVIDER);
 		}
 	}
 
@@ -1169,7 +1174,7 @@ public class SettingsScreen extends Screen {
 
 		@Override
 		void render(DrawContext context, int x, int y, int w, boolean hover, int mouseX, int mouseY) {
-			this.row(context, x, y, w, hover, Text.literal("Skrót klawiszowy"));
+			this.row(context, x, y, w, hover, Text.literal(Lang.t("Skrót klawiszowy")));
 			int cw = this.controlW(w);
 			int bx = x + w - cw - 4;
 			boolean capturing = SettingsScreen.this.capturing == this;
@@ -1426,12 +1431,12 @@ public class SettingsScreen extends Screen {
 
 		BindControl(Modules.CommandKeys.Bind bind) {
 			this.bind = bind;
-			this.field = new TextFieldWidget(SettingsScreen.this.textRenderer, 0, 0, 100, 12, Text.literal("Komenda"));
+			this.field = new TextFieldWidget(SettingsScreen.this.textRenderer, 0, 0, 100, 12, Text.literal(Lang.t("Komenda")));
 			this.field.setDrawsBackground(false);
 			this.field.setMaxLength(Modules.CommandKeys.MAX_LENGTH);
 			this.field.setText(bind.command);
 			this.field.setCursorToStart(false);
-			this.field.setPlaceholder(Text.literal("/spawn").withColor(Theme.TEXT_4 & 0xFFFFFF));
+			this.field.setPlaceholder(Text.literal(Lang.t("/spawn")).withColor(Theme.TEXT_4 & 0xFFFFFF));
 			this.field.setChangedListener(text -> bind.command = text);
 		}
 

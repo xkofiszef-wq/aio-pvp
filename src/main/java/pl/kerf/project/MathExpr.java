@@ -21,16 +21,16 @@ public final class MathExpr {
 	public static double eval(String expression) {
 		MathExpr parser = new MathExpr(expression);
 		if (parser.text.isEmpty()) {
-			throw new IllegalArgumentException("Puste wyrażenie");
+			throw new IllegalArgumentException(Lang.t("Puste wyrażenie"));
 		}
 
 		double value = parser.sum();
 		if (parser.pos < parser.text.length()) {
-			throw new IllegalArgumentException("Nie rozumiem znaku '" + parser.text.charAt(parser.pos) + "'");
+			throw new IllegalArgumentException(Lang.t("Nie rozumiem znaku '") + parser.text.charAt(parser.pos) + "'");
 		}
 
 		if (Double.isNaN(value) || Double.isInfinite(value)) {
-			throw new IllegalArgumentException("Wynik nie jest liczbą (np. dzielenie przez 0)");
+			throw new IllegalArgumentException(Lang.t("Wynik nie jest liczbą (np. dzielenie przez 0)"));
 		}
 
 		return value;
@@ -99,7 +99,7 @@ public final class MathExpr {
 		if (this.eat('(')) {
 			double value = this.sum();
 			if (!this.eat(')')) {
-				throw new IllegalArgumentException("Brakuje nawiasu ')'");
+				throw new IllegalArgumentException(Lang.t("Brakuje nawiasu ')'"));
 			}
 
 			return value;
@@ -122,13 +122,13 @@ public final class MathExpr {
 
 		if (start == this.pos) {
 			throw new IllegalArgumentException(this.pos < this.text.length()
-				? "Nie rozumiem znaku '" + this.text.charAt(this.pos) + "'" : "Wyrażenie urywa się na końcu");
+				? Lang.t("Nie rozumiem znaku '") + this.text.charAt(this.pos) + "'" : Lang.t("Wyrażenie urywa się na końcu"));
 		}
 
 		try {
 			return Double.parseDouble(this.text.substring(start, this.pos));
 		} catch (NumberFormatException e) {
-			throw new IllegalArgumentException("Zła liczba: " + this.text.substring(start, this.pos));
+			throw new IllegalArgumentException(Lang.t("Zła liczba: ") + this.text.substring(start, this.pos));
 		}
 	}
 }

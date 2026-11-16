@@ -1,5 +1,7 @@
 package pl.kerf.project.gui;
 
+import pl.kerf.project.Lang;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -50,7 +52,7 @@ public final class FightReportScreen extends Screen {
 	private int historyScroll;
 
 	public FightReportScreen(Screen parent, FightTracker.Report report) {
-		super(Text.literal("Fight Report"));
+		super(Text.literal(Lang.t("Fight Report")));
 		this.parent = parent;
 		this.history = new ArrayList<>(FightTracker.history());
 		this.show(report);
@@ -62,13 +64,13 @@ public final class FightReportScreen extends Screen {
 		this.rows.clear();
 		int attempts = report.attempts();
 		this.rows.add(new Row("Twoje hity, które weszły", p -> attempts == 0 ? "0"
-			: Math.round(report.landed() * p) + " z " + attempts + " (" + Math.round(100.0 * report.landed() / attempts * p) + "%)", false, null));
+			: Math.round(report.landed() * p) + Lang.t(" z ") + attempts + " (" + Math.round(100.0 * report.landed() / attempts * p) + "%)", false, null));
 		this.rows.add(new Row("Zadane obrażenia", p -> hearts(report.damage() * p), true,
-			p -> report.landed() == 0 ? null : "średnio " + hearts(report.damagePerHit() * p) + " na hit"));
+			p -> report.landed() == 0 ? null : Lang.t("średnio ") + hearts(report.damagePerHit() * p) + Lang.t(" na hit")));
 		this.rows.add(new Row("Najdłuższe combo", p -> String.valueOf(Math.round(report.bestCombo() * p)), false, null));
-		this.rows.add(new Row("Średni dystans hitu", p -> report.landed() == 0 ? "brak" : String.format(Locale.ROOT, "%.2f m", report.averageDistance() * p), false, null));
+		this.rows.add(new Row("Średni dystans hitu", p -> report.landed() == 0 ? Lang.t("brak") : String.format(Locale.ROOT, "%.2f m", report.averageDistance() * p), false, null));
 		this.rows.add(new Row("Totemy przeciwnika", p -> String.valueOf(Math.round(report.totems() * p)), false, null));
-		this.rows.add(new Row("Zużycie twojej zbroi", p -> Math.round(report.armorLost() * p) + " pkt", false, null));
+		this.rows.add(new Row("Zużycie twojej zbroi", p -> Math.round(report.armorLost() * p) + Lang.t(" pkt"), false, null));
 	}
 
 	/** Punkty zdrowia jako serca: 17 -> "8.5". */
@@ -208,7 +210,7 @@ public final class FightReportScreen extends Screen {
 		this.bigText(context, dealt, barX, y + 60, Theme.SUCCESS, duel);
 		this.text(context, "zadane", barX + font.getWidth(dealt) * 2 + 4, y + 68, Theme.TEXT_3, duel);
 		this.bigText(context, taken, barX + barW - takenW, y + 60, Theme.DANGER, duel);
-		this.text(context, "przyjęte", barX + barW - takenW - 4 - font.getWidth("przyjęte"), y + 68, Theme.TEXT_3, duel);
+		this.text(context, "przyjęte", barX + barW - takenW - 4 - font.getWidth(Lang.t("przyjęte")), y + 68, Theme.TEXT_3, duel);
 
 		// Pasek udziału: zielony rośnie od lewej, czerwony od prawej, spotykają się w proporcji ciosów.
 		int total = this.report.landed() + this.report.taken();

@@ -1,5 +1,6 @@
 package pl.kerf.project.gui;
 
+import pl.kerf.project.Lang;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -140,7 +141,7 @@ public final class ModuleKeys {
 
 	/** Nazwa klawisza menu, jak w Sterowaniu ("Brak", gdy nieprzypisany). */
 	public static String menuKeyName() {
-		return openMenu.isUnbound() ? "Brak" : openMenu.getBoundKeyLocalizedText().getString();
+		return openMenu.isUnbound() ? Lang.t("Brak") : openMenu.getBoundKeyLocalizedText().getString();
 	}
 
 	/** Ustawia klawisz menu (-1 = brak, kod >= MOUSE = przycisk myszy) i zapisuje options.txt, jak zrobiłoby to Sterowanie. */
@@ -153,7 +154,7 @@ public final class ModuleKeys {
 	/** Nazwa klawisza do wyświetlenia ("Brak", gdy nieprzypisany). */
 	public static String name(int key) {
 		if (key < 0) {
-			return "Brak";
+			return Lang.t("Brak");
 		}
 
 		Text text = key(key).getLocalizedText();

@@ -19,7 +19,7 @@ public final class ItemPreviewHud extends HudModule {
 		"items", "Śledzone przedmioty (po przecinku, w kolejności)",
 		"totem_of_undying, golden_apple, enchanted_golden_apple, ender_pearl, experience_bottle, splash_potion, cobweb, end_crystal, obsidian"
 	));
-	public final Setting.Mode style = this.add(new Setting.Mode("style", "Wygląd", 1, "Zwykły", "Vanilla GUI (hotbar)"));
+	public final Setting.Mode style = this.add(new Setting.Mode("style", "Wygląd", 1, "Zwykły", "Vanilla GUI", "Resourcepack GUI"));
 	public final Setting.Mode layout = this.add(new Setting.Mode("layout", "Układ", 0, "Poziomo", "Pionowo"));
 	public final Setting.Bool hideZero = this.add(new Setting.Bool("hide_zero", "Ukryj brakujące", true));
 
@@ -82,7 +82,7 @@ public final class ItemPreviewHud extends HudModule {
 	}
 
 	private boolean vanilla() {
-		return this.style.is(1);
+		return !this.style.is(0);
 	}
 
 	private int pitch() {
@@ -113,7 +113,7 @@ public final class ItemPreviewHud extends HudModule {
 	protected void draw(DrawContext context, MinecraftClient client, RenderTickCounter tickCounter, boolean editing) {
 		boolean horizontal = this.layout.is(0);
 		if (this.vanilla()) {
-			VanillaGui.slots(context, 0, 0, this.visible.size(), horizontal);
+			VanillaGui.slots(context, 0, 0, this.visible.size(), horizontal, this.style.is(2));
 		}
 
 		for (int i = 0; i < this.visible.size(); i++) {

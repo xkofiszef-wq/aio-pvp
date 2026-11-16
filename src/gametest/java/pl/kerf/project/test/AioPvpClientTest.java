@@ -212,6 +212,17 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			});
 			context.waitTick();
 			context.takeScreenshot("06h_hud_layouts");
+			// Hotbar 2 px wyżej; Armor HUD i Item Preview (przyklejone do dołu) jadą razem z nim.
+			context.runOnClient(client -> {
+				Modules.HUD_TWEAKER.setEnabled(true);
+				Modules.HUD_TWEAKER.lift.set(2.0);
+			});
+			context.waitTick();
+			context.takeScreenshot("06i_hotbar_lift");
+			context.runOnClient(client -> {
+				Modules.HUD_TWEAKER.lift.set(0.0);
+				Modules.HUD_TWEAKER.setEnabled(false);
+			});
 			context.runOnClient(client -> {
 				Modules.COORDINATES.layout.set(0);
 				Modules.POTION_STATUS.layout.set(0);
@@ -238,6 +249,14 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			});
 			context.waitTick();
 			context.takeScreenshot("06b_style_swap");
+			// Trzeci styl: Resourcepack GUI (tekstury z atlasu, czyli z texture packa); bez packa wygląda jak oryginał.
+			context.runOnClient(client -> {
+				Modules.ARMOR_HUD.style.set(2);
+				Modules.ITEM_PREVIEW.style.set(2);
+				Modules.POTION_STATUS.style.set(2);
+			});
+			context.waitTick();
+			context.takeScreenshot("06c_style_resourcepack");
 			context.runOnClient(client -> {
 				Modules.ARMOR_HUD.style.set(1);
 				Modules.ITEM_PREVIEW.style.set(1);
@@ -331,7 +350,7 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			String lag = context.computeOnClient(client -> pl.kerf.project.hud.LagDetectorHud.gapSeconds() < 1.5
 				? Modules.LAG_DETECTOR.message(0.4) + " | " + (Modules.LAG_DETECTOR.message(3.2) == null ? null : Modules.LAG_DETECTOR.message(3.2).getString())
 				: "cisza " + pl.kerf.project.hud.LagDetectorHud.gapSeconds());
-			if (!"null | Serwer nie odpowiada: 3.2 s".equals(lag)) {
+			if (!"null | Server not responding: 3.2 s".equals(lag)) {
 				throw new AssertionError("Lag Detector: " + lag);
 			}
 
@@ -604,7 +623,7 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			double[] confirm = context.computeOnClient(client -> {
 				double scale = client.getWindow().getScaleFactor();
 				for (net.minecraft.client.gui.Element element : client.currentScreen.children()) {
-					if (element instanceof net.minecraft.client.gui.widget.ClickableWidget widget && widget.getMessage().getString().startsWith("Włącz do końca")) {
+					if (element instanceof net.minecraft.client.gui.widget.ClickableWidget widget && widget.getMessage().getString().startsWith("Enable for this session")) {
 						return new double[] {(widget.getX() + widget.getWidth() / 2.0) * scale, (widget.getY() + widget.getHeight() / 2.0) * scale};
 					}
 				}
@@ -710,6 +729,47 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			context.waitTicks(10);
 			context.takeScreenshot("23d_layout_2_module");
 			context.runOnClient(client -> Modules.GUI_THEME.layout.set(0));
+
+			// Język: każdy opis, etykieta i opcja ustawień ma tłumaczenie (oprócz nazw, które już są po angielsku).
+			java.util.Set<String> sameInEnglish = java.util.Set.of("English", "Polski", "Ocean");
+			java.util.List<String> missing = new java.util.ArrayList<>();
+			for (pl.kerf.project.module.Module module : Modules.ALL) {
+				java.util.List<String> texts = new java.util.ArrayList<>(java.util.List.of(module.description));
+				for (pl.kerf.project.config.Setting<?> setting : module.settings) {
+					if (setting.hidden) {
+						continue;
+					}
+
+					boolean axis = setting instanceof pl.kerf.project.config.Setting.Num num && num.axis != 0;
+					if (!axis) {
+						texts.add(setting.label);
+					}
+
+					if (setting instanceof pl.kerf.project.config.Setting.Mode mode) {
+						texts.addAll(java.util.List.of(mode.options));
+					}
+				}
+
+				for (String text : texts) {
+					if (!pl.kerf.project.Lang.has(text) && !sameInEnglish.contains(text)) {
+						missing.add(module.id + ": " + text);
+					}
+				}
+			}
+
+			if (!missing.isEmpty()) {
+				throw new AssertionError("Brak tłumaczeń: " + missing);
+			}
+
+			// Panel Settings po angielsku (domyślnie) i całe menu po polsku po zmianie języka.
+			context.runOnClient(client -> SettingsScreen.select(Modules.GUI_THEME));
+			context.setScreen(() -> new SettingsScreen(null));
+			context.waitTicks(10);
+			context.takeScreenshot("23e_settings_panel_en");
+			context.runOnClient(client -> Modules.GUI_THEME.language.set(1));
+			context.waitTicks(3);
+			context.takeScreenshot("23f_settings_panel_pl");
+			context.runOnClient(client -> Modules.GUI_THEME.language.set(0));
 			context.runOnClient(client -> {
 				Modules.GUI_THEME.theme.set(2);
 				Modules.GUI_THEME.customAccent.set(true);

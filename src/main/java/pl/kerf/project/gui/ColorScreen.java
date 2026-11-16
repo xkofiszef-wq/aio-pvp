@@ -1,5 +1,7 @@
 package pl.kerf.project.gui;
 
+import pl.kerf.project.Lang;
+
 import pl.kerf.project.gui.theme.Theme;
 import java.util.Locale;
 import net.minecraft.client.gui.Click;
@@ -130,7 +132,7 @@ public class ColorScreen extends Screen {
 		this.alphaX = this.hueX + BAR_W + 6;
 
 		int hexY = this.svY + this.svSize + 6;
-		this.hexField = new TextFieldWidget(this.textRenderer, inner + 26, hexY, content - 26, 18, Text.literal("Hex"));
+		this.hexField = new TextFieldWidget(this.textRenderer, inner + 26, hexY, content - 26, 18, Text.literal(Lang.t("Hex")));
 		this.hexField.setMaxLength(9);
 		this.hexField.setText(this.hex());
 		this.hexField.setChangedListener(this::onHexTyped);
@@ -149,7 +151,7 @@ public class ColorScreen extends Screen {
 
 		int buttonsY = this.height - Ui.PAD - 26;
 		int half = (this.panelW - 20) / 2;
-		this.addDrawableChild(FlatButton.builder(Text.literal("Domyślny"), button -> {
+		this.addDrawableChild(FlatButton.builder(Text.literal(Lang.t("Domyślny")), button -> {
 			int current = this.setting.get();
 			this.setting.reset();
 			int def = this.setting.get();

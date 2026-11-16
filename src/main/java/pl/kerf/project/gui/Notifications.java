@@ -1,5 +1,6 @@
 package pl.kerf.project.gui;
 
+import pl.kerf.project.Lang;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.MinecraftClient;
@@ -24,10 +25,12 @@ public final class Notifications {
 	}
 
 	public static void push(String title, String message, int accent) {
+		String shownTitle = Lang.t(title);
+		String shownMessage = Lang.t(message);
 		synchronized (ENTRIES) {
 			// To samo powiadomienie (np. szybkie przełączanie) zastępuje poprzednie zamiast się mnożyć.
-			ENTRIES.removeIf(entry -> entry.title.equals(title));
-			ENTRIES.add(new Entry(title, message, accent, System.currentTimeMillis()));
+			ENTRIES.removeIf(entry -> entry.title.equals(shownTitle));
+			ENTRIES.add(new Entry(shownTitle, shownMessage, accent, System.currentTimeMillis()));
 			while (ENTRIES.size() > 4) {
 				ENTRIES.remove(0);
 			}

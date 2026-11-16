@@ -1,5 +1,7 @@
 package pl.kerf.project.gui;
 
+import pl.kerf.project.Lang;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -61,7 +63,7 @@ public class HudEditorScreen extends Screen {
 	}
 
 	public HudEditorScreen(Screen parent) {
-		super(Text.literal("Edytor HUD"));
+		super(Text.literal(Lang.t("Edytor HUD")));
 		this.parent = parent;
 	}
 
@@ -78,9 +80,9 @@ public class HudEditorScreen extends Screen {
 		this.elements.add(new EditorElement.Bossbar());
 
 		String query = this.search == null ? "" : this.search.getText();
-		this.search = new TextFieldWidget(this.textRenderer, 0, 0, 100, 12, Text.literal("Szukaj"));
+		this.search = new TextFieldWidget(this.textRenderer, 0, 0, 100, 12, Text.literal(Lang.t("Szukaj")));
 		this.search.setDrawsBackground(false);
-		this.search.setPlaceholder(Text.literal("Szukaj HUD-ów…").withColor(Theme.TEXT_4 & 0xFFFFFF));
+		this.search.setPlaceholder(Text.literal(Lang.t("Szukaj HUD-ów…")).withColor(Theme.TEXT_4 & 0xFFFFFF));
 		this.search.setText(query);
 		this.search.setChangedListener(text -> this.pickerScroll = 0.0);
 		this.addDrawableChild(this.search);

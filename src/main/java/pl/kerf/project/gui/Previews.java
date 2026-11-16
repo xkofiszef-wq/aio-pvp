@@ -1,5 +1,7 @@
 package pl.kerf.project.gui;
 
+import pl.kerf.project.Lang;
+
 import java.util.HashMap;
 import java.util.Map;
 import net.minecraft.client.MinecraftClient;
@@ -124,7 +126,7 @@ public final class Previews {
 			context.getMatrices().scale(1.5F, 1.5F);
 			// Serca bez tła, tak jak w grze; nick z vanillowym tłem.
 			nametag(context, client, label, 0, above ? -10 : 2, 0);
-			nametag(context, client, Text.literal("Kerfuss_"), 0, above ? 2 : -10, 0x40000000);
+			nametag(context, client, Text.literal(Lang.t("Kerfuss_")), 0, above ? 2 : -10, 0x40000000);
 			context.getMatrices().popMatrix();
 		} else if (module == Modules.DAMAGE_CALC) {
 			damageCalc(context, client, cx, cy);
@@ -134,7 +136,7 @@ public final class Previews {
 			context.getMatrices().pushMatrix();
 			context.getMatrices().translate(cx, cy);
 			context.getMatrices().scale(2.0F, 2.0F);
-			nametag(context, client, Text.literal("Kerfuss_").withColor(white ? 0xFFFFFF : 0xBBBBBB), 0, -4, bg);
+			nametag(context, client, Text.literal(Lang.t("Kerfuss_")).withColor(white ? 0xFFFFFF : 0xBBBBBB), 0, -4, bg);
 			context.getMatrices().popMatrix();
 		} else {
 			bigIcon(context, icon(module), cx, cy);
@@ -223,12 +225,12 @@ public final class Previews {
 		context.getMatrices().popMatrix();
 		context.drawGuiTexture(net.minecraft.client.gl.RenderPipelines.GUI_TEXTURED, net.minecraft.util.Identifier.ofVanilla("hud/heart/full"),
 			cx - (dw + 13) / 2 + dw + 4, cy - 17, 9, 9);
-		String kill = hits < 0 ? "Nie zabijesz: leczy się szybciej" : hits + (hits == 1 ? " cios" : hits < 5 ? " ciosy" : " ciosów") + " do zabicia";
+		String kill = hits < 0 ? Lang.t("Nie zabijesz: leczy się szybciej") : hits + Lang.t(hits == 1 ? " cios" : hits < 5 ? " ciosy" : " ciosów") + Lang.t(" do zabicia");
 		int killColor = hits < 0 ? 0xFFE5675F : 0xFF6CC98E;
 		context.drawCenteredTextWithShadow(client.textRenderer, kill, cx, cy + 2, killColor);
 		if (hits > 0) {
 			float seconds = (hits - 1) * calc.interval() / 20.0F;
-			context.drawCenteredTextWithShadow(client.textRenderer, String.format(java.util.Locale.ROOT, "około %.1f s pełnych ciosów", seconds), cx, cy + 14, 0xFF8C92A0);
+			context.drawCenteredTextWithShadow(client.textRenderer, String.format(java.util.Locale.ROOT, Lang.t("około %.1f s pełnych ciosów"), seconds), cx, cy + 14, 0xFF8C92A0);
 		}
 	}
 

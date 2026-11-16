@@ -1,5 +1,6 @@
 package pl.kerf.project.hud;
 
+import pl.kerf.project.Lang;
 import java.util.Locale;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.Text;
@@ -45,7 +46,7 @@ public final class LagDetectorHud extends InfoHud {
 			return null;
 		}
 
-		return Text.literal(String.format(Locale.ROOT, "Serwer nie odpowiada: %.1f s", gap)).withColor(gap >= 2.0 * limit ? DANGER : WARNING);
+		return Text.literal(String.format(Locale.ROOT, Lang.t("Serwer nie odpowiada: %.1f s"), gap)).withColor(gap >= 2.0 * limit ? DANGER : WARNING);
 	}
 
 	@Override

@@ -71,7 +71,7 @@ public class AioPvp implements ClientModInitializer {
 		ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(
 			ClientCommandManager.literal(FightTracker.COMMAND).executes(context -> {
 				if (FightTracker.last() == null) {
-					context.getSource().sendFeedback(Text.literal("Fight Report: jeszcze nie było żadnej walki."));
+					context.getSource().sendFeedback(Text.literal(Lang.t("Fight Report: jeszcze nie było żadnej walki.")));
 					return 0;
 				}
 

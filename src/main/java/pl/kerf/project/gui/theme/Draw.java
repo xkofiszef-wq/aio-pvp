@@ -1,5 +1,6 @@
 package pl.kerf.project.gui.theme;
 
+import pl.kerf.project.Lang;
 import java.util.HashMap;
 import java.util.Map;
 import net.minecraft.client.MinecraftClient;
@@ -183,6 +184,7 @@ public final class Draw {
 
 	/** Tekst dopasowany do szerokości, z wielokropkiem. */
 	public static String fit(TextRenderer font, String text, int width) {
+		text = Lang.t(text);
 		if (font.getWidth(text) <= width) {
 			return text;
 		}
@@ -191,7 +193,7 @@ public final class Draw {
 	}
 
 	public static void text(DrawContext context, TextRenderer font, String text, int x, int y, int color) {
-		context.drawText(font, text, x, y, color, false);
+		context.drawText(font, Lang.t(text), x, y, color, false);
 	}
 
 	public static void text(DrawContext context, TextRenderer font, Text text, int x, int y, int color) {

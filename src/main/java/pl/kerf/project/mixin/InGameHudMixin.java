@@ -98,6 +98,27 @@ public class InGameHudMixin {
 		context.getMatrices().popMatrix();
 	}
 
+	/** Czy w tej klatce podnieśliśmy dolny pasek (żeby RETURN zdjął dokładnie to, co włożył HEAD). */
+	private boolean aio$lifted;
+
+	/** HUD Tweaker -> Podniesienie hotbara: cały dolny pasek (hotbar, serca, głód, XP, nazwa przedmiotu) wyżej o N px. */
+	@Inject(method = "renderMainHud", at = @At("HEAD"))
+	private void aio$liftStart(DrawContext context, RenderTickCounter tickCounter, CallbackInfo ci) {
+		int lift = Modules.HUD_TWEAKER.hotbarLift();
+		this.aio$lifted = lift > 0;
+		if (this.aio$lifted) {
+			context.getMatrices().pushMatrix();
+			context.getMatrices().translate(0.0F, -lift);
+		}
+	}
+
+	@Inject(method = "renderMainHud", at = @At("RETURN"))
+	private void aio$liftEnd(DrawContext context, RenderTickCounter tickCounter, CallbackInfo ci) {
+		if (this.aio$lifted) {
+			context.getMatrices().popMatrix();
+		}
+	}
+
 	@Inject(method = "renderFood", at = @At("HEAD"))
 	private void aio$foodBegin(DrawContext context, PlayerEntity player, int top, int right, CallbackInfo ci) {
 		SaturationOutline.beginFood();

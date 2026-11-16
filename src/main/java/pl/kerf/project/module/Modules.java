@@ -1,5 +1,7 @@
 package pl.kerf.project.module;
 
+import pl.kerf.project.Lang;
+
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -59,7 +61,7 @@ public final class Modules {
 	);
 	public static final InfoHud DAY = new InfoHud(
 		"day", "Day", "Numer dnia w świecie.", 0.0F, 0.0F, 0.0F, 0.0F, 4.0F, 76.0F,
-		(client, editing) -> Text.literal("Dzień: " + client.world.getTimeOfDay() / 24000L)
+		(client, editing) -> Text.literal(Lang.t("Dzień: ") + client.world.getTimeOfDay() / 24000L)
 	);
 	public static final InfoHud CLOCK = new InfoHud(
 		"clock", "Clock", "Aktualna godzina (zegar komputera).", 0.0F, 0.0F, 0.0F, 0.0F, 4.0F, 94.0F,
@@ -70,7 +72,7 @@ public final class Modules {
 		"sprint_status", "Sprint/Sneak Status", "Napis [Sprint (Toggled)] / [Sneak], przydatne z Toggle Sprint.", 0.5F, 0.0F, 0.5F, 0.0F, 0.0F, 46.0F,
 		(client, editing) -> {
 			Text status = sprintStatus(client);
-			return status == null && editing ? Text.literal("[Sprint (Toggled)]") : status;
+			return status == null && editing ? Text.literal(Lang.t("[Sprint (Toggled)]")) : status;
 		}
 	);
 	public static final LagDetectorHud LAG_DETECTOR = new LagDetectorHud();
@@ -150,18 +152,18 @@ public final class Modules {
 	private static Text sprintStatus(net.minecraft.client.MinecraftClient client) {
 		net.minecraft.client.option.GameOptions options = client.options;
 		if (options.getSneakToggled().getValue() && options.sneakKey.isPressed()) {
-			return Text.literal("[Sneak (Toggled)]");
+			return Text.literal(Lang.t("[Sneak (Toggled)]"));
 		}
 
 		if (client.player.isSneaking()) {
-			return Text.literal("[Sneak (Key held)]");
+			return Text.literal(Lang.t("[Sneak (Key held)]"));
 		}
 
 		if (options.getSprintToggled().getValue() && options.sprintKey.isPressed()) {
-			return Text.literal("[Sprint (Toggled)]");
+			return Text.literal(Lang.t("[Sprint (Toggled)]"));
 		}
 
-		return client.player.isSprinting() ? Text.literal("[Sprint (Vanilla)]") : null;
+		return client.player.isSprinting() ? Text.literal(Lang.t("[Sprint (Vanilla)]")) : null;
 	}
 
 	/** Przesunięcie i skala jednego elementu vanilla HUD-u. */
@@ -182,6 +184,13 @@ public final class Modules {
 		public final Tweak actionbar = new Tweak(this, "actionbar", "Actionbar");
 		public final Tweak scoreboard = new Tweak(this, "scoreboard", "Scoreboard");
 		public final Tweak bossbar = new Tweak(this, "bossbar", "Bossbar");
+		/** Hotbar, serca, głód i pasek XP o tyle pikseli wyżej, żeby nie były przyklejone do dołu ekranu. */
+		public final Setting.Num lift = this.add(new Setting.Num("hotbar_lift", "Podniesienie hotbara", 0, 0, 10, 1, " px"));
+
+		/** Ile pikseli GUI podnieść dolny pasek (0, gdy moduł wyłączony). */
+		public int hotbarLift() {
+			return this.on() ? this.lift.i() : 0;
+		}
 
 		HudTweaker() {
 			// Domyślnie włączony: przesunięcia są zerowe, więc nic nie zmienia, dopóki nie ruszysz elementu w edytorze.
@@ -505,18 +514,20 @@ public final class Modules {
 		public final Setting.Color accent = this.add(new Setting.Color("accent", "Kolor akcentu", 0xFF8C8CF0, false));
 		/** Układ menu: klasyczne trzy panele albo pływające (osobna pigułka wyszukiwarki, moduły i podgląd w jednym panelu). */
 		public final Setting.Mode layout = this.add(new Setting.Mode("layout", "Układ menu", 0, "Klasyczny", "Pływający", "Pływający, pasek z prawej"));
+		/** Język menu i HUD-u moda; domyślnie angielski (patrz {@link pl.kerf.project.Lang}). */
+		public final Setting.Mode language = this.add(new Setting.Mode("language", "Język", 0, "English", "Polski"));
 
+		/**
+		 * Ustawienia samego moda (przycisk "Settings" w menu): motyw, układ, język i reset wszystkiego. Id zostaje
+		 * "gui_theme", żeby stare configi dalej działały. Nie ma go na liście modułów i nie da się go wyłączyć.
+		 */
 		GuiTheme() {
-			super("gui_theme", "GUI Theme", "Motyw i kolory menu moda: gotowe palety albo własny kolor akcentu.", Category.MISC, true);
+			super("gui_theme", "Settings", "Motyw, układ i język menu oraz reset wszystkich ustawień.", Category.MISC, true);
 		}
 
 		/** Wołane co tick: zmiana w ustawieniach od razu widać w otwartym menu. */
 		public void sync() {
-			if (this.on()) {
-				pl.kerf.project.gui.theme.Theme.apply(this.theme.get(), this.customAccent.on() ? this.accent.argb() : null);
-			} else {
-				pl.kerf.project.gui.theme.Theme.apply(0, null);
-			}
+			pl.kerf.project.gui.theme.Theme.apply(this.theme.get(), this.customAccent.on() ? this.accent.argb() : null);
 		}
 	}
 

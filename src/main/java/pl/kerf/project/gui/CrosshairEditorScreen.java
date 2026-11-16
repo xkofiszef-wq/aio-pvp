@@ -1,5 +1,7 @@
 package pl.kerf.project.gui;
 
+import pl.kerf.project.Lang;
+
 import pl.kerf.project.gui.theme.Theme;
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -59,7 +61,7 @@ public class CrosshairEditorScreen extends Screen {
 	private int previewW;
 
 	public CrosshairEditorScreen(Screen parent) {
-		super(Text.literal("Edytor celownika"));
+		super(Text.literal(Lang.t("Edytor celownika")));
 		this.parent = parent;
 		for (int i = 0; i < 2; i++) {
 			System.arraycopy(this.module.grid(i == 1).get(), 0, this.grids[i], 0, N * N);
@@ -91,9 +93,9 @@ public class CrosshairEditorScreen extends Screen {
 		int count = 4;
 		int bw = (this.centerRight - this.centerLeft - 16 - (count - 1) * 4) / count;
 		int by = this.height - Ui.PAD - 26;
-		this.addDrawableChild(FlatButton.builder(Text.literal("Cofnij"), button -> this.undo()).dimensions(bx, by, bw, 20).build());
-		this.addDrawableChild(FlatButton.builder(Text.literal("Wyczyść"), button -> this.apply(new int[N * N])).dimensions(bx + (bw + 4), by, bw, 20).build());
-		this.addDrawableChild(FlatButton.builder(Text.literal("Kopiuj"), button -> this.apply(this.grids[1 - state].clone()))
+		this.addDrawableChild(FlatButton.builder(Text.literal(Lang.t("Cofnij")), button -> this.undo()).dimensions(bx, by, bw, 20).build());
+		this.addDrawableChild(FlatButton.builder(Text.literal(Lang.t("Wyczyść")), button -> this.apply(new int[N * N])).dimensions(bx + (bw + 4), by, bw, 20).build());
+		this.addDrawableChild(FlatButton.builder(Text.literal(Lang.t("Kopiuj")), button -> this.apply(this.grids[1 - state].clone()))
 			.dimensions(bx + 2 * (bw + 4), by, bw, 20)
 			.tooltip(net.minecraft.client.gui.tooltip.Tooltip.of(Text.literal("Kopiuje rysunek z zakładki \"" + STATE_NAMES[1 - state] + "\" do tej")))
 			.build());

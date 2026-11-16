@@ -1,5 +1,7 @@
 package pl.kerf.project.module;
 
+import pl.kerf.project.Lang;
+
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -273,13 +275,13 @@ public final class FightTracker {
 		));
 		String command = "/" + COMMAND;
 		client.inGameHud.getChatHud().addMessage(
-			Text.literal("[AIO PvP] ").withColor(0x8C8CF0)
-				.append(Text.literal("Walka z " + opponentName + ": ").withColor(0xC2C6D0))
-				.append(Text.literal(outcome.label).withColor(outcome.color))
-				.append(Text.literal(". Raport: ").withColor(0xC2C6D0))
+			Text.literal(Lang.t("[AIO PvP] ")).withColor(0x8C8CF0)
+				.append(Text.literal(Lang.t("Walka z ") + opponentName + ": ").withColor(0xC2C6D0))
+				.append(Text.literal(Lang.t(outcome.label)).withColor(outcome.color))
+				.append(Text.literal(Lang.t(". Raport: ")).withColor(0xC2C6D0))
 				.append(Text.literal(command).styled(style -> style.withColor(0xFFFFFF).withUnderline(true)
 					.withClickEvent(new ClickEvent.RunCommand(command))
-					.withHoverEvent(new HoverEvent.ShowText(Text.literal("Kliknij albo wpisz, żeby otworzyć kartę walki")))))
+					.withHoverEvent(new HoverEvent.ShowText(Text.literal(Lang.t("Kliknij albo wpisz, żeby otworzyć kartę walki"))))))
 		);
 		if (Modules.FIGHT_REPORT.sound.on()) {
 			client.getSoundManager().play(PositionedSoundInstance.ui(SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0F));
