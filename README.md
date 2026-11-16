@@ -110,6 +110,20 @@ The mod also fixes MC-263293 without a setting: toggle sprint and toggle sneak s
 
 Some servers forbid mods like these. Both open a warning before they turn on, and once enabled they stay on until you restart the game. They are always off when the game starts. Check a server's rules before joining with them.
 
+## Media Player and PowerShell
+
+Java cannot read the Windows media controls, so the Media Player module uses a small PowerShell script. The module is off by default, and the script only runs while the module is enabled on Windows.
+
+What happens when you turn it on:
+
+1. The mod copies the script from the jar to `config/aio_pvp/media/media.ps1`. The full source is in this repository at [src/main/resources/assets/aio_pvp/media/media.ps1](src/main/resources/assets/aio_pvp/media/media.ps1).
+2. It starts `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File media.ps1`. `-ExecutionPolicy Bypass` lets this one script run on systems that block unsigned scripts by default, and it changes no system setting. `-WindowStyle Hidden` keeps a console window from popping up over the game.
+3. Every 0.5 seconds the script reads the current media session from Windows (`GlobalSystemMediaTransportControlsSessionManager`): title, artist, app name, position, length and play state. It prints them as one line of JSON, which the mod reads from the script's output.
+4. When the track changes, it saves the cover as a 64x64 PNG to `config/aio_pvp/media/art.png`.
+5. The play/pause, next and previous buttons write a single word (`toggle`, `next` or `prev`) to `config/aio_pvp/media/command.txt`. The script reads it and sends that command to the media session.
+
+The script stops when you turn the module off or when the game closes (it checks the game's process ID). If it crashes right after starting three times in a row, the mod stops starting it until the next game launch. It reads nothing else from your computer and sends nothing over the network.
+
 ## Building from source
 
 ```
