@@ -496,6 +496,8 @@ public final class Modules {
 		public final Setting.Mode theme = this.add(new Setting.Mode("theme", "Motyw", 0, pl.kerf.project.gui.theme.Theme.THEME_NAMES));
 		public final Setting.Bool customAccent = this.add(new Setting.Bool("custom_accent", "Własny kolor akcentu", false));
 		public final Setting.Color accent = this.add(new Setting.Color("accent", "Kolor akcentu", 0xFF8C8CF0, false));
+		/** Układ menu: klasyczne trzy panele albo pływające (osobna pigułka wyszukiwarki, moduły i podgląd w jednym panelu). */
+		public final Setting.Mode layout = this.add(new Setting.Mode("layout", "Układ menu", 0, "Klasyczny", "Pływający", "Pływający, pasek z prawej"));
 
 		GuiTheme() {
 			super("gui_theme", "GUI Theme", "Motyw i kolory menu moda: gotowe palety albo własny kolor akcentu.", Category.MISC, true);

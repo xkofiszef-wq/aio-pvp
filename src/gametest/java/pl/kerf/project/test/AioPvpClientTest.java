@@ -671,6 +671,24 @@ public class AioPvpClientTest implements FabricClientGameTest {
 				context.waitTicks(3);
 				context.takeScreenshot("23_theme_" + theme);
 			}
+
+			// Układy menu: pływający (wyszukiwarka nad panelami) i jego lustro; ekran przebudowuje się sam po zmianie.
+			context.runOnClient(client -> Modules.GUI_THEME.theme.set(0));
+			// Escape zamyka panel ustawień GUI Theme, żeby było widać listę modułów i wyszukiwarkę.
+			context.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+			context.waitTicks(10);
+			for (int layout = 1; layout <= 2; layout++) {
+				int value = layout;
+				context.runOnClient(client -> Modules.GUI_THEME.layout.set(value));
+				context.waitTicks(3);
+				context.takeScreenshot("23c_layout_" + layout);
+			}
+
+			context.runOnClient(client -> SettingsScreen.select(Modules.ARMOR_HUD));
+			context.setScreen(() -> new SettingsScreen(null));
+			context.waitTicks(10);
+			context.takeScreenshot("23d_layout_2_module");
+			context.runOnClient(client -> Modules.GUI_THEME.layout.set(0));
 			context.runOnClient(client -> {
 				Modules.GUI_THEME.theme.set(2);
 				Modules.GUI_THEME.customAccent.set(true);

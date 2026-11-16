@@ -35,6 +35,7 @@ public class SettingsScreen extends Screen {
 	private static final int ROW = 20;
 	private static final int CARD_H = 46;
 	private static final int CARD_GAP = 6;
+	private static final int SEARCH_H = 20;
 
 	/** Zapamiętane między otwarciami: kategoria (null = wszystkie), otwarty panel i wyszukiwanie. */
 	private static Module.Category category;
@@ -86,6 +87,16 @@ public class SettingsScreen extends Screen {
 	private int contentW;
 	private int rightX;
 	private int rightW;
+	/** Układ z GUI Theme, z którym zbudowano ekran (zmiana w ustawieniach przebudowuje go od razu). */
+	private int layout;
+	/** Pływający układ: wyszukiwarka to osobna pigułka nad panelami, moduły i podgląd są w jednym panelu. */
+	private boolean floating;
+	private int sideX;
+	/** Pasek kategorii: w pływającym układzie na całą wysokość (razem z rzędem wyszukiwarki), żeby wszystko się mieściło. */
+	private int sideY;
+	private int sideH;
+	private int searchY;
+	private int panelR;
 
 	public SettingsScreen(Screen parent) {
 		super(Text.literal("AIO PvP"));
@@ -124,11 +135,27 @@ public class SettingsScreen extends Screen {
 		this.wy = (this.height - this.wh) / 2;
 		this.sideW = this.ww >= 560 ? 140 : 110;
 		this.rightW = this.ww >= 400 ? Math.max(100, Math.min(190, this.ww * 24 / 100)) : 0;
-		this.contentX = this.wx + this.sideW + GAP;
+		this.layout = layoutSetting();
+		this.floating = this.layout > 0;
+		this.panelR = this.floating ? 12 : Ui.PANEL_R;
+		this.sideY = this.wy;
+		this.sideH = this.wh;
+		if (this.floating) {
+			// Pigułka wyszukiwarki zajmuje górny pasek; panele zaczynają się pod nią.
+			this.searchY = this.wy;
+			this.wy += SEARCH_H + GAP;
+			this.wh -= SEARCH_H + GAP;
+		}
+
+		boolean sideRight = this.layout == 2;
+		this.sideX = sideRight ? this.wx + this.ww - this.sideW : this.wx;
+		this.contentX = sideRight ? this.wx : this.wx + this.sideW + GAP;
 		this.contentW = this.ww - this.sideW - GAP - (this.rightW > 0 ? this.rightW + GAP : 0);
 		this.rightX = this.contentX + this.contentW + GAP;
 
-		this.search = new TextFieldWidget(this.textRenderer, this.contentX + 15, this.wy + 46, this.contentW - 30, 12, Text.literal("Szukaj"));
+		this.search = this.floating
+			? new TextFieldWidget(this.textRenderer, this.contentX + 14, this.searchY + 6, this.mainW() - 28, 12, Text.literal("Szukaj"))
+			: new TextFieldWidget(this.textRenderer, this.contentX + 15, this.wy + 46, this.contentW - 30, 12, Text.literal("Szukaj"));
 		this.search.setDrawsBackground(false);
 		this.search.setPlaceholder(Text.literal("Szukaj funkcji…").withColor(Theme.TEXT_4 & 0xFFFFFF));
 		this.search.setText(query);
@@ -141,7 +168,7 @@ public class SettingsScreen extends Screen {
 
 		int bw = this.sideW - 12;
 		this.hudEditor = this.addDrawableChild(FlatButton.builder(Text.literal("Edytor HUD"), button -> this.client.setScreen(new HudEditorScreen(this)))
-			.dimensions(this.wx + 6, this.wy + 38, bw, 20)
+			.dimensions(this.sideX + 6, this.sideY + 38, bw, 20)
 			.style(FlatButton.Style.SECONDARY)
 			.build()
 			.icon(Draw.Icon.LAYOUT)
@@ -152,13 +179,13 @@ public class SettingsScreen extends Screen {
 				this.capturingMenuKey = true;
 				this.menuKey.setMessage(this.menuKeyLabel());
 			})
-			.dimensions(this.wx + 6, this.wy + this.wh - 50, bw, 20)
+			.dimensions(this.sideX + 6, this.sideY + this.sideH - 50, bw, 20)
 			.style(FlatButton.Style.SECONDARY)
 			.build()
 			.icon(Draw.Icon.GEAR)
 			.tip("Klawisz otwierający to menu (ten sam co w Opcje -> Sterowanie). Kliknij i naciśnij klawisz albo boczny/środkowy przycisk myszy, Backspace usuwa."));
 		this.reset =this.addDrawableChild(FlatButton.builder(Text.literal("Resetuj"), button -> this.resetAll())
-			.dimensions(this.wx + 6, this.wy + this.wh - 26, bw, 20)
+			.dimensions(this.sideX + 6, this.sideY + this.sideH - 26, bw, 20)
 			.style(FlatButton.Style.SECONDARY)
 			.build()
 			.stripe(Theme.DANGER)
@@ -236,7 +263,7 @@ public class SettingsScreen extends Screen {
 	}
 
 	private int cardsTop() {
-		return this.wy + 68;
+		return this.wy + (this.floating ? 42 : 68);
 	}
 
 	private int cardsBottom() {
@@ -293,13 +320,13 @@ public class SettingsScreen extends Screen {
 	// --- geometria paska bocznego ---
 
 	private int sideTop() {
-		return this.wy + 66;
+		return this.sideY + 66;
 	}
 
 	/** Odstęp między kategoriami: przyciski prawie stykają się jak w Shine; w niskim oknie ciaśniej. */
 	private int sidePitch() {
 		// 58 px na dole: przyciski "Menu: klawisz" i "Resetuj".
-		return Math.max(16, Math.min(22, (this.wh - 66 - 58) / (Module.Category.values().length + 1)));
+		return Math.max(16, Math.min(22, (this.sideH - 66 - 58) / (Module.Category.values().length + 1)));
 	}
 
 	private int sideRowY(int row) {
@@ -308,13 +335,13 @@ public class SettingsScreen extends Screen {
 
 	/** -1 = "Wszystkie", 0.. = kategorie, -2 = nic. */
 	private int sideRowAt(double mx, double my) {
-		if (mx < this.wx + 6 || mx >= this.wx + this.sideW - 6) {
+		if (mx < this.sideX + 6 || mx >= this.sideX + this.sideW - 6) {
 			return -2;
 		}
 
 		Module.Category[] categories = Module.Category.values();
 		for (int row = 0; row <= categories.length; row++) {
-			if (inside(mx, my, this.wx + 6, this.sideRowY(row), this.sideW - 12, this.sidePitch() - 2)) {
+			if (inside(mx, my, this.sideX + 6, this.sideRowY(row), this.sideW - 12, this.sidePitch() - 2)) {
 				return row - 1;
 			}
 		}
@@ -693,9 +720,19 @@ public class SettingsScreen extends Screen {
 	}
 
 	/** Panel jak w Shine: granatowe półprzezroczyste szkło, kwadratowe rogi, cienka chłodna ramka. */
-	private static void glassPanel(DrawContext context, int x, int y, int w, int h) {
-		Draw.shadow(context, x, y, w, h, Ui.PANEL_R, 4);
-		Draw.card(context, x, y, w, h, Ui.PANEL_R, Theme.BASE, Theme.BORDER_STRONG);
+	private static void glassPanel(DrawContext context, int x, int y, int w, int h, int r) {
+		Draw.shadow(context, x, y, w, h, r, 4);
+		Draw.card(context, x, y, w, h, r, Theme.BASE, Theme.BORDER_STRONG);
+	}
+
+	/** Układ menu z GUI Theme (wyłączony moduł = klasyczny). */
+	private static int layoutSetting() {
+		return Modules.GUI_THEME.on() ? Modules.GUI_THEME.layout.get() : 0;
+	}
+
+	/** Szerokość głównego panelu w pływającym układzie: moduły plus podgląd. */
+	private int mainW() {
+		return this.contentW + (this.rightW > 0 ? GAP + this.rightW : 0);
 	}
 
 	/** Szary przycisk/karta z ramką: wskazany jaśniejszy, aktywny z lawendową ramką. */
@@ -716,11 +753,30 @@ public class SettingsScreen extends Screen {
 			this.reset.setMessage(Text.literal("Resetuj"));
 		}
 
+		if (layoutSetting() != this.layout) {
+			this.clearAndInit();
+		}
+
 		this.hoveredCard = this.dropdown == null ? this.cardAt(mouseX, mouseY) : null;
-		glassPanel(context, this.wx, this.wy, this.sideW, this.wh);
-		glassPanel(context, this.contentX, this.wy, this.contentW, this.wh);
-		if (this.rightW > 0) {
-			glassPanel(context, this.rightX, this.wy, this.rightW, this.wh);
+		glassPanel(context, this.sideX, this.sideY, this.sideW, this.sideH, this.panelR);
+		if (this.floating) {
+			// Moduły i podgląd w jednym panelu, rozdzielone cienką linią; nad nim pigułka wyszukiwarki.
+			glassPanel(context, this.contentX, this.wy, this.mainW(), this.wh, this.panelR);
+			if (this.rightW > 0) {
+				context.fill(this.rightX - GAP / 2, this.wy + 8, this.rightX - GAP / 2 + 1, this.wy + this.wh - 8, Theme.DIVIDER);
+			}
+
+			if (this.search.visible) {
+				boolean focused = this.getFocused() == this.search;
+				Draw.shadow(context, this.contentX, this.searchY, this.mainW(), SEARCH_H, SEARCH_H / 2, 3);
+				Draw.round(context, this.contentX, this.searchY, this.mainW(), SEARCH_H, SEARCH_H / 2, Theme.INSET);
+				Draw.outline(context, this.contentX, this.searchY, this.mainW(), SEARCH_H, SEARCH_H / 2, focused ? Theme.BORDER_ACTIVE : Theme.BORDER_STRONG);
+			}
+		} else {
+			glassPanel(context, this.contentX, this.wy, this.contentW, this.wh, this.panelR);
+			if (this.rightW > 0) {
+				glassPanel(context, this.rightX, this.wy, this.rightW, this.wh, this.panelR);
+			}
 		}
 
 		this.renderSidebar(context, mouseX, mouseY);
@@ -742,12 +798,12 @@ public class SettingsScreen extends Screen {
 
 	private void renderSidebar(DrawContext context, int mouseX, int mouseY) {
 		TextRenderer font = this.textRenderer;
-		int x = this.wx + 6;
+		int x = this.sideX + 6;
 		int w = this.sideW - 12;
 		// Nagłówek jak "Active preset" w Shine: co to jest i ile jest włączone.
 		long enabled = Modules.ALL.stream().filter(Module::on).count();
-		Draw.text(context, font, Draw.fit(font, "Aktywne funkcje", w - 2), x + 2, this.wy + 9, Theme.TEXT_2);
-		Draw.text(context, font, enabled + " z " + Modules.ALL.size(), x + 2, this.wy + 21, Theme.TEXT);
+		Draw.text(context, font, Draw.fit(font, "Aktywne funkcje", w - 2), x + 2, this.sideY + 9, Theme.TEXT_2);
+		Draw.text(context, font, enabled + " z " + Modules.ALL.size(), x + 2, this.sideY + 21, Theme.TEXT);
 
 		Module.Category[] categories = Module.Category.values();
 		boolean searching = !query.isBlank();
@@ -791,12 +847,14 @@ public class SettingsScreen extends Screen {
 		Draw.icon(context, Draw.Icon.CLOSE, cx + 4, this.wy + 12, closeHover ? Theme.TEXT : Theme.TEXT_3);
 		context.fill(this.contentX + 1, this.wy + 34, this.contentX + this.contentW - 1, this.wy + 35, Theme.DIVIDER);
 
-		// Pole wyszukiwania: czarne, z cienką jasną ramką, na całą szerokość.
-		int sx = this.contentX + 8;
-		int sw = this.contentW - 16;
-		boolean focused = this.getFocused() == this.search;
-		Draw.round(context, sx, this.wy + 40, sw, 20, 4, Theme.INSET);
-		Draw.outline(context, sx, this.wy + 40, sw, 20, 4, focused ? Theme.BORDER_ACTIVE : Theme.BORDER_STRONG);
+		// Pole wyszukiwania: czarne, z cienką jasną ramką, na całą szerokość (w pływającym układzie jest nad panelem).
+		if (!this.floating) {
+			int sx = this.contentX + 8;
+			int sw = this.contentW - 16;
+			boolean focused = this.getFocused() == this.search;
+			Draw.round(context, sx, this.wy + 40, sw, 20, 4, Theme.INSET);
+			Draw.outline(context, sx, this.wy + 40, sw, 20, 4, focused ? Theme.BORDER_ACTIVE : Theme.BORDER_STRONG);
+		}
 
 		if (this.visible.isEmpty()) {
 			String empty = "Nic nie pasuje do \"" + query.trim() + "\"";
@@ -909,7 +967,7 @@ public class SettingsScreen extends Screen {
 		int clipX1 = this.contentX + 1;
 		int clipX2 = this.contentX + this.contentW - 1;
 		// Przyciemnienie kafelków pod panelem.
-		Draw.round(context, this.contentX, this.wy, this.contentW, this.wh, Ui.PANEL_R, Theme.alpha(0xFF08090B, Math.round(0xB0 * t)));
+		Draw.round(context, this.contentX, this.wy, this.contentW, this.wh, this.panelR, Theme.alpha(0xFF08090B, Math.round(0xB0 * t)));
 		int px = this.panelX();
 		int pw = this.panelW();
 		int top = this.panelTop();
