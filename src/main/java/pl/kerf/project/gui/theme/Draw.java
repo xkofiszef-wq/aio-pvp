@@ -1,15 +1,22 @@
 package pl.kerf.project.gui.theme;
 
+import java.util.HashMap;
+import java.util.Map;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gl.RenderPipelines;
+import net.minecraft.client.texture.NativeImage;
+import net.minecraft.client.texture.NativeImageBackedTexture;
 import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
 import org.joml.Matrix3x2fStack;
+import pl.kerf.project.AioPvp;
 import pl.kerf.project.module.Module;
 
 /**
  * Prymitywy rysowania interfejsu: zaokrąglone prostokąty, obramowania, cienie i ikony.
- * Wszystko z kilku wypełnień na kształt (bez pętli po pikselach), więc tanie nawet przy wielu kartach.
+ * Zaokrąglone kształty: kilka wypełnień plus 4 rogi z gotowej tekstury wygładzonego koła, więc tanie nawet przy wielu kartach.
  */
 public final class Draw {
 	private Draw() {
@@ -35,13 +42,12 @@ public final class Draw {
 			return;
 		}
 
-		context.fill(x, y + r, x + w, y + h - r, color);
-		for (int i = 0; i < r; i++) {
-			// Wcięcie każdego rzędu rogu: przybliżenie ćwiartki okręgu.
-			int inset = r - (int) Math.round(Math.sqrt(r * r - (r - i - 0.5) * (r - i - 0.5)));
-			context.fill(x + inset, y + i, x + w - inset, y + i + 1, color);
-			context.fill(x + inset, y + h - 1 - i, x + w - inset, y + h - i, color);
-		}
+		int s = screenScale();
+		Matrix3x2fStack matrices = context.getMatrices();
+		matrices.pushMatrix();
+		matrices.scale(1.0F / s, 1.0F / s);
+		shape(context, x * s, y * s, w * s, h * s, r * s, 0, color);
+		matrices.popMatrix();
 	}
 
 	/** Obramowanie o grubości 1 px (kwadratowe rogi, jak {@link #round}). */
@@ -52,20 +58,88 @@ public final class Draw {
 	/** Jak {@link #outline}, ale bez progu promienia (para do {@link #roundExact}). */
 	public static void outlineExact(DrawContext context, int x, int y, int w, int h, int r, int color) {
 		r = Math.max(0, Math.min(r, Math.min(w, h) / 2));
-		context.fill(x + r, y, x + w - r, y + 1, color);
-		context.fill(x + r, y + h - 1, x + w - r, y + h, color);
-		context.fill(x, y + r, x + 1, y + h - r, color);
-		context.fill(x + w - 1, y + r, x + w, y + h - r, color);
-		for (int i = 0; i < r; i++) {
-			int inset = r - (int) Math.round(Math.sqrt(r * r - (r - i - 0.5) * (r - i - 0.5)));
-			int next = i + 1 < r ? r - (int) Math.round(Math.sqrt(r * r - (r - i - 1.5) * (r - i - 1.5))) : 0;
-			int span = Math.max(1, inset - next);
-			// Lewy i prawy brzeg rogu w tym rzędzie (górne i dolne rogi).
-			context.fill(x + inset - span + 1, y + i, x + inset + 1, y + i + 1, color);
-			context.fill(x + w - inset - 1, y + i, x + w - inset + span - 1, y + i + 1, color);
-			context.fill(x + inset - span + 1, y + h - 1 - i, x + inset + 1, y + h - i, color);
-			context.fill(x + w - inset - 1, y + h - 1 - i, x + w - inset + span - 1, y + h - i, color);
+		if (r <= 0) {
+			context.fill(x, y, x + w, y + 1, color);
+			context.fill(x, y + h - 1, x + w, y + h, color);
+			context.fill(x, y + 1, x + 1, y + h - 1, color);
+			context.fill(x + w - 1, y + 1, x + w, y + h - 1, color);
+			return;
 		}
+
+		int s = screenScale();
+		Matrix3x2fStack matrices = context.getMatrices();
+		matrices.pushMatrix();
+		matrices.scale(1.0F / s, 1.0F / s);
+		shape(context, x * s, y * s, w * s, h * s, r * s, s, color);
+		matrices.popMatrix();
+	}
+
+	/** Ile pikseli ekranu ma jeden piksel GUI (skala GUI). */
+	private static int screenScale() {
+		return Math.max(1, (int) MinecraftClient.getInstance().getWindow().getScaleFactor());
+	}
+
+	/**
+	 * Zaokrąglony prostokąt w pikselach ekranu (macierz już przeskalowana): środek i boki to zwykłe wypełnienia,
+	 * a cztery rogi to ćwiartki wygładzonego koła z tekstury, w kolorze kształtu. {@code ring} = 0: wypełniony,
+	 * {@code ring} > 0: sama ramka tej grubości.
+	 */
+	private static void shape(DrawContext context, int x, int y, int w, int h, int r, int ring, int color) {
+		if (ring == 0) {
+			context.fill(x + r, y, x + w - r, y + h, color);
+			context.fill(x, y + r, x + r, y + h - r, color);
+			context.fill(x + w - r, y + r, x + w, y + h - r, color);
+		} else {
+			context.fill(x + r, y, x + w - r, y + ring, color);
+			context.fill(x + r, y + h - ring, x + w - r, y + h, color);
+			context.fill(x, y + r, x + ring, y + h - r, color);
+			context.fill(x + w - ring, y + r, x + w, y + h - r, color);
+		}
+
+		Identifier circle = circle(r, ring);
+		int size = 2 * r;
+		context.drawTexture(RenderPipelines.GUI_TEXTURED, circle, x, y, 0.0F, 0.0F, r, r, size, size, color);
+		context.drawTexture(RenderPipelines.GUI_TEXTURED, circle, x + w - r, y, r, 0.0F, r, r, size, size, color);
+		context.drawTexture(RenderPipelines.GUI_TEXTURED, circle, x, y + h - r, 0.0F, r, r, r, size, size, color);
+		context.drawTexture(RenderPipelines.GUI_TEXTURED, circle, x + w - r, y + h - r, r, r, r, r, size, size, color);
+	}
+
+	private static final Map<Integer, Identifier> CIRCLES = new HashMap<>();
+
+	/** Białe koło (albo pierścień) o promieniu r pikseli, z krawędzią wygładzoną; tworzone raz na rozmiar. */
+	private static Identifier circle(int r, int ring) {
+		return CIRCLES.computeIfAbsent(r << 16 | ring, key -> {
+			Identifier id = Identifier.of(AioPvp.MOD_ID, "round_" + r + "_" + ring);
+			NativeImage image = new NativeImage(2 * r, 2 * r, true);
+			for (int px = 0; px < 2 * r; px++) {
+				for (int py = 0; py < 2 * r; py++) {
+					image.setColorArgb(px, py, coverage(r, ring, px, py) << 24 | 0xFFFFFF);
+				}
+			}
+
+			MinecraftClient.getInstance().getTextureManager().registerTexture(id, new NativeImageBackedTexture(() -> "AIO PvP " + id, image));
+			return id;
+		});
+	}
+
+	/**
+	 * Krycie (0-255) piksela koła o środku (r, r): ile z 16 punktów próbkowania 4x4 w pikselu leży w kole
+	 * (a przy {@code ring} > 0 w pierścieniu o tej grubości). To daje gładką krawędź zamiast schodków.
+	 */
+	public static int coverage(int r, int ring, int px, int py) {
+		int inside = 0;
+		for (int a = 0; a < 4; a++) {
+			for (int b = 0; b < 4; b++) {
+				double dx = px + (a + 0.5) / 4.0 - r;
+				double dy = py + (b + 0.5) / 4.0 - r;
+				double d = Math.sqrt(dx * dx + dy * dy);
+				if (d <= r && (ring == 0 || d >= r - ring)) {
+					inside++;
+				}
+			}
+		}
+
+		return Math.round(inside * 255.0F / 16.0F);
 	}
 
 	/** Płaska karta: wypełnienie i cienka ramka. */
@@ -88,11 +162,10 @@ public final class Draw {
 
 	/**
 	 * Przełącznik z Figmy (komponent "Przełącznik"): pigułka 20x10 z ramką 1 px, gałka 8x8, włączony w kolorze akcentu
-	 * motywu. Rysowany w pikselach ekranu, nie GUI, żeby łuki były gładkie jak w Figmie, a nie schodkowe.
-	 * {@code t} = 0 (wył.) .. 1 (wł.).
+	 * motywu. Gałka jeździ płynnie po pikselach ekranu, nie skacze co piksel GUI. {@code t} = 0 (wył.) .. 1 (wł.).
 	 */
 	public static void toggle(DrawContext context, int x, int y, float t) {
-		int s = Math.max(1, (int) MinecraftClient.getInstance().getWindow().getScaleFactor());
+		int s = screenScale();
 		Matrix3x2fStack matrices = context.getMatrices();
 		matrices.pushMatrix();
 		matrices.scale(1.0F / s, 1.0F / s);
@@ -101,11 +174,10 @@ public final class Draw {
 		int w = 20 * s;
 		int h = 10 * s;
 		int knob = 8 * s;
-		// Ramka = pigułka w kolorze ramki, na niej środek o 1 px GUI mniejszy.
-		roundExact(context, px, py, w, h, h / 2, Theme.mix(Theme.BORDER_STRONG, Theme.ACCENT, t));
-		roundExact(context, px + s, py + s, w - 2 * s, h - 2 * s, (h - 2 * s) / 2, Theme.mix(0xFF1A1D26, Theme.alpha(Theme.ACCENT, 0xE6), t));
+		shape(context, px, py, w, h, h / 2, 0, Theme.mix(0xFF1A1D26, Theme.alpha(Theme.ACCENT, 0xE6), t));
+		shape(context, px, py, w, h, h / 2, s, Theme.mix(Theme.BORDER_STRONG, Theme.ACCENT, t));
 		int kx = px + s + Math.round((w - knob - 2 * s) * Anim.ease(t));
-		roundExact(context, kx, py + s, knob, knob, knob / 2, Theme.mix(0xFF8C92A0, 0xFFF0F1F5, t));
+		shape(context, kx, py + s, knob, knob, knob / 2, 0, Theme.mix(0xFF8C92A0, 0xFFF0F1F5, t));
 		matrices.popMatrix();
 	}
 

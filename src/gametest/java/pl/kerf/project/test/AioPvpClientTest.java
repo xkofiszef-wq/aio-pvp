@@ -530,6 +530,16 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			}
 			server.runCommand("effect clear @p fire_resistance");
 
+			// Gładkie rogi GUI: koło r=4 px. Róg poza kołem pusty, środek pełny, piksel na łuku częściowy, pierścień pusty w środku.
+			int corner = pl.kerf.project.gui.theme.Draw.coverage(4, 0, 0, 0);
+			int center = pl.kerf.project.gui.theme.Draw.coverage(4, 0, 3, 3);
+			int arc = pl.kerf.project.gui.theme.Draw.coverage(4, 0, 0, 2);
+			int ringHole = pl.kerf.project.gui.theme.Draw.coverage(4, 1, 3, 3);
+			int ringEdge = pl.kerf.project.gui.theme.Draw.coverage(4, 1, 0, 3);
+			if (corner != 0 || center != 255 || arc <= 0 || arc >= 255 || ringHole != 0 || ringEdge == 0) {
+				throw new AssertionError("Gładkie rogi: zły piksel koła " + corner + " " + center + " " + arc + " " + ringHole + " " + ringEdge);
+			}
+
 			// Saturation: rozpoznanie obwódki na ikonkach 3x3 (B = czarny, R = czerwony, 0 = przezroczysty).
 			int b = 0xFF000000;
 			int r = 0xFFD42A2A;
