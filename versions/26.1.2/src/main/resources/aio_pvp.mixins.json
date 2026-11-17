@@ -1,0 +1,33 @@
+{
+    "required": true,
+    "package": "pl.kerf.project.mixin",
+    "compatibilityLevel": "JAVA_25",
+    "client": [
+        "CameraMixin",
+        "ChatHudMixin",
+        "ClientConnectionMixin",
+        "ClientPlayNetworkHandlerMixin",
+        "ClientPlayerEntityMixin",
+        "EntityHitboxDebugRendererMixin",
+        "FishingBobberEntityRendererMixin",
+        "GameRendererMixin",
+        "HeldItemRendererMixin",
+        "InGameHudMixin",
+        "InGameOverlayRendererMixin",
+        "LabelCommandsMixin",
+        "LightmapTextureManagerMixin",
+        "LivingEntityRenderStateMixin",
+        "LivingEntityRendererMixin",
+        "LiquidFogMixin",
+        "MinecraftClientMixin",
+        "MouseMixin",
+        "OverlayTextureAccessor",
+        "ParticleManagerMixin",
+        "SpriteContentsAccessor",
+        "PlayerArmMixin",
+        "PlayerEntityRendererMixin"
+    ],
+    "injectors": {
+        "defaultRequire": 1
+    }
+}
