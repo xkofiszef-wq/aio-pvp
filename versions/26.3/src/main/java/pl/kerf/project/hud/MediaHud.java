@@ -1,0 +1,216 @@
+package pl.kerf.project.hud;
+
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.renderer.RenderPipelines;
+import pl.kerf.project.Lang;
+import pl.kerf.project.config.Setting;
+import pl.kerf.project.media.MediaSession;
+import pl.kerf.project.module.HudModule;
+
+/**
+ * Odtwarzacz multimediów: okładka, tytuł (przewijany, gdy za długi), wykonawca, przyciski i pasek postępu.
+ * Przyciski da się klikać, gdy otwarty jest czat (wtedy kursor jest wolny).
+ */
+public final class MediaHud extends HudModule {
+	private static final int HEIGHT = 50;
+	private static final int ART = 40;
+
+	public final Setting.Num width = this.add(new Setting.Num("width", "Szerokość", 170, 120, 260, 10, " px"));
+	public final Setting.Bool showArt = this.add(new Setting.Bool("show_art", "Okładka", true));
+	public final Setting.Bool showControls = this.add(new Setting.Bool("show_controls", "Przyciski", true));
+	public final Setting.Bool hideIdle = this.add(new Setting.Bool("hide_idle", "Ukryj, gdy nic nie gra", true));
+	public final Setting.Bool border = this.add(new Setting.Bool("border", "Obramowanie", true));
+	public final Setting.Color borderColor = this.add(new Setting.Color("border_color", "Kolor obramowania", 0x30FFFFFF, true));
+	public final Setting.Bool backgroundEnabled = this.add(new Setting.Bool("background_enabled", "Tło", true));
+	public final Setting.Color background = this.add(new Setting.Color("background", "Kolor tła", 0xC0101016, true));
+	public final Setting.Color accent = this.add(new Setting.Color("accent", "Kolor akcentu", 0xFFE0506A, false));
+
+	/** Prostokąty przycisków na ekranie (do klikania przy otwartym czacie). */
+	private final float[][] buttons = new float[3][4];
+
+	public MediaHud() {
+		super("media", "Media Player", "Co teraz gra (Spotify, przeglądarka...) z przyciskami. Tylko Windows.", false, 1.0F, 0.0F, 1.0F, 0.0F, -4.0F, 56.0F);
+	}
+
+	private boolean visible(boolean editing) {
+		return editing || MediaSession.state().active() || !this.hideIdle.on();
+	}
+
+	@Override
+	public int width(Minecraft client, boolean editing) {
+		return this.visible(editing) ? this.width.i() : 0;
+	}
+
+	@Override
+	public int height(Minecraft client, boolean editing) {
+		return this.visible(editing) ? HEIGHT : 0;
+	}
+
+	@Override
+	protected void draw(GuiGraphicsExtractor context, Minecraft client, DeltaTracker tickCounter, boolean editing) {
+		Font font = client.font;
+		MediaSession.State state = MediaSession.state();
+		boolean active = state.active();
+		String title = active ? state.title() : Lang.t(MediaSession.supported() ? "Nic nie gra" : "Tylko Windows");
+		String artist = active ? state.artist() : Lang.t("Włącz Spotify lub muzykę w przeglądarce");
+		int w = this.width.i();
+		if (this.backgroundEnabled.on()) {
+			context.fill(0, 0, w, HEIGHT, this.background.argb());
+		}
+		if (this.border.on()) {
+			context.outline(0, 0, w, HEIGHT, this.borderColor.argb());
+		}
+
+		int textX = 6;
+		if (this.showArt.on()) {
+			int ay = (HEIGHT - ART) / 2;
+			if (active && MediaSession.hasArt()) {
+				context.pose().pushMatrix();
+				context.pose().translate(5, ay);
+				context.pose().scale(ART / 64.0F, ART / 64.0F);
+				context.blit(RenderPipelines.GUI_TEXTURED, MediaSession.ART, 0, 0, 0.0F, 0.0F, 64, 64, 64, 64);
+				context.pose().popMatrix();
+			} else {
+				context.fill(5, ay, 5 + ART, ay + ART, 0xFF26262E);
+				noteIcon(context, 5 + ART / 2, ay + ART / 2, 0xFF8A8A96);
+			}
+
+			textX = 5 + ART + 6;
+		}
+
+		int textW = w - textX - 5;
+		marquee(context, font, title, textX, 6, textW, 0xFFFFFFFF);
+		context.text(font, ellipsis(font, artist, textW), textX, 17, 0xFFA0A0AA, false);
+
+		int center = textX + textW / 2;
+		this.buttons[0] = new float[] {-1, -1, 0, 0};
+		if (this.showControls.on()) {
+			int y = 28;
+			prevIcon(context, center - 18, y + 4, 0xFFD0D0D8);
+			nextIcon(context, center + 18, y + 4, 0xFFD0D0D8);
+			context.fill(center - 5, y - 1, center + 6, y + 10, this.accent.argb());
+			if (active && state.playing()) {
+				context.fill(center - 2, y + 2, center, y + 7, 0xFFFFFFFF);
+				context.fill(center + 1, y + 2, center + 3, y + 7, 0xFFFFFFFF);
+			} else {
+				triangleRight(context, center - 1, y + 4, 3, 0xFFFFFFFF);
+			}
+
+			this.storeButton(0, center - 24, y - 2, 12, 13);
+			this.storeButton(1, center - 6, y - 2, 13, 13);
+			this.storeButton(2, center + 12, y - 2, 12, 13);
+		}
+
+		// Pasek postępu z czasem po obu stronach (mniejsza czcionka).
+		double position = active ? MediaSession.position() : 0.0;
+		double duration = active ? state.duration() : 0.0;
+		String left = time(position);
+		String right = time(duration);
+		float small = 0.75F;
+		int barY = HEIGHT - 7;
+		int leftW = Math.round(font.width(left) * small);
+		int rightW = Math.round(font.width(right) * small);
+		smallText(context, font, left, textX, barY - 3, small);
+		smallText(context, font, right, w - 5 - rightW, barY - 3, small);
+		int barX1 = textX + leftW + 4;
+		int barX2 = w - 5 - rightW - 4;
+		context.fill(barX1, barY, barX2, barY + 2, 0x50FFFFFF);
+		if (duration > 0.0 && barX2 > barX1) {
+			int filled = barX1 + (int) Math.round((barX2 - barX1) * Math.min(1.0, position / duration));
+			context.fill(barX1, barY, filled, barY + 2, this.accent.argb());
+			context.fill(filled - 1, barY - 1, filled + 2, barY + 3, 0xFFFFFFFF);
+		}
+	}
+
+	private void storeButton(int index, int x, int y, int w, int h) {
+		this.buttons[index] = new float[] {this.boundsX + x * this.scale, this.boundsY + y * this.scale, w * this.scale, h * this.scale};
+	}
+
+	/** Klik w przycisk odtwarzacza (przy otwartym czacie). Zwraca true, gdy kliknięcie zostało obsłużone. */
+	public boolean click(double mx, double my) {
+		if (!this.on() || !this.showControls.on() || !MediaSession.state().active()) {
+			return false;
+		}
+
+		String[] commands = {"prev", "toggle", "next"};
+		for (int i = 0; i < 3; i++) {
+			float[] b = this.buttons[i];
+			if (b[2] > 0 && mx >= b[0] && mx < b[0] + b[2] && my >= b[1] && my < b[1] + b[3]) {
+				MediaSession.command(commands[i]);
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/** Tytuł przewijany w kółko, gdy nie mieści się w szerokości. */
+	private static void marquee(GuiGraphicsExtractor context, Font font, String text, int x, int y, int width, int color) {
+		int textW = font.width(text);
+		if (textW <= width) {
+			context.text(font, text, x, y, color, false);
+			return;
+		}
+
+		int gap = 30;
+		int offset = (int) (System.currentTimeMillis() / 40L % (textW + gap));
+		context.enableScissor(x, y - 1, x + width, y + 9);
+		context.text(font, text, x - offset, y, color, false);
+		context.text(font, text, x - offset + textW + gap, y, color, false);
+		context.disableScissor();
+	}
+
+	private static String ellipsis(Font font, String text, int width) {
+		if (font.width(text) <= width) {
+			return text;
+		}
+
+		return font.plainSubstrByWidth(text, Math.max(0, width - font.width("..."))).stripTrailing() + "...";
+	}
+
+	private static void smallText(GuiGraphicsExtractor context, Font font, String text, int x, int y, float scale) {
+		context.pose().pushMatrix();
+		context.pose().translate(x, y);
+		context.pose().scale(scale, scale);
+		context.text(font, text, 0, 0, 0xFFB0B0BA, false);
+		context.pose().popMatrix();
+	}
+
+	private static String time(double seconds) {
+		int total = (int) Math.max(0.0, seconds);
+		int rest = total % 60;
+		return total / 60 + (rest < 10 ? ":0" : ":") + rest;
+	}
+
+	/** Trójkąt "w prawo" o połowie wysokości h, z lewym bokiem w x i środkiem w cy. */
+	private static void triangleRight(GuiGraphicsExtractor context, int x, int cy, int h, int color) {
+		for (int i = 0; i <= h; i++) {
+			context.fill(x + i, cy - (h - i), x + i + 1, cy + (h - i) + 1, color);
+		}
+	}
+
+	private static void triangleLeft(GuiGraphicsExtractor context, int x, int cy, int h, int color) {
+		for (int i = 0; i <= h; i++) {
+			context.fill(x - i, cy - (h - i), x - i + 1, cy + (h - i) + 1, color);
+		}
+	}
+
+	private static void prevIcon(GuiGraphicsExtractor context, int cx, int cy, int color) {
+		context.fill(cx - 4, cy - 3, cx - 3, cy + 4, color);
+		triangleLeft(context, cx + 3, cy, 3, color);
+	}
+
+	private static void nextIcon(GuiGraphicsExtractor context, int cx, int cy, int color) {
+		triangleRight(context, cx - 3, cy, 3, color);
+		context.fill(cx + 3, cy - 3, cx + 4, cy + 4, color);
+	}
+
+	private static void noteIcon(GuiGraphicsExtractor context, int cx, int cy, int color) {
+		context.fill(cx + 1, cy - 8, cx + 3, cy + 4, color);
+		context.fill(cx + 3, cy - 8, cx + 7, cy - 6, color);
+		context.fill(cx - 4, cy + 2, cx + 3, cy + 7, color);
+	}
+}

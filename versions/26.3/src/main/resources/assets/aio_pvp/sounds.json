@@ -1,0 +1,6 @@
+{
+  "tool_breaking": {
+    "category": "player",
+    "sounds": [ "aio_pvp:tool_breaking" ]
+  }
+}
