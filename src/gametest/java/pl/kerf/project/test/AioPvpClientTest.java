@@ -214,7 +214,18 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			context.waitTick();
 			context.takeScreenshot("06_world_hud_combat");
 			if (System.getenv("AIO_PROFILE") != null) {
+				// Jak na serwerze: tłum graczy z nickami i sercami w polu widzenia.
+				for (int i = 0; i < 60; i++) {
+					double angle = i * 0.35;
+					double radius = 5.0 + i % 6;
+					server.runCommand(String.format(java.util.Locale.ROOT, "execute at @p run summon mannequin ~%.2f ~ ~%.2f {CustomName:\"Gracz_%d\",CustomNameVisible:1b}",
+						Math.sin(angle) * radius, -Math.abs(Math.cos(angle)) * radius - 2.0, i));
+				}
+
+				context.waitTicks(20);
 				profile(context);
+				server.runCommand("kill @e[type=mannequin,name=!Kerfuss_]");
+				context.waitTicks(5);
 			}
 
 			// Serca "Pod nickiem" u manekina z podpisem "NPC" pod nickiem: mają zejść pod podpis, nie nachodzić na niego.
