@@ -268,6 +268,8 @@ public final class Modules {
 		public final Setting.Mode position = this.add(new Setting.Mode("position", "Pozycja", 0, "Nad nickiem", "Pod nickiem"));
 		public final Setting.Num offset = this.add(new Setting.Num("offset", "Dodatkowe przesunięcie Y", 0, -40, 40, 1, " px"));
 		public final Setting.Bool absorption = this.add(new Setting.Bool("absorption", "Pokaż absorpcję", true));
+		/** Serca tylko u graczy bliżej niż tyle bloków: na zatłoczonym serwerze mniej rysowania w każdej klatce. */
+		public final Setting.Num distance = this.add(new Setting.Num("distance", "Maksymalna odległość", 32, 8, 64, 4, " m"));
 
 		Health() {
 			super("health", "Player Health Indicators", "Zdrowie graczy przy nicku: serca albo liczba serc.", Category.COMBAT, false);

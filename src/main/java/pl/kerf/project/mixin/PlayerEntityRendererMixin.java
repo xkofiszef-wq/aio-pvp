@@ -67,7 +67,8 @@ public class PlayerEntityRendererMixin {
 	)
 	private void aio$healthLabel(PlayerEntityRenderState state, MatrixStack matrices, OrderedRenderCommandQueue queue, CameraRenderState camera, CallbackInfo ci) {
 		Modules.Health module = Modules.HEALTH;
-		if (!module.on() || state.displayName == null) {
+		if (!module.on() || state.displayName == null
+			|| state.squaredDistanceToCamera > module.distance.get() * module.distance.get()) {
 			return;
 		}
 

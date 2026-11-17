@@ -52,6 +52,7 @@ dependencies {
     modLocalRuntime "maven.modrinth:fabric-permissions-api:0.6.1"
 
 
+
 }
 
 processResources {
@@ -119,5 +120,13 @@ fabricApi {
         enableGameTests = false
         enableClientGameTests = true
         eula = true
+    }
+}
+
+// Test zgodności z modami wydajnościowymi (Sodium, ImmediatelyFast z run/perf-mods, pobrane z Modrinth):
+// ./gradlew runClientGameTest -Pperf. Fabric sam przemapowuje te jary w grze testowej; bez -Pperf ich nie ma.
+if (project.hasProperty("perf")) {
+    loom.runs.configureEach {
+        vmArg "-Dfabric.addMods=${file('run/perf-mods').absolutePath}"
     }
 }

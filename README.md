@@ -12,6 +12,8 @@ Client side only. It works on any server and in singleplayer.
 - Java 21
 - Mod Menu (optional, adds a config button to the mod list)
 
+Works with Sodium and ImmediatelyFast (tested with Sodium 0.8.14, ImmediatelyFast 1.14.3 and Fabric API 0.141.6). Both make the game noticeably smoother, especially on busy servers.
+
 ## Installation
 
 1. Install Fabric Loader for Minecraft 1.21.11.
@@ -64,7 +66,7 @@ Armor HUD, Item Preview and Potion Status have three styles: plain, Vanilla GUI 
 | Crosshair Indicator | Crosshair that changes color on a target, or your own pixel crosshair drawn in a built-in editor. |
 | Combat Hitboxes | Custom F3+B hitboxes with separate colors for your target, players and mobs. |
 | Hit Color | Color, opacity and fade of the red hit flash. |
-| Player Health Indicators | Hearts or a heart count by player names. |
+| Player Health Indicators | Hearts or a heart count by player names, only for players within a set distance (32 blocks by default). |
 | Fight Report | After a fight with a player, a chat message and a card with hits landed, damage dealt in hearts, longest combo, average distance, opponent totems and your armor wear. Keeps a history of recent fights. |
 | Damage Calculator | Damage of one hit and hits to kill: weapon, sharpness up to 500, strength, crits, opponent armor, protection per piece, resistance, absorption and saturation healing. |
 | Cooldown Fix | Keeps the attack indicator in sync with the server (MC-218570). |
