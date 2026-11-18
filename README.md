@@ -17,7 +17,7 @@ Works with Sodium and ImmediatelyFast (tested with Sodium 0.8.14, ImmediatelyFas
 ## Installation
 
 1. Install Fabric Loader for Minecraft 1.21.11.
-2. Put Fabric API and `aio-pvp-<version>+<minecraft version>.jar` (for example `aio-pvp-1.0.23+1.21.11.jar`) into your `mods` folder.
+2. Put Fabric API and `aio-pvp-<version>+<minecraft version>.jar` (for example `aio-pvp-1.0.29+1.21.11.jar`) into your `mods` folder.
 3. Start the game.
 
 ## How to use

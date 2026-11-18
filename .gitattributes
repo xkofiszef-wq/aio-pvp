@@ -1,0 +1,6 @@
+# Repository and checkouts use LF on every OS, so diffs between version folders stay readable.
+* text=auto eol=lf
+
+# Windows scripts need CRLF to run.
+*.bat text eol=crlf
+*.cmd text eol=crlf

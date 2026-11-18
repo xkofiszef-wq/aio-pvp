@@ -1,0 +1,7 @@
+AIO PvP
+Copyright (c) 2026 Kerfuss_ (MIT License, see LICENSE)
+
+Third-party asset: the sound file assets/aio_pvp/sounds/tool_breaking.ogg is
+from the Durability Viewer mod by Guntram Blohm, also under the MIT license;
+see src/main/resources/LICENSE-DurabilityViewer.txt
+(also bundled inside the mod jar).
