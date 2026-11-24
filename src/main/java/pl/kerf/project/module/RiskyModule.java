@@ -36,6 +36,12 @@ public class RiskyModule extends Module {
 	/** Przełącznik w menu i skrót klawiszowy: włączenie tylko po potwierdzeniu ostrzeżenia, wyłączenie zablokowane. */
 	@Override
 	public void toggle() {
+		// Gracz wziął ryzyko w ustawieniach ("Zapamiętuj ryzykowne moduły"): zwykły przełącznik, stan zostaje na kolejne sesje.
+		if (Modules.GUI_THEME.rememberRisky.on()) {
+			super.toggle();
+			return;
+		}
+
 		if (this.on()) {
 			Notifications.push(this.name, "Zablokowany do restartu gry", Theme.DANGER);
 			return;
@@ -75,19 +81,30 @@ public class RiskyModule extends Module {
 		}
 	}
 
-	/** Stan włączenia nie przechodzi do następnej sesji gry (ustawienia i skrót tak). */
+	/** Stan włączenia przechodzi do następnej sesji gry tylko, gdy gracz wziął ryzyko w ustawieniach; inaczej zawsze zapisuje się wyłączony. */
 	@Override
 	public JsonObject write() {
 		JsonObject json = super.write();
-		json.addProperty("enabled", false);
+		json.addProperty("enabled", Modules.GUI_THEME.rememberRisky.on() && this.on());
 		return json;
 	}
+
+	/** Stan zapisany w pliku (jeszcze nie zastosowany: ustawienie "zapamiętuj" bywa wczytane później niż moduł). */
+	private boolean stored;
 
 	@Override
 	public void read(JsonObject json) {
 		super.read(json);
+		this.stored = json.has("enabled") && json.get("enabled").getAsBoolean();
 		if (!this.locked) {
 			super.setEnabled(false);
+		}
+	}
+
+	/** Po wczytaniu configu: przywraca włączenie, jeśli gracz wziął ryzyko i moduł był włączony przy wyjściu z gry. */
+	public void applyRemembered() {
+		if (Modules.GUI_THEME.rememberRisky.on() && this.stored && !this.locked) {
+			super.setEnabled(true);
 		}
 	}
 }

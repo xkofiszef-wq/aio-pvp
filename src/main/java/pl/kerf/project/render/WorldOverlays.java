@@ -32,12 +32,18 @@ public final class WorldOverlays {
 
 	/** Wywoływane raz na klatkę, zanim renderer świata zbierze gizmo. */
 	public static void submit(MinecraftClient client) {
-		if (client.world == null || client.player == null || !Modules.BLOCK_OUTLINE.on()) {
+		if (client.world == null || client.player == null || !(Modules.BLOCK_OUTLINE.on() || Modules.WAYPOINTS.on())) {
 			return;
 		}
 
 		try (GizmoDrawing.CollectorScope scope = client.worldRenderer.startDrawingGizmos()) {
-			submitBlockOutline(client);
+			if (Modules.BLOCK_OUTLINE.on()) {
+				submitBlockOutline(client);
+			}
+
+			if (Modules.WAYPOINTS.on()) {
+				Modules.WAYPOINTS.submit(client);
+			}
 		}
 	}
 

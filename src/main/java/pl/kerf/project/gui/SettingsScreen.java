@@ -422,6 +422,20 @@ public class SettingsScreen extends Screen {
 			this.controls.add(new ActionControl("Rysuj celownik: bez celu i na celu", () -> this.client.setScreen(new CrosshairEditorScreen(this))));
 		}
 
+		if (module == Modules.PARTY) {
+			this.controls.add(new ActionControl("Otwórz menu party", () -> this.client.setScreen(new PartyScreen(this))));
+		}
+
+		if (module == Modules.SOUNDS) {
+			this.controls.add(new ActionControl("Otwórz listę dźwięków", () -> this.client.setScreen(new SoundsScreen(this))));
+		}
+
+		if (module == Modules.WAYPOINTS) {
+			this.controls.add(new ActionControl("Otwórz menu waypointów", () -> this.client.setScreen(new WaypointScreen(this))));
+			this.controls.add(new KeybindControl(module, pl.kerf.project.module.Waypoints.key, "Klawisz: dodaj waypoint tutaj"));
+			this.controls.add(new KeybindControl(module, pl.kerf.project.module.Waypoints.menuKey, "Klawisz: menu waypointów"));
+		}
+
 		if (module == Modules.FIGHT_REPORT) {
 			this.controls.add(new ActionControl("Pokaż ostatni raport", () -> {
 				if (FightTracker.last() == null) {
@@ -443,7 +457,13 @@ public class SettingsScreen extends Screen {
 
 			Text label = label(setting);
 			if (setting instanceof Setting.Bool bool) {
-				this.controls.add(new ToggleControl(label, bool::on, () -> bool.set(!bool.on())));
+				if (bool.lockReason() != null) {
+					this.controls.add(new LockedControl(label, bool.lockReason()));
+				} else if (bool == Modules.GUI_THEME.rememberRisky) {
+					this.controls.add(new ToggleControl(label, bool::on, this::toggleRememberRisky));
+				} else {
+					this.controls.add(new ToggleControl(label, bool::on, () -> bool.set(!bool.on())));
+				}
 			} else if (setting instanceof Setting.Mode mode) {
 				this.controls.add(new DropdownControl(label, mode));
 			} else if (setting instanceof Setting.Num num) {
@@ -543,9 +563,9 @@ public class SettingsScreen extends Screen {
 		int mouseCode = button >= 2 ? ModuleKeys.MOUSE + button : -1;
 		if (this.capturing != null) {
 			if (mouseCode >= 0) {
-				this.capturing.module.key = mouseCode;
+				this.capturing.assign(mouseCode);
 				ConfigManager.save();
-				Notifications.push(this.capturing.module.name, Lang.t("Skrót: ") + ModuleKeys.name(mouseCode), Theme.ACCENT);
+				Notifications.push(this.capturing.module.name, Lang.t("Skrót: ") + this.capturing.current(), Theme.ACCENT);
 			}
 
 			this.capturing = null;
@@ -742,10 +762,11 @@ public class SettingsScreen extends Screen {
 				this.capturing = null;
 			} else {
 				boolean clear = input.key() == GLFW.GLFW_KEY_BACKSPACE || input.key() == GLFW.GLFW_KEY_DELETE;
-				module.key = clear ? -1 : input.key();
+				KeybindControl captured = this.capturing;
+				captured.assign(clear ? -1 : input.key());
 				this.capturing = null;
 				ConfigManager.save();
-				Notifications.push(module.name, clear ? "Skrót usunięty" : Lang.t("Skrót: ") + ModuleKeys.name(module.key), Theme.ACCENT);
+				Notifications.push(module.name, clear ? "Skrót usunięty" : Lang.t("Skrót: ") + captured.current(), Theme.ACCENT);
 			}
 
 			return true;
@@ -1203,6 +1224,51 @@ public class SettingsScreen extends Screen {
 		}
 	}
 
+	/** Wyłączenie od razu; włączenie ("na własne ryzyko") dopiero po oknie z ostrzeżeniem o banie. */
+	private void toggleRememberRisky() {
+		Setting.Bool option = Modules.GUI_THEME.rememberRisky;
+		if (option.on()) {
+			option.set(false);
+			ConfigManager.save();
+			return;
+		}
+
+		this.client.setScreen(new ConfirmScreen(confirmed -> {
+			if (confirmed) {
+				option.set(true);
+				ConfigManager.save();
+			}
+
+			this.client.setScreen(this);
+		}, Text.literal(Lang.t("Ryzykowne moduły zostaną zapamiętane")).formatted(net.minecraft.util.Formatting.RED),
+			Text.literal(Lang.t("Freelook i Instant Hit zostaną włączone po każdym uruchomieniu gry, jeśli je włączysz. Na części serwerów możesz za to dostać bana. Robisz to na własne ryzyko.")),
+			Text.literal(Lang.t("Biorę ryzyko")).formatted(net.minecraft.util.Formatting.RED), Text.literal(Lang.t("Anuluj"))));
+	}
+
+	/** Zablokowana opcja (robi to już inny mod): przyciemniony wiersz bez przełącznika i powód w drugiej linii. */
+	private final class LockedControl extends Control {
+		private final Text label;
+		private final String reason;
+
+		LockedControl(Text label, String reason) {
+			this.label = label;
+			this.reason = reason;
+		}
+
+		@Override
+		int height() {
+			return ROW + 11;
+		}
+
+		@Override
+		void render(DrawContext context, int x, int y, int w, boolean hover, int mouseX, int mouseY) {
+			context.drawText(SettingsScreen.this.textRenderer, this.label, x + 6, y + 6, Theme.TEXT_4, false);
+			String status = Lang.t("Zablokowane");
+			Draw.text(context, SettingsScreen.this.textRenderer, status, x + w - 6 - SettingsScreen.this.textRenderer.getWidth(status), y + 6, Theme.TEXT_4);
+			context.drawText(SettingsScreen.this.textRenderer, Draw.fit(SettingsScreen.this.textRenderer, this.reason, w - 12), x + 6, y + ROW - 2, Theme.WARNING, false);
+		}
+	}
+
 	private final class ToggleControl extends Control {
 		private final Text label;
 		private final BooleanSupplier state;
@@ -1237,14 +1303,23 @@ public class SettingsScreen extends Screen {
 
 	private final class KeybindControl extends Control {
 		private final Module module;
+		/** Klawisz ze Sterowania Minecrafta (ten sam obiekt co tam) albo null dla skrótu włączającego moduł. */
+		private final net.minecraft.client.option.KeyBinding vanilla;
+		private final String label;
 
 		KeybindControl(Module module) {
+			this(module, null, "Skrót klawiszowy");
+		}
+
+		KeybindControl(Module module, net.minecraft.client.option.KeyBinding vanilla, String label) {
+			this.vanilla = vanilla;
+			this.label = label;
 			this.module = module;
 		}
 
 		@Override
 		void render(DrawContext context, int x, int y, int w, boolean hover, int mouseX, int mouseY) {
-			this.row(context, x, y, w, hover, Text.literal(Lang.t("Skrót klawiszowy")));
+			this.row(context, x, y, w, hover, Text.literal(Lang.t(this.label)));
 			int cw = this.controlW(w);
 			int bx = x + w - cw - 4;
 			boolean capturing = SettingsScreen.this.capturing == this;
@@ -1259,8 +1334,8 @@ public class SettingsScreen extends Screen {
 				text = "Naciśnij klawisz…";
 				color = Theme.mix(Theme.TEXT_3, Theme.TEXT, pulse);
 			} else {
-				text = ModuleKeys.name(this.module.key);
-				color = this.module.key < 0 ? Theme.TEXT_4 : Theme.TEXT;
+				text = this.current();
+				color = this.unbound() ? Theme.TEXT_4 : Theme.TEXT;
 			}
 
 			text = Draw.fit(SettingsScreen.this.textRenderer, text, cw - 10);
@@ -1270,10 +1345,26 @@ public class SettingsScreen extends Screen {
 			}
 		}
 
+		void assign(int code) {
+			if (this.vanilla != null) {
+				ModuleKeys.setBinding(this.vanilla, code);
+			} else {
+				this.module.key = code;
+			}
+		}
+
+		boolean unbound() {
+			return this.vanilla != null ? this.vanilla.isUnbound() : this.module.key < 0;
+		}
+
+		String current() {
+			return this.vanilla != null ? (this.vanilla.isUnbound() ? Lang.t("Brak") : this.vanilla.getBoundKeyLocalizedText().getString()) : ModuleKeys.name(this.module.key);
+		}
+
 		@Override
 		void click(double mx, double my, int button, int x, int y, int w) {
 			if (button == 1) {
-				this.module.key = -1;
+				this.assign(-1);
 				ConfigManager.save();
 				return;
 			}

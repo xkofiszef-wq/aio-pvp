@@ -82,7 +82,7 @@ public final class CoordinatesHud extends InfoHud {
 		}
 
 		if (this.background.on()) {
-			context.fill(0, 0, this.linesW + 2 * PAD_X, 3 * 10 - 2 + 2 * PAD_Y, this.backgroundColor.argb());
+			this.fillBackground(context, this.linesW + 2 * PAD_X, 3 * 10 - 2 + 2 * PAD_Y);
 		}
 
 		for (int i = 0; i < 3; i++) {

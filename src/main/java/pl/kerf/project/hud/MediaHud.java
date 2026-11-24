@@ -7,6 +7,7 @@ import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.render.RenderTickCounter;
 import pl.kerf.project.config.Setting;
+import pl.kerf.project.gui.theme.Draw;
 import pl.kerf.project.media.MediaSession;
 import pl.kerf.project.module.HudModule;
 
@@ -26,7 +27,15 @@ public final class MediaHud extends HudModule {
 	public final Setting.Color borderColor = this.add(new Setting.Color("border_color", "Kolor obramowania", 0x30FFFFFF, true));
 	public final Setting.Bool backgroundEnabled = this.add(new Setting.Bool("background_enabled", "Tło", true));
 	public final Setting.Color background = this.add(new Setting.Color("background", "Kolor tła", 0xC0101016, true));
-	public final Setting.Color accent = this.add(new Setting.Color("accent", "Kolor akcentu", 0xFFE0506A, false));
+	public final Setting.Color accent = this.add(new Setting.Color("accent", "Kolor paska postępu", 0xFFE0506A, false));
+	public final Setting.Num rounding = this.add(new Setting.Num("rounding", "Zaokrąglenie rogów", 0, 0, 8, 1, " px"));
+	public final Setting.Color titleColor = this.add(new Setting.Color("title_color", "Kolor tytułu", 0xFFFFFFFF, false));
+	public final Setting.Color artistColor = this.add(new Setting.Color("artist_color", "Kolor wykonawcy", 0xFFA0A0AA, false));
+	public final Setting.Color buttonBackground = this.add(new Setting.Color("button_background", "Tło przycisków", 0x30FFFFFF, true));
+	public final Setting.Color prevColor = this.add(new Setting.Color("prev_color", "Kolor przycisku Wstecz", 0xFFD0D0D8, false));
+	public final Setting.Color playBackground = this.add(new Setting.Color("play_background", "Tło przycisku Play/Pauza", 0xFFE0506A, true));
+	public final Setting.Color playColor = this.add(new Setting.Color("play_color", "Kolor ikony Play/Pauza", 0xFFFFFFFF, false));
+	public final Setting.Color nextColor = this.add(new Setting.Color("next_color", "Kolor przycisku Dalej", 0xFFD0D0D8, false));
 
 	/** Prostokąty przycisków na ekranie (do klikania przy otwartym czacie). */
 	private final float[][] buttons = new float[3][4];
@@ -58,10 +67,10 @@ public final class MediaHud extends HudModule {
 		String artist = active ? state.artist() : Lang.t("Włącz Spotify lub muzykę w przeglądarce");
 		int w = this.width.i();
 		if (this.backgroundEnabled.on()) {
-			context.fill(0, 0, w, HEIGHT, this.background.argb());
+			Draw.roundExact(context, 0, 0, w, HEIGHT, this.rounding.i(), this.background.argb());
 		}
 		if (this.border.on()) {
-			context.drawStrokedRectangle(0, 0, w, HEIGHT, this.borderColor.argb());
+			Draw.outlineExact(context, 0, 0, w, HEIGHT, this.rounding.i(), this.borderColor.argb());
 		}
 
 		int textX = 6;
@@ -82,26 +91,28 @@ public final class MediaHud extends HudModule {
 		}
 
 		int textW = w - textX - 5;
-		marquee(context, font, title, textX, 6, textW, 0xFFFFFFFF);
-		context.drawText(font, ellipsis(font, artist, textW), textX, 17, 0xFFA0A0AA, false);
+		marquee(context, font, title, textX, 6, textW, this.titleColor.argb());
+		context.drawText(font, ellipsis(font, artist, textW), textX, 17, this.artistColor.argb(), false);
 
 		int center = textX + textW / 2;
+		// Przyciski: trzy kafelki 16 x 14 w odstępie 6 px (poprzedni, odtwórz/pauza, następny); klik liczy się na całym kafelku.
 		this.buttons[0] = new float[] {-1, -1, 0, 0};
 		if (this.showControls.on()) {
-			int y = 28;
-			prevIcon(context, center - 18, y + 4, 0xFFD0D0D8);
-			nextIcon(context, center + 18, y + 4, 0xFFD0D0D8);
-			context.fill(center - 5, y - 1, center + 6, y + 10, this.accent.argb());
-			if (active && state.playing()) {
-				context.fill(center - 2, y + 2, center, y + 7, 0xFFFFFFFF);
-				context.fill(center + 1, y + 2, center + 3, y + 7, 0xFFFFFFFF);
-			} else {
-				triangleRight(context, center - 1, y + 4, 3, 0xFFFFFFFF);
+			int y = 26;
+			int[] xs = {center - 30, center - 8, center + 14};
+			for (int i = 0; i < 3; i++) {
+				Draw.roundExact(context, xs[i], y, 16, 14, 3, i == 1 ? this.playBackground.argb() : this.buttonBackground.argb());
+				this.storeButton(i, xs[i], y, 16, 14);
 			}
 
-			this.storeButton(0, center - 24, y - 2, 12, 13);
-			this.storeButton(1, center - 6, y - 2, 13, 13);
-			this.storeButton(2, center + 12, y - 2, 12, 13);
+			prevIcon(context, xs[0] + 8, y + 7, this.prevColor.argb());
+			nextIcon(context, xs[2] + 8, y + 7, this.nextColor.argb());
+			if (active && state.playing()) {
+				context.fill(xs[1] + 5, y + 4, xs[1] + 7, y + 10, this.playColor.argb());
+				context.fill(xs[1] + 9, y + 4, xs[1] + 11, y + 10, this.playColor.argb());
+			} else {
+				triangleRight(context, xs[1] + 6, y + 7, 3, this.playColor.argb());
+			}
 		}
 
 		// Pasek postępu z czasem po obu stronach (mniejsza czcionka).
@@ -129,9 +140,14 @@ public final class MediaHud extends HudModule {
 		this.buttons[index] = new float[] {this.boundsX + x * this.scale, this.boundsY + y * this.scale, w * this.scale, h * this.scale};
 	}
 
+	/** Prostokąt przycisku (0 = poprzedni, 1 = odtwórz/pauza, 2 = następny) na ekranie: x, y, szerokość, wysokość. */
+	public float[] buttonRect(int index) {
+		return this.buttons[index].clone();
+	}
+
 	/** Klik w przycisk odtwarzacza (przy otwartym czacie). Zwraca true, gdy kliknięcie zostało obsłużone. */
 	public boolean click(double mx, double my) {
-		if (!this.on() || !this.showControls.on() || !MediaSession.state().active()) {
+		if (!this.on() || !this.showControls.on()) {
 			return false;
 		}
 

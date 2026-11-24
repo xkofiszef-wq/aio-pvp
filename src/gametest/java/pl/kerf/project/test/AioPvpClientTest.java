@@ -88,8 +88,48 @@ public class AioPvpClientTest implements FabricClientGameTest {
 		return sum / seconds;
 	}
 
+	/** Tylko z AIO_MAKE_SAVE: tworzy świat "AIO Test" (creative, cheaty, ekwipunek i cele do ręcznego testowania) i kończy. */
+	private static void makeSave(ClientGameTestContext context) {
+		try (TestSingleplayerContext singleplayer = context.worldBuilder().adjustSettings(creator -> {
+			creator.setWorldName("AIO Test");
+			creator.setCheatsEnabled(true);
+			creator.setGameMode(net.minecraft.client.gui.screen.world.WorldCreator.Mode.CREATIVE);
+		}).create()) {
+			singleplayer.getClientWorld().waitForChunksRender();
+			TestServerContext server = singleplayer.getServer();
+			String[] commands = {
+				"gamerule advance_time false", "gamerule advance_weather false", "time set noon", "weather clear",
+				"item replace entity @p armor.head with diamond_helmet", "item replace entity @p armor.chest with diamond_chestplate",
+				"item replace entity @p armor.legs with diamond_leggings", "item replace entity @p armor.feet with netherite_boots",
+				"item replace entity @p weapon.offhand with shield",
+				"give @p diamond_sword", "give @p netherite_axe", "give @p mace", "give @p bow", "give @p crossbow", "give @p arrow 64",
+				"give @p elytra", "give @p firework_rocket 64", "give @p spyglass", "give @p totem_of_undying 5", "give @p ender_pearl 16",
+				"give @p golden_apple 32", "give @p cooked_beef 64", "give @p experience_bottle 64", "give @p cobweb 64",
+				"give @p end_crystal 16", "give @p obsidian 64", "give @p oak_boat", "give @p oak_sign 8", "give @p water_bucket", "give @p lava_bucket",
+				"give @p potion[potion_contents={potion:\"minecraft:strong_swiftness\"}] 3",
+				"give @p splash_potion[potion_contents={potion:\"minecraft:strong_healing\"}] 5",
+				"give @p tnt 16", "give @p flint_and_steel", "give @p compass", "give @p clock",
+				"effect give @p strength 3600 1", "effect give @p speed 3600 1",
+				"execute at @p run summon husk ^ ^ ^4 {NoAI:1b}", "execute at @p run summon zombie ^3 ^ ^4 {NoAI:1b}",
+				"execute at @p run summon pig ^-3 ^ ^4", "execute at @p run summon mannequin ^ ^ ^8 {CustomName:\"Cel_PvP\",CustomNameVisible:1b}",
+				"execute at @p run summon mannequin ^5 ^ ^8 {CustomName:\"Cel_2\",CustomNameVisible:1b}",
+				"execute at @p run summon armor_stand ^-5 ^ ^6"
+			};
+			for (String command : commands) {
+				server.runCommand(command);
+			}
+
+			context.waitTicks(40);
+		}
+	}
+
 	@Override
 	public void runTest(ClientGameTestContext context) {
+		if (System.getenv("AIO_MAKE_SAVE") != null) {
+			makeSave(context);
+			return;
+		}
+
 		// Zapis i odczyt configu: wartości wracają po load(), a nie domyślne.
 		context.runOnClient(client -> {
 			Modules.HIT_COLOR.color.set(0xFF123456);
@@ -233,6 +273,24 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			context.waitTick();
 			context.takeScreenshot("06f_health_below_label");
 			context.runOnClient(client -> Modules.HEALTH.position.set(0));
+			// Waypoint: dodany komendą, potem odejście na bok - wiązka, nazwa i dystans mają być widoczne.
+			context.runOnClient(client -> client.player.networkHandler.sendChatCommand("waypoint add Baza"));
+			context.waitTick();
+			server.runCommand("execute at @p run tp @p ~9 ~ ~9");
+			server.runCommand("execute at @p run tp @p ~ ~ ~ facing ~-9 ~ ~-9");
+			context.waitTicks(20);
+			context.takeScreenshot("06g_waypoint");
+			String plus = pl.kerf.project.config.PixelGrid.plus(0xFFFFE030);
+			context.runOnClient(client -> { var baza = Modules.WAYPOINTS.here(client).get(0); Modules.WAYPOINTS.create(client, "Skarbiec", baza.x() - 6, baza.y(), baza.z() + 6, 0xFFFF3030, plus); });
+			context.waitTicks(5);
+			context.takeScreenshot("06g2_waypoint_icon");
+			context.setScreen(() -> new pl.kerf.project.gui.WaypointScreen(null));
+			context.waitTicks(3);
+			context.takeScreenshot("06g3_waypoint_menu");
+			context.setScreen(() -> new pl.kerf.project.gui.WaypointIconScreen(null, plus, value -> {}));
+			context.waitTicks(3);
+			context.takeScreenshot("06g4_waypoint_icon_editor");
+			context.setScreen(() -> null);
 			// Układy HUD: koordynaty pionowo, efekty mikstur poziomo.
 			context.runOnClient(client -> {
 				Modules.COORDINATES.layout.set(1);
@@ -248,6 +306,280 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			});
 			context.waitTick();
 			context.takeScreenshot("06i_hotbar_lift");
+			// Styl HUD (zaokrąglone rogi, nawiasy) i klikanie przycisków odtwarzacza przy otwartym czacie.
+			context.runOnClient(client -> {
+				Modules.FPS.rounding.set(4.0);
+				Modules.FPS.brackets.set(true);
+				Modules.MEDIA.hideIdle.set(false);
+				pl.kerf.project.media.MediaSession.lastCommand = null;
+			});
+			context.waitTick();
+			context.takeScreenshot("06j_hud_style");
+			context.getInput().pressKey(options -> options.chatKey);
+			context.waitTicks(5);
+			for (int i = 0; i < 3; i++) {
+				int index = i;
+				double[] at = context.computeOnClient(client -> {
+					float[] b = Modules.MEDIA.buttonRect(index);
+					double scale = client.getWindow().getScaleFactor();
+					return new double[] {(b[0] + b[2] / 2.0) * scale, (b[1] + b[3] / 2.0) * scale};
+				});
+				context.getInput().setCursorPos(at[0], at[1]);
+				context.getInput().pressMouse(GLFW.GLFW_MOUSE_BUTTON_LEFT);
+				context.waitTicks(2);
+				String sent = pl.kerf.project.media.MediaSession.lastCommand;
+				String expected = new String[] {"prev", "toggle", "next"}[index];
+				if (!expected.equals(sent)) {
+					throw new AssertionError("Przycisk odtwarzacza " + expected + " nie zadzialal po kliknieciu, ostatnie polecenie: " + sent);
+				}
+			}
+
+			context.takeScreenshot("06k_media_buttons");
+			context.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+			// Ten sam odtwarzacz ma zostać widoczny i klikalny w ekwipunku.
+			context.runOnClient(client -> pl.kerf.project.media.MediaSession.lastCommand = null);
+			context.getInput().pressKey(options -> options.inventoryKey);
+			context.waitTicks(5);
+			context.takeScreenshot("06l_media_in_inventory");
+			double[] play = context.computeOnClient(client -> {
+				float[] b = Modules.MEDIA.buttonRect(1);
+				double scale = client.getWindow().getScaleFactor();
+				return new double[] {(b[0] + b[2] / 2.0) * scale, (b[1] + b[3] / 2.0) * scale};
+			});
+			context.getInput().setCursorPos(play[0], play[1]);
+			context.getInput().pressMouse(GLFW.GLFW_MOUSE_BUTTON_LEFT);
+			context.waitTicks(2);
+			if (!"toggle".equals(pl.kerf.project.media.MediaSession.lastCommand)) {
+				throw new AssertionError("Odtwarzacz nie reaguje na klik w ekwipunku");
+			}
+
+			context.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+			// Marker: środkowy przycisk myszy w ziemię przed sobą; ma się pojawić (i wysłać się do party, której tu nie ma).
+			server.runCommand("execute at @p run tp @p ~ ~ ~ ~ 25");
+			context.waitTicks(5);
+			context.getInput().pressMouse(GLFW.GLFW_MOUSE_BUTTON_MIDDLE);
+			context.waitTicks(10);
+			context.takeScreenshot("06m_marker");
+			// Sounds: głośność jednego dźwięku po nazwie i ekran z listą.
+			context.runOnClient(client -> {
+				Modules.SOUNDS.set("minecraft:entity.player.hurt", 50);
+				if (Math.abs(Modules.SOUNDS.multiplier(net.minecraft.util.Identifier.of("minecraft:entity.player.hurt")) - 0.5F) > 1e-6) {
+					throw new AssertionError("Sounds: mnoznik glosnosci nie dziala");
+				}
+			});
+			context.setScreen(() -> new pl.kerf.project.gui.SoundsScreen(null));
+			context.waitTicks(3);
+			context.takeScreenshot("06n_sounds");
+			context.runOnClient(client -> Modules.SOUNDS.set("minecraft:entity.player.hurt", 100));
+			// Na własne ryzyko: Freelook zapisuje stan włączenia tylko przy ustawieniu "Zapamiętuj ryzykowne moduły".
+			context.runOnClient(client -> {
+				Modules.GUI_THEME.rememberRisky.set(false);
+				Modules.FREELOOK.setEnabled(true);
+				if (Modules.FREELOOK.write().get("enabled").getAsBoolean()) {
+					throw new AssertionError("Freelook nie powinien zapisywac wlaczenia bez zgody na ryzyko");
+				}
+
+				Modules.GUI_THEME.rememberRisky.set(true);
+				if (!Modules.FREELOOK.write().get("enabled").getAsBoolean()) {
+					throw new AssertionError("Freelook powinien zapisac wlaczenie po zgodzie na ryzyko");
+				}
+
+				com.google.gson.JsonObject saved = Modules.FREELOOK.write();
+				Modules.FREELOOK.setEnabled(false);
+				Modules.FREELOOK.read(saved);
+				Modules.FREELOOK.applyRemembered();
+				if (!Modules.FREELOOK.on()) {
+					throw new AssertionError("Freelook powinien wrocic wlaczony po restarcie");
+				}
+
+				Modules.FREELOOK.setEnabled(false);
+				Modules.GUI_THEME.rememberRisky.set(false);
+			});
+			context.setScreen(() -> null);
+			// Party client-side: zaproszenie, rola, głosowanie o koordynatach, menu i marker od członka.
+			context.runOnClient(client -> {
+				if (!Modules.PARTY.receive(client, "Alice whispers to you: [aio]inv", "Alice")) {
+					throw new AssertionError("Wiadomosc moda powinna byc ukryta w czacie");
+				}
+
+				client.player.networkHandler.sendChatCommand("mparty accept Alice");
+			});
+			context.waitTicks(3);
+			context.runOnClient(client -> {
+				// Alice (leader) przysyła opis party: ona, ja i Bob z rangą Inviter.
+				Modules.PARTY.receive(client, "[aio]state 0 Alice:L Player0:M Bob:I", "Alice");
+				if (!Modules.PARTY.inParty() || Modules.PARTY.myRole(client) != pl.kerf.project.module.Party.Role.MEMBER) {
+					throw new AssertionError("Party: po state od leadera powinienem byc czlonkiem");
+				}
+
+				// Obcy nie zmieni stanu party.
+				Modules.PARTY.receive(client, "[aio]state 0 Mallory:L Player0:L", "Mallory");
+				if (Modules.PARTY.myRole(client) != pl.kerf.project.module.Party.Role.MEMBER) {
+					throw new AssertionError("Party: state od obcego nie powinien dzialac");
+				}
+
+				Modules.PARTY.receive(client, "[aio]vote 1 coords", "Alice");
+				if (Modules.PARTY.vote() == null) {
+					throw new AssertionError("Party: powinno trwac glosowanie");
+				}
+			});
+			context.waitTicks(3);
+			context.takeScreenshot("06p_party_vote_popup");
+			context.runOnClient(client -> {
+				Modules.PARTY.answer(true);
+				if (Modules.PARTY.vote().myAnswer == null || !Modules.PARTY.vote().myAnswer) {
+					throw new AssertionError("Party: moja odpowiedz tak nie zostala zapisana");
+				}
+
+				Modules.PARTY.receive(client, "[aio]end 1 ok", "Alice");
+				Modules.PARTY.receive(client, "[aio]state 1 Alice:L Player0:M Bob:I", "Alice");
+				Modules.PARTY.receive(client, "[aio]pos 10.0 64.0 -5.0 overworld", "Bob");
+				if (!Modules.PARTY.coordsEnabled() || Modules.PARTY.positionOf("Bob") == null || Modules.PARTY.vote() != null) {
+					throw new AssertionError("Party: koordynaty powinny byc wlaczone po glosowaniu");
+				}
+			});
+			context.setScreen(() -> new pl.kerf.project.gui.PartyScreen(null));
+			context.waitTicks(3);
+			context.takeScreenshot("06q_party_menu");
+			// Motyw "Ocean": ekrany party i waypointów mają brać kolory z ustawień motywu.
+			context.runOnClient(client -> {
+				Modules.GUI_THEME.theme.set(5);
+				Modules.GUI_THEME.sync();
+			});
+			context.setScreen(() -> new pl.kerf.project.gui.PartyScreen(null));
+			context.waitTicks(3);
+			context.takeScreenshot("06q2_party_menu_ocean");
+			context.setScreen(() -> new pl.kerf.project.gui.WaypointScreen(null));
+			context.waitTicks(3);
+			context.takeScreenshot("06q3_waypoint_menu_ocean");
+			context.runOnClient(client -> {
+				Modules.GUI_THEME.theme.set(0);
+				Modules.GUI_THEME.sync();
+			});
+			context.setScreen(() -> null);
+			context.runOnClient(client -> {
+				// Obcy gracz nie moze stawiac markerow u nas, czlonek party moze.
+				int before = Modules.MARKERS.markerCount();
+				Modules.PARTY.receive(client, "[aio]m 1.0 -60.0 1.0 overworld minecraft:stone -", "Mallory");
+				if (Modules.MARKERS.markerCount() != before) {
+					throw new AssertionError("Marker od obcego gracza nie powinien sie pojawic");
+				}
+
+				Modules.PARTY.receive(client, "[aio]m 1.0 -60.0 1.0 overworld minecraft:stone -", "Alice");
+				if (Modules.MARKERS.markerCount() != before + 1) {
+					throw new AssertionError("Marker od czlonka party powinien sie pojawic");
+				}
+			});
+			double[] ahead = context.computeOnClient(client -> {
+				net.minecraft.util.math.Vec3d p = client.player.getEntityPos().add(client.player.getRotationVec(1.0F).multiply(1.0, 0.0, 1.0).normalize().multiply(6.0));
+				return new double[] {p.x, p.y, p.z};
+			});
+			server.runCommand(String.format(java.util.Locale.ROOT, "summon pig %.1f %.1f %.1f {NoAI:1b,Tags:[\"aio_target\"]}", ahead[0], ahead[1], ahead[2]));
+			context.waitTicks(10);
+			// Klient nie zna tagów komend, więc świnię (tę przy punkcie ahead) szukamy po typie i odległości.
+			java.util.UUID pigId = context.computeOnClient(client -> {
+				net.minecraft.entity.Entity best = null;
+				double bestDistance = Double.MAX_VALUE;
+				for (net.minecraft.entity.Entity entity : client.world.getEntities()) {
+					double distance = entity.squaredDistanceTo(ahead[0], ahead[1], ahead[2]);
+					if (entity.getType() == net.minecraft.entity.EntityType.PIG && distance < bestDistance) {
+						best = entity;
+						bestDistance = distance;
+					}
+				}
+
+				return best.getUuid();
+			});
+			context.runOnClient(client -> Modules.PARTY.receive(client, "[aio]m 0.0 -59.0 0.0 overworld minecraft:pig " + pigId, "Alice"));
+			context.waitTicks(5);
+			context.takeScreenshot("06o_entity_marker");
+			int withPig = context.computeOnClient(client -> Modules.MARKERS.markerCount());
+			server.runCommand("kill " + pigId);
+			context.waitTicks(10);
+			int afterKill = context.computeOnClient(client -> Modules.MARKERS.markerCount());
+			if (afterKill != withPig - 1) {
+				throw new AssertionError("Marker na mobie powinien zniknac razem z mobem: " + withPig + " -> " + afterKill);
+			}
+
+			context.runOnClient(client -> client.player.networkHandler.sendChatCommand("mparty leave"));
+			context.waitTicks(3);
+			context.runOnClient(client -> {
+				var party = Modules.PARTY;
+				if (party.inParty()) {
+					throw new AssertionError("Party: po leave nie powinienem byc w party");
+				}
+
+				// Teraz ja prowadze: zapraszam Zed, on akceptuje, nadaje mu range, glosowanie, kick.
+				party.invite("Zed");
+				party.receive(client, "[aio]acc", "Zed");
+				if (!party.isLeader(client) || !party.roles().containsKey("Zed")) {
+					throw new AssertionError("Party: po acc powinienem byc leaderem z Zed w party");
+				}
+
+				party.toggleInviter("Zed");
+				if (party.roles().get("Zed") != pl.kerf.project.module.Party.Role.INVITER) {
+					throw new AssertionError("Party: Zed powinien miec range Inviter");
+				}
+
+				party.setCoords(true);
+				if (party.vote() == null) {
+					throw new AssertionError("Party: leader powinien rozpoczac glosowanie");
+				}
+
+				party.receive(client, "[aio]ans " + party.vote().id + " y", "Zed");
+				if (!party.coordsEnabled()) {
+					throw new AssertionError("Party: komplet glosow tak powinien wlaczyc koordynaty");
+				}
+
+				party.kick("Zed");
+				if (party.roles().containsKey("Zed")) {
+					throw new AssertionError("Party: Zed powinien byc wyrzucony");
+				}
+
+				party.leave();
+			});
+			context.waitTicks(3);
+			// Wykrywanie moda u zaproszonego i zgodnosc roznych wersji.
+			context.runOnClient(client -> {
+				var party = Modules.PARTY;
+				party.receive(client, "[aio]ack 1 1.0.31 on", "Zed");
+				party.invite("Qux");
+				if (party.pendingAcks() != 1) {
+					throw new AssertionError("Party: zaproszenie powinno czekac na ack");
+				}
+
+				// Nowsza wersja moda: inny protokol i dodatkowe pola na koncu oraz nieznane polecenie nie moga niczego psuc.
+				party.receive(client, "[aio]zzz 1 2 3", "Qux");
+				party.receive(client, "[aio]ack 2 9.9.9 on nowe_pole", "Qux");
+				if (party.pendingAcks() != 0) {
+					throw new AssertionError("Party: ack z nowszej wersji powinien zostac przyjety");
+				}
+
+				party.invite("Quux");
+			});
+			context.waitTicks(260);
+			context.runOnClient(client -> {
+				if (Modules.PARTY.pendingAcks() != 0) {
+					throw new AssertionError("Party: brak odpowiedzi powinien zostac zgloszony po kilku sekundach");
+				}
+
+				Modules.PARTY.leave();
+			});
+			// Jak wyglada czat: widok osoby BEZ moda (surowa wiadomosc) oraz komunikaty moda u zapraszajacego i zaproszonego.
+			context.runOnClient(client -> {
+				var chat = client.inGameHud.getChatHud();
+				chat.clear(false);
+				chat.addMessage(net.minecraft.text.Text.literal("[Gracz bez moda widzi:] Player0 whispers to you: [aio]inv 1 1.0.31 AIO PvP mod: party invite (install the AIO PvP mod to accept)"));
+				Modules.PARTY.invite("Qux");
+				Modules.PARTY.receive(client, "[aio]ack 1 1.0.31 on", "Qux");
+				Modules.PARTY.receive(client, "Alice whispers to you: [aio]inv 1 1.0.31 AIO PvP mod: party invite (install the AIO PvP mod to accept)", "Alice");
+			});
+			context.waitTicks(3);
+			context.takeScreenshot("06r_party_chat_messages");
+			context.runOnClient(client -> {
+				Modules.FPS.rounding.set(0.0);
+				Modules.FPS.brackets.set(false);
+			});
 			context.runOnClient(client -> {
 				Modules.HUD_TWEAKER.lift.set(0.0);
 				Modules.HUD_TWEAKER.setEnabled(false);

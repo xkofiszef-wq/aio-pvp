@@ -80,6 +80,11 @@ Armor HUD, Item Preview and Potion Status have three styles: plain, Vanilla GUI 
 | Fullbright | Brightness above the vanilla limit. |
 | Block Outline | Color and style of the block highlight (lines, whole block or visible side). |
 | Nametags | White name text and a custom background. |
+| Waypoints | Save places with a key or /waypoint; a beam, name and distance show in the world. |
+| Markers | Middle mouse button places a marker where you look (block icon, distance, coordinates); people in your client-side party see it too (`/mparty invite`). |
+| Party | Client-side party with leader, inviter and member roles, a party menu (heads, ranks, kick), shared markers and member coordinates enabled by vote. |
+| Sounds | Change the volume of any sound by name (0-200%), with search and a hint to turn on subtitles. |
+| Optimization | FPS options such as Entity Culling; an option another mod (e.g. Sodium) already handles is locked with the reason shown. |
 | Low Fire | Lower, fainter fire overlay. |
 | No Potion Particles, No Explosion Particles | Hides those particles. |
 | Name in 3rd Person | Your own name above your head in third person. |

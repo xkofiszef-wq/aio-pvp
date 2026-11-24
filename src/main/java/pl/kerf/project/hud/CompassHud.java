@@ -16,6 +16,7 @@ public final class CompassHud extends HudModule {
 	public final Setting.Num span = this.add(new Setting.Num("span", "Widoczny kąt", 120, 60, 240, 10, "°"));
 	public final Setting.Bool backgroundEnabled = this.add(new Setting.Bool("background_enabled", "Tło", true));
 	public final Setting.Color background = this.add(new Setting.Color("background", "Kolor tła", 0xC0101014, true));
+	public final Setting.Num rounding = this.add(new Setting.Num("rounding", "Zaokrąglenie rogów", 0, 0, 8, 1, " px"));
 	public final Setting.Color marker = this.add(new Setting.Color("marker", "Kolor środka", 0xFFFF4040, false));
 
 	public CompassHud() {
@@ -39,7 +40,11 @@ public final class CompassHud extends HudModule {
 		// Yaw w grze: 0 = południe, 180 = północ. Kompas: 0 = północ, rośnie zgodnie z ruchem wskazówek zegara.
 		float heading = MathHelper.wrapDegrees(client.player.getYaw(tickCounter.getTickProgress(true)) + 180.0F);
 		if (this.backgroundEnabled.on()) {
-			context.fill(0, 0, w, HEIGHT, this.background.argb());
+			if (this.rounding.i() > 0) {
+				pl.kerf.project.gui.theme.Draw.roundExact(context, 0, 0, w, HEIGHT, this.rounding.i(), this.background.argb());
+			} else {
+				context.fill(0, 0, w, HEIGHT, this.background.argb());
+			}
 		}
 		context.enableScissor(0, 0, w, HEIGHT);
 		for (int angle = 0; angle < 360; angle += 15) {

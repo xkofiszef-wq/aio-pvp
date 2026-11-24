@@ -45,6 +45,12 @@ public final class ModuleKeys {
 		openMenu = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.aio_pvp.open_menu", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_RIGHT_SHIFT, category));
 		pl.kerf.project.module.Freelook.key = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.aio_pvp.freelook", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_LEFT_ALT, category));
 		noSignGui = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.aio_pvp.no_sign_gui", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, category));
+		pl.kerf.project.module.Waypoints.key = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.aio_pvp.add_waypoint", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, category));
+		pl.kerf.project.module.Waypoints.menuKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.aio_pvp.waypoint_menu", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, category));
+		pl.kerf.project.module.Markers.key = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.aio_pvp.ping_marker", InputUtil.Type.MOUSE, GLFW.GLFW_MOUSE_BUTTON_MIDDLE, category));
+		pl.kerf.project.module.Party.menuKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.aio_pvp.party_menu", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, category));
+		pl.kerf.project.module.Party.yesKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.aio_pvp.party_vote_yes", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_Y, category));
+		pl.kerf.project.module.Party.noKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.aio_pvp.party_vote_no", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_N, category));
 	}
 
 	public static void tick(MinecraftClient client) {
@@ -131,7 +137,7 @@ public final class ModuleKeys {
 	private static void toggle(Module module) {
 		module.toggle();
 		ConfigManager.save();
-		if (module instanceof RiskyModule) {
+		if (module instanceof RiskyModule && !Modules.GUI_THEME.rememberRisky.on()) {
 			// Moduł z szarej strefy sam pokazuje okno ostrzeżenia albo "zablokowany do restartu"; zwykłe "Włączone/Wyłączone" by kłamało.
 			return;
 		}
@@ -146,7 +152,12 @@ public final class ModuleKeys {
 
 	/** Ustawia klawisz menu (-1 = brak, kod >= MOUSE = przycisk myszy) i zapisuje options.txt, jak zrobiłoby to Sterowanie. */
 	public static void setMenuKey(int key) {
-		openMenu.setBoundKey(key < 0 ? InputUtil.UNKNOWN_KEY : key(key));
+		setBinding(openMenu, key);
+	}
+
+	/** To samo dla dowolnego klawisza ze Sterowania (np. klawisze waypointów). */
+	public static void setBinding(KeyBinding binding, int key) {
+		binding.setBoundKey(key < 0 ? InputUtil.UNKNOWN_KEY : key(key));
 		KeyBinding.updateKeysByCode();
 		MinecraftClient.getInstance().options.write();
 	}

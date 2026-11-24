@@ -2,5 +2,11 @@
   "key.category.aio_pvp.main": "AIO PvP",
   "key.aio_pvp.open_menu": "Open AIO PvP menu",
   "key.aio_pvp.freelook": "Freelook (hold)",
-  "key.aio_pvp.no_sign_gui": "Toggle No Sign GUI"
+  "key.aio_pvp.no_sign_gui": "Toggle No Sign GUI",
+  "key.aio_pvp.add_waypoint": "Add waypoint here",
+  "key.aio_pvp.waypoint_menu": "Open waypoint menu",
+  "key.aio_pvp.ping_marker": "Place marker (ping)",
+  "key.aio_pvp.party_menu": "Open party menu",
+  "key.aio_pvp.party_vote_yes": "Party vote: yes",
+  "key.aio_pvp.party_vote_no": "Party vote: no"
 }
