@@ -48,6 +48,29 @@ public final class PixelGrid {
 		this.setting.set(encode(grid));
 	}
 
+	/** Odczyt rysunku z tekstu "x,y,AARRGGBB;..." (używany też przez ikony waypointów, które nie mają ustawienia). */
+	public static int[] decode(String source) {
+		int[] grid = new int[SIZE * SIZE];
+		for (String part : source.split(";")) {
+			String[] fields = part.trim().split(",");
+			if (fields.length != 3) {
+				continue;
+			}
+
+			try {
+				int x = Integer.parseInt(fields[0]);
+				int y = Integer.parseInt(fields[1]);
+				if (x >= 0 && y >= 0 && x < SIZE && y < SIZE) {
+					grid[y * SIZE + x] = (int) Long.parseLong(fields[2], 16);
+				}
+			} catch (NumberFormatException ignored) {
+				// Uszkodzony wpis pomijamy, reszta rysunku zostaje.
+			}
+		}
+
+		return grid;
+	}
+
 	public static String encode(int[] grid) {
 		StringBuilder out = new StringBuilder();
 		for (int i = 0; i < grid.length; i++) {

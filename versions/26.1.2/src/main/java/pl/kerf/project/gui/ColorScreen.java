@@ -115,7 +115,7 @@ public class ColorScreen extends Screen {
 
 	@Override
 	protected void init() {
-		boolean preview = this.module != null && this.width >= 360;
+		boolean preview = this.module != null && this.module.preview && this.width >= 360;
 		this.previewW = preview ? Math.max(130, Math.min(200, this.width / 3)) : 0;
 		this.previewX = this.width - Ui.PAD - this.previewW;
 		int right = preview ? this.previewX - Ui.PAD : this.width - Ui.PAD;

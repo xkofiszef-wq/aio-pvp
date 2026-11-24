@@ -45,6 +45,12 @@ public final class ModuleKeys {
 		openMenu = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.aio_pvp.open_menu", InputConstants.Type.KEYBOARD, InputConstants.KEY_RSHIFT, category));
 		pl.kerf.project.module.Freelook.key = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.aio_pvp.freelook", InputConstants.Type.KEYBOARD, InputConstants.KEY_LALT, category));
 		noSignGui = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.aio_pvp.no_sign_gui", InputConstants.Type.KEYBOARD, InputConstants.UNKNOWN.getValue(), category));
+		pl.kerf.project.module.Waypoints.key = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.aio_pvp.add_waypoint", InputConstants.Type.KEYBOARD, InputConstants.UNKNOWN.getValue(), category));
+		pl.kerf.project.module.Waypoints.menuKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.aio_pvp.waypoint_menu", InputConstants.Type.KEYBOARD, InputConstants.UNKNOWN.getValue(), category));
+		pl.kerf.project.module.Markers.key = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.aio_pvp.ping_marker", InputConstants.Type.MOUSE, InputConstants.MOUSE_BUTTON_MIDDLE, category));
+		pl.kerf.project.module.Party.menuKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.aio_pvp.party_menu", InputConstants.Type.KEYBOARD, InputConstants.UNKNOWN.getValue(), category));
+		pl.kerf.project.module.Party.yesKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.aio_pvp.party_vote_yes", InputConstants.Type.KEYBOARD, InputConstants.KEY_Y, category));
+		pl.kerf.project.module.Party.noKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.aio_pvp.party_vote_no", InputConstants.Type.KEYBOARD, InputConstants.KEY_N, category));
 	}
 
 	public static void tick(Minecraft client) {
@@ -150,7 +156,7 @@ public final class ModuleKeys {
 	private static void toggle(Module module) {
 		module.toggle();
 		ConfigManager.save();
-		if (module instanceof RiskyModule) {
+		if (module instanceof RiskyModule && !Modules.GUI_THEME.rememberRisky.on()) {
 			// Moduł z szarej strefy sam pokazuje okno ostrzeżenia albo "zablokowany do restartu"; zwykłe "Włączone/Wyłączone" by kłamało.
 			return;
 		}
@@ -165,7 +171,12 @@ public final class ModuleKeys {
 
 	/** Ustawia klawisz menu (-1 = brak, kod >= MOUSE = przycisk myszy) i zapisuje options.txt, jak zrobiłoby to Sterowanie. */
 	public static void setMenuKey(int key) {
-		openMenu.setKey(key < 0 ? InputConstants.UNKNOWN : key(key));
+		setBinding(openMenu, key);
+	}
+
+	/** To samo dla dowolnego klawisza ze Sterowania (np. klawisze waypointów). */
+	public static void setBinding(KeyMapping binding, int key) {
+		binding.setKey(key < 0 ? InputConstants.UNKNOWN : key(key));
 		KeyMapping.resetMapping();
 		Minecraft.getInstance().options.save();
 	}

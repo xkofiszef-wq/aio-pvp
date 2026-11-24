@@ -129,20 +129,26 @@ public final class Modules {
 	public static final Module NO_SIGN_GUI = new Module(
 		"no_sign_gui", "No Sign GUI", "Postawiona tabliczka nie otwiera okna edycji. Skrót też w Sterowaniu.", Category.MISC, false
 	);
+	public static final Waypoints WAYPOINTS = new Waypoints();
+	public static final Markers MARKERS = new Markers();
+	public static final Party PARTY = new Party();
+	public static final pl.kerf.project.hud.PartyVoteHud PARTY_VOTE = new pl.kerf.project.hud.PartyVoteHud();
+	public static final Sounds SOUNDS = new Sounds();
+	public static final Optimization OPTIMIZATION = new Optimization();
 	public static final CommandKeys COMMAND_KEYS = new CommandKeys();
 	public static final GuiTheme GUI_THEME = new GuiTheme();
 
 	public static final List<Module> ALL = List.of(
 		ARMOR_HUD, ITEM_PREVIEW, POTION_STATUS, KEY_OVERLAY, ELYTRA_PITCH, BOW_PITCH,
-		COORDINATES, FPS, PING, CPS, DAY, CLOCK, SPRINT_STATUS, LAG_DETECTOR, COMPASS, MEDIA, HUD_TWEAKER, SATURATION,
+		COORDINATES, FPS, PING, CPS, DAY, CLOCK, SPRINT_STATUS, LAG_DETECTOR, COMPASS, MEDIA, PARTY_VOTE, HUD_TWEAKER, SATURATION,
 		CROSSHAIR, HITBOXES, HIT_COLOR, HEALTH, FIGHT_REPORT, INSTANT_HIT, DAMAGE_CALC, COOLDOWN_FIX,
 		LOW_FIRE, NO_POTION_PARTICLES, NO_EXPLOSION_PARTICLES, FULLBRIGHT, BLOCK_OUTLINE, NAMETAGS, OWN_NAME, NO_CAMERA_SHAKE, CLEAR_VIEW, FREELOOK,
 		VIEW_MODEL, SHIELD, TOTEM, BOAT_VIEW, FAST_XP, INVISIBLE_HAND, OLD_ANIMATIONS,
-		CHAT_HISTORY, NO_SIGN_GUI, COMMAND_KEYS, GUI_THEME
+		CHAT_HISTORY, NO_SIGN_GUI, WAYPOINTS, MARKERS, PARTY, SOUNDS, OPTIMIZATION, COMMAND_KEYS, GUI_THEME
 	);
 
 	public static final List<HudModule> HUD = List.of(
-		ARMOR_HUD, ITEM_PREVIEW, POTION_STATUS, ELYTRA_PITCH, BOW_PITCH, COORDINATES, FPS, PING, CPS, DAY, CLOCK, SPRINT_STATUS, LAG_DETECTOR, COMPASS, MEDIA, KEY_OVERLAY
+		ARMOR_HUD, ITEM_PREVIEW, POTION_STATUS, ELYTRA_PITCH, BOW_PITCH, COORDINATES, FPS, PING, CPS, DAY, CLOCK, SPRINT_STATUS, LAG_DETECTOR, COMPASS, MEDIA, KEY_OVERLAY, PARTY_VOTE
 	);
 
 	private Modules() {
@@ -521,6 +527,8 @@ public final class Modules {
 		public final Setting.Mode layout = this.add(new Setting.Mode("layout", "Układ menu", 0, "Klasyczny", "Pływający", "Pływający, pasek z prawej"));
 		/** Język menu i HUD-u moda; domyślnie angielski (patrz {@link pl.kerf.project.Lang}). */
 		public final Setting.Mode language = this.add(new Setting.Mode("language", "Język", 0, "English", "Polski"));
+		/** Na własne ryzyko: moduły z szarej strefy (Freelook, Instant Hit) zostają włączone po restarcie gry. Włącza się tylko przez okno z ostrzeżeniem. */
+		public final Setting.Bool rememberRisky = this.add(new Setting.Bool("remember_risky", "Zapamiętuj ryzykowne moduły", false));
 
 		/**
 		 * Ustawienia samego moda (przycisk "Settings" w menu): motyw, układ, język i reset wszystkiego. Id zostaje

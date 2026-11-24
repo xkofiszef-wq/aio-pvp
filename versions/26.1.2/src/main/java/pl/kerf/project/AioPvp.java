@@ -5,6 +5,7 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
+import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -54,6 +55,9 @@ public class AioPvp implements ClientModInitializer {
 			FightTracker.tick(client);
 			LagDetectorHud.tick(client);
 			Modules.FREELOOK.tick(client);
+			Modules.WAYPOINTS.tick(client);
+			Modules.MARKERS.tick(client);
+			Modules.PARTY.tick(client);
 			Modules.GUI_THEME.sync();
 			if (FightTracker.consumeOpenRequest() && FightTracker.last() != null) {
 				client.setScreen(new FightReportScreen(null, FightTracker.last()));
@@ -79,6 +83,12 @@ public class AioPvp implements ClientModInitializer {
 				return 1;
 			})
 		));
+		ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> Modules.WAYPOINTS.register(dispatcher));
+		ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> Modules.PARTY.register(dispatcher));
+		// Wiadomości moda (zaproszenia do party, markery) idą zwykłą prywatną wiadomością i znikają z czatu odbiorcy.
+		ClientReceiveMessageEvents.ALLOW_GAME.register((message, overlay) -> !Modules.PARTY.receive(Minecraft.getInstance(), message.getString(), null));
+		ClientReceiveMessageEvents.ALLOW_CHAT.register((message, signed, sender, params, time) ->
+			!Modules.PARTY.receive(Minecraft.getInstance(), message.getString(), sender == null ? null : sender.name()));
 		// /calc 2+2*3: zwykły kalkulator na czacie (tylko u ciebie, nic nie idzie na serwer).
 		ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(
 			ClientCommands.literal("calc").then(ClientCommands.argument("wyrazenie", StringArgumentType.greedyString()).executes(context -> {
@@ -104,12 +114,24 @@ public class AioPvp implements ClientModInitializer {
 			ScreenEvents.afterExtract(screen).register((current, context, mouseX, mouseY, delta) -> Notifications.render(context)));
 		ClientLifecycleEvents.CLIENT_STOPPING.register(client -> MediaSession.stop());
 
-		// Przyciski odtwarzacza są klikalne, gdy otwarty jest czat (kursor jest wtedy wolny).
+		// Odtwarzacz zostaje na ekranie przy czacie, ekwipunku i innych oknach w grze: rysuje się na wierzchu okna
+		// (okno przyciemnia zwykły HUD) i ma klikalne przyciski, bo kursor jest wtedy wolny. Własne okna moda go nie rysują.
 		ScreenEvents.AFTER_INIT.register((client, screen, width, height) -> {
-			if (screen instanceof ChatScreen) {
-				ScreenMouseEvents.allowMouseClick(screen).register((current, click) ->
-					!(click.button() == 0 && Modules.MEDIA.click(click.x(), click.y())));
+			if (client.level == null || screen.getClass().getName().startsWith("pl.kerf.project.gui")) {
+				return;
 			}
+
+			ScreenEvents.afterExtract(screen).register((current, context, mouseX, mouseY, delta) -> {
+				if (client.player != null) {
+					if (Modules.MEDIA.on()) {
+						Modules.MEDIA.render(context, client, client.getDeltaTracker(), false);
+					}
+
+					Modules.PARTY.renderPopup(context, client);
+				}
+			});
+			ScreenMouseEvents.allowMouseClick(screen).register((current, click) ->
+				!(click.button() == 0 && (Modules.PARTY.clickPopup(click.x(), click.y()) || Modules.MEDIA.on() && Modules.MEDIA.click(click.x(), click.y()))));
 		});
 
 		LevelRenderEvents.END_EXTRACTION.register(context -> WorldOverlays.submit(Minecraft.getInstance()));
@@ -133,7 +155,18 @@ public class AioPvp implements ClientModInitializer {
 			return;
 		}
 
+		Modules.MARKERS.render(context, client);
 		for (HudModule module : Modules.HUD) {
+			if (module == Modules.PARTY_VOTE && !editing) {
+				// Okienko głosowania rysuje się na końcu, na wierzchu wszystkich elementów (patrz niżej i hook ekranu).
+				continue;
+			}
+
+			if (module.on() && module == Modules.MEDIA && client.screen != null && !editing) {
+				// Przy otwartym oknie odtwarzacz rysuje się na wierzchu okna (patrz AFTER_INIT wyżej).
+				continue;
+			}
+
 			if (module.on()) {
 				module.render(context, client, tickCounter, editing);
 			} else {
@@ -141,6 +174,11 @@ public class AioPvp implements ClientModInitializer {
 				module.boundsW = 0.0F;
 				module.boundsH = 0.0F;
 			}
+		}
+
+		// Okienko głosowania na wierzchu wszystkich elementów HUD (przy otwartym oknie rysuje je hook ekranu).
+		if (client.screen == null) {
+			Modules.PARTY.renderPopup(context, client);
 		}
 	}
 }

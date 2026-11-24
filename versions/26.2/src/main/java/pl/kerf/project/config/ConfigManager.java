@@ -38,6 +38,13 @@ public final class ConfigManager {
 					module.read(element.getAsJsonObject());
 				}
 			}
+
+			// Ustawienie "zapamiętuj ryzykowne moduły" jest wczytywane razem z resztą, więc dopiero teraz wiadomo, czy je przywrócić.
+			for (Module module : Modules.ALL) {
+				if (module instanceof pl.kerf.project.module.RiskyModule risky) {
+					risky.applyRemembered();
+				}
+			}
 		} catch (IOException | RuntimeException e) {
 			// Uszkodzony plik nie może zablokować startu gry: zostają wartości domyślne,
 			// a sam plik idzie do kopii, zanim pierwszy zapis go nadpisze.
@@ -109,6 +116,8 @@ public final class ConfigManager {
 
 	public static void save() {
 		JsonObject root = new JsonObject();
+		// Numer formatu pliku: przyszłe migracje mają się opierać na nim, nie na wykrywaniu starych kluczy.
+		root.addProperty("version", 1);
 		for (Module module : Modules.ALL) {
 			root.add(module.id, module.write());
 		}

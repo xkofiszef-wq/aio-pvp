@@ -25,6 +25,11 @@
         "MouseMixin",
         "OverlayTextureAccessor",
         "ParticleManagerMixin",
+        "SoundSystemMixin",
+        "EntityRenderManagerMixin",
+        "FogRendererMixin",
+        "ChunkRenderingDataPreparerMixin",
+        "WindowMixin",
         "SpriteContentsAccessor",
         "PlayerArmMixin",
         "PlayerEntityRendererMixin"

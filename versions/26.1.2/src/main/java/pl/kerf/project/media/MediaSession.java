@@ -184,7 +184,11 @@ public final class MediaSession {
 	}
 
 	/** Polecenie dla odtwarzacza: "toggle", "next" albo "prev". */
+	/** Ostatnie polecenie z przycisków (do testów klikania). */
+	public static volatile String lastCommand;
+
 	public static void command(String command) {
+		lastCommand = command;
 		if (process == null) {
 			return;
 		}

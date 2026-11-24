@@ -46,8 +46,21 @@ public abstract class Setting<T> {
 			super(key, label, def);
 		}
 
+		/** Powód zablokowania opcji (np. "Sodium już to robi") albo null, gdy opcję można włączyć. */
+		private java.util.function.Supplier<String> lock = () -> null;
+
+		/** Opcja zablokowana: zawsze wyłączona, w menu pokazuje podany powód zamiast przełącznika. */
+		public Bool lockedBy(java.util.function.Supplier<String> lock) {
+			this.lock = lock;
+			return this;
+		}
+
+		public String lockReason() {
+			return this.lock.get();
+		}
+
 		public boolean on() {
-			return this.value;
+			return this.value && this.lock.get() == null;
 		}
 
 		@Override
