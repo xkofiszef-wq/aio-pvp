@@ -284,6 +284,26 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			context.runOnClient(client -> { var baza = Modules.WAYPOINTS.here(client).get(0); Modules.WAYPOINTS.create(client, "Skarbiec", baza.x() - 6, baza.y(), baza.z() + 6, 0xFFFF3030, plus); });
 			context.waitTicks(5);
 			context.takeScreenshot("06g2_waypoint_icon");
+			// Edycja waypointa i Hit Color tylko po uderzeniu.
+			context.runOnClient(client -> {
+				var wp = Modules.WAYPOINTS;
+				var first = wp.here(client).get(0);
+				String err = wp.update(client, first, "Baza2", first.x(), first.y(), first.z(), 0xFFFF40FF, "");
+				if (err != null || wp.here(client).stream().noneMatch(p -> p.name().equals("Baza2") && p.color() == 0xFFFF40FF)) {
+					throw new AssertionError("Edycja waypointa nie zadzialala: " + err);
+				}
+
+				wp.update(client, wp.here(client).stream().filter(p -> p.name().equals("Baza2")).findFirst().get(), "Baza", first.x(), first.y(), first.z(), first.color(), "");
+				var hurt = client.player;
+				if (pl.kerf.project.render.HitTracker.recent(hurt)) {
+					throw new AssertionError("Hit Color: bez ciosu nie powinno byc uderzenia");
+				}
+
+				pl.kerf.project.render.HitTracker.mark(hurt);
+				if (!pl.kerf.project.render.HitTracker.recent(hurt)) {
+					throw new AssertionError("Hit Color: po ciosie powinno byc uderzenie");
+				}
+			});
 			context.setScreen(() -> new pl.kerf.project.gui.WaypointScreen(null));
 			context.waitTicks(3);
 			context.takeScreenshot("06g3_waypoint_menu");

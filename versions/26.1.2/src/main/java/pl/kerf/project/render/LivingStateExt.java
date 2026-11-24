@@ -12,4 +12,9 @@ public interface LivingStateExt {
 	float aio$absorption();
 
 	void aio$set(float hurtProgress, float health, float maxHealth, float absorption);
+
+	/** Czy encja dostała niedawno cios od innej encji (a nie np. obrażenia od ognia). */
+	boolean aio$attackHit();
+
+	void aio$setAttackHit(boolean attackHit);
 }

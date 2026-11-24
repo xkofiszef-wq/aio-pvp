@@ -24,7 +24,7 @@ public class ClientPlayerEntityMixin {
 	@Inject(method = "swing", at = @At("TAIL"))
 	private void aio$syncCooldown(InteractionHand hand, CallbackInfo ci) {
 		if (Modules.COOLDOWN_FIX.on()) {
-			((Player) (Object) this).resetAttackStrengthTicker();
+			((Player) (Object) this).resetOnlyAttackStrengthTicker();
 		}
 	}
 

@@ -142,6 +142,24 @@ public final class Waypoints extends Module {
 		return null;
 	}
 
+	/** Zmienia istniejący punkt (nazwa, pozycja, kolor, ikona); zwraca tekst błędu albo null, gdy się udało. */
+	public String update(MinecraftClient client, Point old, String name, int x, int y, int z, int argb, String icon) {
+		String label = name == null || name.isBlank() ? old.name() : name.strip();
+		Point clash = this.find(client, label);
+		if (clash != null && !clash.equals(old)) {
+			return Lang.t("Waypoint o takiej nazwie już istnieje: ") + label;
+		}
+
+		int index = this.points().indexOf(old);
+		if (index < 0) {
+			return Lang.t("Nie ma takiego waypointa: ") + old.name();
+		}
+
+		this.points().set(index, new Point(old.world(), old.dim(), label, x, y, z, argb | 0xFF000000, icon));
+		this.save();
+		return null;
+	}
+
 	public void delete(Point point) {
 		this.points().remove(point);
 		this.save();
@@ -209,7 +227,7 @@ public final class Waypoints extends Module {
 		for (Point point : this.here(client)) {
 			int argb = fade(point.color(), opacity);
 			Vec3d base = new Vec3d(point.x() + 0.5, point.y(), point.z() + 0.5);
-			GizmoDrawing.line(base, base.add(0.0, BEAM_HEIGHT, 0.0), argb, 3.0F).ignoreOcclusion();
+			Vec3d beamTop = base.add(0.0, BEAM_HEIGHT, 0.0);
 			boolean hasIcon = !point.icon().isEmpty();
 			double dx = base.x - eye.x;
 			double dz = base.z - eye.z;
@@ -218,6 +236,7 @@ public final class Waypoints extends Module {
 			boolean hover = flat < 0.5 || lookFlat > 1.0E-4
 				&& Math.acos(Math.max(-1.0, Math.min(1.0, (dx * forward.x + dz * forward.z) / (flat * lookFlat)))) < Math.max(Math.toRadians(2.5), Math.atan(0.5 / flat));
 			if (!hasIcon && !hover && !this.alwaysNames.on()) {
+				GizmoDrawing.line(base, beamTop, argb, 3.0F).ignoreOcclusion();
 				continue;
 			}
 
@@ -236,7 +255,26 @@ public final class Waypoints extends Module {
 			// Jednostka napisu: 1 piksel czcionki = scale / 16 bloku; tekst rysuje się od punktu w dół.
 			double unit = scale / 16.0;
 			double pad = 2.0 * unit;
-			if (hover || this.alwaysNames.on()) {
+			boolean labelShown = hover || this.alwaysNames.on();
+			if (!hasIcon) {
+				GizmoDrawing.line(base, beamTop, argb, 3.0F).ignoreOcclusion();
+			} else {
+				// Wiązka przerywa się tam, gdzie wisi ikona (i napis pod nią), żeby nie przecinała rysunku.
+				// Rozmiary ikony i napisu policzone w odległości napisu przeliczamy na odległość samego punktu.
+				double iconW = ICON_WIDTH_PER_BLOCK * shown;
+				double back = Math.max(distance, 2.0) / shown;
+				double low = anchor.y - ((labelShown ? 9.0 * unit + 3.0 * pad : pad)) * back;
+				double high = anchor.y + (3.0 * pad + iconW + 0.04 * shown) * back;
+				if (low > base.y) {
+					GizmoDrawing.line(base, new Vec3d(base.x, low, base.z), argb, 3.0F).ignoreOcclusion();
+				}
+
+				if (high < beamTop.y) {
+					GizmoDrawing.line(new Vec3d(base.x, high, base.z), beamTop, argb, 3.0F).ignoreOcclusion();
+				}
+			}
+
+			if (labelShown) {
 				String text = point.name() + " " + Math.round(eye.distanceTo(base)) + "m";
 				double textW = client.textRenderer.getWidth(text) * unit;
 				double textH = 9.0 * unit;

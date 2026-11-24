@@ -103,6 +103,8 @@ public final class Party extends Module {
 	private final Map<String, Position> positions = new HashMap<>();
 	private final Map<String, Long> invites = new HashMap<>();
 	private final Set<String> invitedByMe = new LinkedHashSet<>();
+	/** Ostatnio odebrane wiadomości (nadawca + treść -> czas), do wykrywania dubli. */
+	private final Map<String, Long> recentMessages = new HashMap<>();
 	/** Zaproszenia wysłane, na które jeszcze nikt nie odpowiedział potwierdzeniem "ack" (nick -> kiedy wysłano). */
 	private final Map<String, Long> pendingAck = new HashMap<>();
 	/** Wersja protokołu wiadomości. Nowsze wersje moda tylko DOPISUJĄ pola na końcu wiadomości, a nieznane polecenia i pola są ignorowane, więc różne wersje dogadują się dalej. */
@@ -455,6 +457,15 @@ public final class Party extends Module {
 				client.execute(() -> client.player.networkHandler.sendChatCommand(command + " " + from + " " + TOKEN + "ack " + PROTOCOL + " " + MOD_VERSION + " off"));
 			}
 
+			return true;
+		}
+
+		// Ta sama wiadomość od tego samego nadawcy w ciągu chwili (np. doszła czatem i jako wiadomość systemowa) liczy się raz.
+		long receivedAt = System.currentTimeMillis();
+		String dedupKey = from + "|" + text.substring(at);
+		Long previous = this.recentMessages.put(dedupKey, receivedAt);
+		this.recentMessages.values().removeIf(time -> receivedAt - time > 2000L);
+		if (previous != null && receivedAt - previous < 700L) {
 			return true;
 		}
 

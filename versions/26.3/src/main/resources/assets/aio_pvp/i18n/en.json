@@ -509,5 +509,8 @@
   " ma moda (wersja ": " has the mod (version ",
   "). Czeka na jego akceptację.": "). Waiting for them to accept.",
   " ma inną wersję moda: część funkcji party może nie działać.": " has a different mod version: some party features may not work.",
-  " nie odpowiada: prawdopodobnie nie ma tego moda (albo serwer blokuje wiadomości prywatne).": " is not responding: they probably do not have this mod (or the server blocks private messages)."
+  " nie odpowiada: prawdopodobnie nie ma tego moda (albo serwer blokuje wiadomości prywatne).": " is not responding: they probably do not have this mod (or the server blocks private messages).",
+  "Zapisz": "Save",
+  "Zapisano waypoint: ": "Waypoint saved: ",
+  "Edytujesz: ": "Editing: "
 }

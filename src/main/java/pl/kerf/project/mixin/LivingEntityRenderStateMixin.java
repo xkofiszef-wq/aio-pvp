@@ -16,6 +16,8 @@ public class LivingEntityRenderStateMixin implements LivingStateExt {
 	private float aio$maxHealth;
 	@Unique
 	private float aio$absorption;
+	@Unique
+	private boolean aio$attackHit;
 
 	@Override
 	public float aio$hurtProgress() {
@@ -35,6 +37,16 @@ public class LivingEntityRenderStateMixin implements LivingStateExt {
 	@Override
 	public float aio$absorption() {
 		return this.aio$absorption;
+	}
+
+	@Override
+	public boolean aio$attackHit() {
+		return this.aio$attackHit;
+	}
+
+	@Override
+	public void aio$setAttackHit(boolean attackHit) {
+		this.aio$attackHit = attackHit;
 	}
 
 	@Override

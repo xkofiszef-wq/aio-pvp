@@ -42,6 +42,8 @@ public class WaypointScreen extends Screen {
 	private int pickerRecentY;
 	private final ColorPicker picker = new ColorPicker(0xFF30FFFF, argb -> this.color = argb);
 	private int color = 0xFF30FFFF;
+	/** Punkt, który właśnie edytujesz (null = dodajesz nowy). */
+	private Waypoints.Point editing;
 
 	public WaypointScreen(Screen parent) {
 		super(Text.literal(Lang.t("Waypointy")));
@@ -86,7 +88,13 @@ public class WaypointScreen extends Screen {
 				.dimensions(inner, row + 22, LEFT_W - 22, 18).build());
 		}
 
-		this.addDrawableChild(FlatButton.builder(Text.literal(Lang.t("Dodaj")), button -> this.add()).dimensions(inner, row + 44, LEFT_W, 20).style(FlatButton.Style.PRIMARY).build());
+		// Przy edycji istniejącego punktu: "Zapisz" zmienia go, "Anuluj" wraca do dodawania nowego.
+		String saveLabel = Lang.t(this.editing != null ? "Zapisz" : "Dodaj");
+		int saveWidth = this.editing != null ? LEFT_W - 60 : LEFT_W;
+		this.addDrawableChild(FlatButton.builder(Text.literal(saveLabel), button -> this.add()).dimensions(inner, row + 44, saveWidth, 20).style(FlatButton.Style.PRIMARY).build());
+		if (this.editing != null) {
+			this.addDrawableChild(FlatButton.builder(Text.literal(Lang.t("Anuluj")), button -> this.cancelEdit()).dimensions(inner + saveWidth + 4, row + 44, 56, 20).build());
+		}
 		this.formBottom = row + 44 + 20 + 14;
 
 		// Wybierak koloru po prawej: kwadrat + pasek odcienia, a dalej pole hex i ostatnie kolory.
@@ -117,10 +125,17 @@ public class WaypointScreen extends Screen {
 		MinecraftClient client = MinecraftClient.getInstance();
 		try {
 			String icon = this.useIcon ? this.icon : "";
-			String error = Modules.WAYPOINTS.create(client, this.name, Integer.parseInt(this.x), Integer.parseInt(this.y), Integer.parseInt(this.z), this.color, icon);
-			this.message = error != null ? error : Lang.t("Dodano waypoint: ") + this.name;
+			int px = Integer.parseInt(this.x);
+			int py = Integer.parseInt(this.y);
+			int pz = Integer.parseInt(this.z);
+			boolean edit = this.editing != null;
+			String error = edit
+				? Modules.WAYPOINTS.update(client, this.editing, this.name, px, py, pz, this.color, icon)
+				: Modules.WAYPOINTS.create(client, this.name, px, py, pz, this.color, icon);
+			this.message = error != null ? error : Lang.t(edit ? "Zapisano waypoint: " : "Dodano waypoint: ") + this.name;
 			this.messageColor = error != null ? Theme.DANGER : Theme.SUCCESS;
 			if (error == null) {
+				this.editing = null;
 				this.name = "";
 				this.icon = "";
 				this.useIcon = false;
@@ -131,6 +146,31 @@ public class WaypointScreen extends Screen {
 			this.message = Lang.t("Podaj współrzędne X, Y i Z.");
 			this.messageColor = Theme.DANGER;
 		}
+	}
+
+	/** Klik w punkt na liście: jego dane trafiają do formularza, a "Dodaj" zmienia się w "Zapisz". */
+	private void startEdit(Waypoints.Point point) {
+		this.editing = point;
+		this.name = point.name();
+		this.x = String.valueOf(point.x());
+		this.y = String.valueOf(point.y());
+		this.z = String.valueOf(point.z());
+		this.color = point.color();
+		this.useIcon = !point.icon().isEmpty();
+		this.icon = point.icon();
+		this.message = Lang.t("Edytujesz: ") + point.name();
+		this.messageColor = Theme.WARNING;
+		this.clearAndInit();
+	}
+
+	private void cancelEdit() {
+		this.editing = null;
+		this.name = "";
+		this.icon = "";
+		this.useIcon = false;
+		this.message = "";
+		this.fillPosition();
+		this.clearAndInit();
 	}
 
 	private int listTop() {
@@ -166,7 +206,7 @@ public class WaypointScreen extends Screen {
 		for (int i = 0; i < this.visibleRows() && i + this.scroll < list.size(); i++) {
 			Waypoints.Point point = list.get(i + this.scroll);
 			int ry = top + i * ROW;
-			context.fill(inner, ry, inner + this.panelW - 16, ry + ROW - 2, Theme.SURFACE);
+			context.fill(inner, ry, inner + this.panelW - 16, ry + ROW - 2, point.equals(this.editing) ? Theme.SURFACE_HOVER : Theme.SURFACE);
 			if (point.icon().isEmpty()) {
 				context.fill(inner + 4, ry + 4, inner + 18, ry + 16, point.color());
 			} else {
@@ -213,7 +253,18 @@ public class WaypointScreen extends Screen {
 		List<Waypoints.Point> list = Modules.WAYPOINTS.here(this.client);
 		for (int i = 0; i < this.visibleRows() && i + this.scroll < list.size(); i++) {
 			if (Ui.inside(click.x(), click.y(), inner + this.panelW - 16 - 20, this.listTop() + i * ROW + 1, 18, ROW - 4)) {
-				Modules.WAYPOINTS.delete(list.get(i + this.scroll));
+				Waypoints.Point removed = list.get(i + this.scroll);
+				Modules.WAYPOINTS.delete(removed);
+				if (removed.equals(this.editing)) {
+					this.cancelEdit();
+				}
+
+				return true;
+			}
+
+			// Klik w resztę wiersza wybiera punkt do edycji.
+			if (Ui.inside(click.x(), click.y(), inner, this.listTop() + i * ROW, this.panelW - 16 - 22, ROW - 2)) {
+				this.startEdit(list.get(i + this.scroll));
 				return true;
 			}
 		}

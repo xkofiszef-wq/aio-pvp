@@ -14,6 +14,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import pl.kerf.project.module.Modules;
 import pl.kerf.project.render.HitColorTexture;
+import pl.kerf.project.render.HitTracker;
 import pl.kerf.project.render.LivingStateExt;
 
 @Mixin(LivingEntityRenderer.class)
@@ -32,6 +33,7 @@ public class LivingEntityRendererMixin {
 		}
 
 		((LivingStateExt) state).aio$set(hurtProgress, entity.getHealth(), entity.getMaxHealth(), entity.getAbsorptionAmount());
+		((LivingStateExt) state).aio$setAttackHit(HitTracker.recent(entity));
 	}
 
 	/**
@@ -54,6 +56,12 @@ public class LivingEntityRendererMixin {
 	/** Tryb "zanikanie": zamiast stałego wiersza tekstury wybiera wiersz o kryciu zależnym od postępu efektu. */
 	@Inject(method = "getOverlay", at = @At("RETURN"), cancellable = true)
 	private static void aio$fadeHitColor(LivingEntityRenderState state, float whiteOverlayProgress, CallbackInfoReturnable<Integer> cir) {
+		// Hit Color koloruje tylko uderzenia: przy obrażeniach bez sprawcy (ogień, lawa, upadek) encja nie świeci się na czerwono.
+		if (state.hurt && Modules.HIT_COLOR.on() && !((LivingStateExt) state).aio$attackHit()) {
+			cir.setReturnValue(OverlayTexture.packUv(cir.getReturnValue() & 0xFFFF, 10));
+			return;
+		}
+
 		if (state.hurt && HitColorTexture.fading()) {
 			int u = cir.getReturnValue() & 0xFFFF;
 			cir.setReturnValue(OverlayTexture.packUv(u, HitColorTexture.fadeRow(((LivingStateExt) state).aio$hurtProgress())));

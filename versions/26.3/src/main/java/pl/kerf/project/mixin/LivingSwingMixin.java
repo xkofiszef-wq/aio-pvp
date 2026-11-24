@@ -20,7 +20,7 @@ public class LivingSwingMixin {
 	@Inject(method = "swing(Lnet/minecraft/world/InteractionHand;Lnet/minecraft/world/item/component/SwingAnimation;Z)Z", at = @At("RETURN"))
 	private void aio$syncCooldown(InteractionHand hand, SwingAnimation animation, boolean toSelf, CallbackInfoReturnable<Boolean> cir) {
 		if (cir.getReturnValueZ() && Modules.COOLDOWN_FIX.on() && (Object) this instanceof LocalPlayer player) {
-			player.resetAttackStrengthTicker();
+			player.resetOnlyAttackStrengthTicker();
 		}
 	}
 }

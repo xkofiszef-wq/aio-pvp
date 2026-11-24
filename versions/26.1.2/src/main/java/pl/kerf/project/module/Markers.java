@@ -98,6 +98,10 @@ public final class Markers extends Module {
 	}
 
 	private void addMarker(Marker marker) {
+		// Ten sam marker tego samego autora (ten sam cel albo punkt prawie w tym samym miejscu) odświeża poprzedni zamiast dublować się,
+		// np. gdy ta sama wiadomość dojdzie dwiema drogami.
+		this.markers.removeIf(m -> m.owner.equals(marker.owner) && m.kind.equals(marker.kind) && java.util.Objects.equals(m.uuid, marker.uuid)
+			&& m.pos.distanceToSqr(marker.pos) < 1.0);
 		List<Marker> mine = this.markers.stream().filter(m -> m.owner.equals(marker.owner)).toList();
 		if (mine.size() >= MAX_PER_OWNER) {
 			this.markers.remove(mine.get(0));
@@ -217,7 +221,9 @@ public final class Markers extends Module {
 		Vec3 up = new Vec3(camera.upVector());
 		int sw = context.guiWidth();
 		int sh = context.guiHeight();
-		double tanY = Math.tan(Math.toRadians(client.options.fov().get()) / 2.0);
+		// Prawdziwy kąt widzenia z tej klatki (z zoomem z innych modów i efektami sprintu), nie sam suwak FOV z opcji.
+		double fov = camera.getFov();
+		double tanY = Math.tan(Math.toRadians(fov) / 2.0);
 		double tanX = tanY * sw / sh;
 		String dim = client.level.dimension().identifier().getPath();
 		float tickProgress = client.getDeltaTracker().getGameTimeDeltaPartialTick(false);

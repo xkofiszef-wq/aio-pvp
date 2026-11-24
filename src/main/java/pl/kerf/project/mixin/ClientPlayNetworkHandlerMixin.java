@@ -36,7 +36,12 @@ public class ClientPlayNetworkHandlerMixin {
 	private void aio$confirmedHit(EntityDamageS2CPacket packet, CallbackInfo ci) {
 		MinecraftClient client = MinecraftClient.getInstance();
 		if (client.world != null) {
-			FightTracker.damaged(client.world.getEntityById(packet.entityId()));
+			net.minecraft.entity.Entity target = client.world.getEntityById(packet.entityId());
+			FightTracker.damaged(target);
+			// Obrażenia ze sprawcą (gracz, mob, pocisk) to uderzenie; ogień, lawa i upadek nie mają sprawcy (id -1).
+			if (target != null && (packet.sourceCauseId() >= 0 || packet.sourceDirectId() >= 0)) {
+				pl.kerf.project.render.HitTracker.mark(target);
+			}
 		}
 	}
 }

@@ -24,7 +24,8 @@ public class ClientPlayerEntityMixin {
 	@Inject(method = "swingHand", at = @At("TAIL"))
 	private void aio$syncCooldown(Hand hand, CallbackInfo ci) {
 		if (Modules.COOLDOWN_FIX.on()) {
-			((PlayerEntity) (Object) this).resetTicksSince();
+			// Tylko ładowanie ataku: pełne resetTicksSince zerowałoby też licznik wyciągania ręki, więc ręka chowała się przy każdym machnięciu (np. kopaniu).
+			((PlayerEntity) (Object) this).resetTicksSinceLastAttack();
 		}
 	}
 

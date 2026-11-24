@@ -160,6 +160,7 @@ public final class Previews {
 		int maxHurtTime = player.maxHurtTime;
 		if (hurt) {
 			player.maxHurtTime = 10;
+			pl.kerf.project.render.HitTracker.mark(player);
 			player.hurtTime = Modules.HIT_COLOR.behavior.is(1) ? 10 - (int) (System.currentTimeMillis() / 60 % 14) : 8;
 			player.hurtTime = Math.max(1, player.hurtTime);
 		}
