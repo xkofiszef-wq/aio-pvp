@@ -32,7 +32,7 @@ public final class WorldOverlays {
 
 	/** Wywoływane raz na klatkę, zanim renderer świata zbierze gizmo. */
 	public static void submit(Minecraft client) {
-		if (client.level == null || client.player == null || !(Modules.BLOCK_OUTLINE.on() || Modules.WAYPOINTS.on())) {
+		if (client.level == null || client.player == null || !(Modules.BLOCK_OUTLINE.on() || Modules.WAYPOINTS.on() || Modules.MARKERS.on() && Modules.MARKERS.beacon.on())) {
 			return;
 		}
 
@@ -43,6 +43,10 @@ public final class WorldOverlays {
 
 			if (Modules.WAYPOINTS.on()) {
 				Modules.WAYPOINTS.submit(client);
+			}
+
+			if (Modules.MARKERS.on() && Modules.MARKERS.beacon.on()) {
+				Modules.MARKERS.submit(client);
 			}
 		}
 	}

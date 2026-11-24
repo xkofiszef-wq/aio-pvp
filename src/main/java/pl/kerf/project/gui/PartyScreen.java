@@ -180,8 +180,9 @@ public class PartyScreen extends Screen {
 			}
 
 			int tx = hx + HEAD + 8;
-			context.drawText(this.textRenderer, Ui.ellipsis(this.textRenderer, name, rw - HEAD - 40), tx, ry + 5, Theme.TEXT, false);
-			context.drawText(this.textRenderer, this.coordsText(client, name, me), tx, ry + 15, 0xFF7FB0FF, false);
+			boolean online = this.party().isOnline(name);
+			context.drawText(this.textRenderer, Ui.ellipsis(this.textRenderer, name, rw - HEAD - 40), tx, ry + 5, online ? Theme.TEXT : 0xFF808490, false);
+			context.drawText(this.textRenderer, online ? this.coordsText(client, name, me) : Lang.t("Offline (poza serwerem)"), tx, ry + 15, online ? 0xFF7FB0FF : 0xFFE06060, false);
 			context.drawText(this.textRenderer, role.label, tx, ry + 25, role.color, false);
 			if (leader && !name.equals(me)) {
 				int kx = rx + rw - 18;

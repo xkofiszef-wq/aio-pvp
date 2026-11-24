@@ -6,6 +6,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -114,6 +115,8 @@ public final class Party extends Module {
 	private static final String MOD_VERSION = net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("aio_pvp")
 		.map(container -> container.getMetadata().getVersion().getFriendlyString()).orElse("?");
 	private static final long ACK_WAIT_MS = 10_000L;
+	/** Jak długo po rozłączeniu przyjmujemy powrót do party bez nowego zaproszenia. */
+	private static final long REJOIN_MS = 30L * 60L * 1000L;
 	/** Zaproszenia, które przyjęliśmy: od tych osób przyjmiemy pierwszy opis party. */
 	private final Set<String> pendingJoin = new LinkedHashSet<>();
 	private final Deque<String> outbox = new ArrayDeque<>();
@@ -122,6 +125,14 @@ public final class Party extends Module {
 	private Position lastPositionSentAt;
 	/** Zmienia się przy każdej zmianie stanu, żeby ekran party wiedział, kiedy się odświeżyć. */
 	private int version;
+	/** Członkowie (małymi literami), których widzieliśmy na liście graczy serwera, i ci z nich, którzy z niej zniknęli (wyszli z serwera). */
+	private final Set<String> seenOnline = new HashSet<>();
+	private final Set<String> offline = new HashSet<>();
+	private int presenceTimer;
+	/** Po rozłączeniu pamiętamy członków party: ich "state" przyjmiemy bez zaproszenia, gdy wrócimy na serwer. */
+	private final Set<String> rejoinNames = new LinkedHashSet<>();
+	private long rejoinAt;
+	private int rejoinDelay;
 
 	public Party() {
 		super("party", "Party", "Party po stronie klienta: leader, inviter i członkowie, markery wspólne dla party i opcjonalne koordynaty (za zgodą wszystkich). Menu party otwierasz klawiszem (Sterowanie) albo przyciskiem tutaj.", Category.MISC, false);
@@ -183,7 +194,14 @@ public final class Party extends Module {
 		}
 
 		unique.remove(this.me(client).toLowerCase(java.util.Locale.ROOT));
+		// Kto wyszedł z serwera, nie dostaje wiadomości i nie blokuje głosowania.
+		unique.keySet().removeAll(this.offline);
 		return new LinkedHashSet<>(unique.values());
+	}
+
+	/** Czy członek party jest na serwerze (dla ekranu party; nieznany = tak). */
+	public boolean isOnline(String name) {
+		return !this.offline.contains(name.toLowerCase(java.util.Locale.ROOT));
 	}
 
 	private String me(MinecraftClient client) {
@@ -380,13 +398,26 @@ public final class Party extends Module {
 		this.vote = null;
 		this.invitedByMe.clear();
 		this.pendingJoin.clear();
+		this.seenOnline.clear();
+		this.offline.clear();
+		this.rejoinNames.clear();
 		this.version++;
 	}
 
+	/** Rozłączenie z serwerem: party znika lokalnie, ale zapamiętujemy członków, żeby po powrocie do nich dołączyć. */
 	private void resetAll() {
+		// Wołane co tick, dopóki nie ma świata, więc zapamiętane nazwy przenosimy przez clear().
+		Set<String> keep = new LinkedHashSet<>(this.rejoinNames);
+		if (this.inParty()) {
+			keep.addAll(this.roles.keySet());
+			this.rejoinAt = System.currentTimeMillis();
+		}
+
 		this.clear();
 		this.invites.clear();
 		this.outbox.clear();
+		this.rejoinDelay = 0;
+		this.rejoinNames.addAll(keep);
 	}
 
 	// ---------- wysyłanie ----------
@@ -415,13 +446,17 @@ public final class Party extends Module {
 	/** Leader wysyła pełny opis party wszystkim członkom (i ewentualnie osobie, która właśnie odeszła, żeby też się zaktualizowała). */
 	private void broadcastState(String extraRecipient) {
 		MinecraftClient client = MinecraftClient.getInstance();
-		StringBuilder state = new StringBuilder("state ").append(this.coords ? "1" : "0");
-		this.roles.forEach((name, role) -> state.append(' ').append(name).append(':').append(role.code));
 		for (String name : this.others(client)) {
-			this.to(name, state.toString());
+			this.to(name, this.stateText());
 		}
 
 		this.version++;
+	}
+
+	private String stateText() {
+		StringBuilder state = new StringBuilder("state ").append(this.coords ? "1" : "0");
+		this.roles.forEach((name, role) -> state.append(' ').append(name).append(':').append(role.code));
+		return state.toString();
 	}
 
 	private void say(String message) {
@@ -565,6 +600,13 @@ public final class Party extends Module {
 				}
 			}
 			case "state" -> this.applyState(client, from, p);
+			case "rj" -> {
+				// Członek party wrócił na serwer i nic nie pamięta: leader (albo, gdy to on wrócił, każdy z nas) odsyła mu opis party.
+				if (fromRole != null && (this.isLeader(client) || from.equals(this.leader()))) {
+					this.offline.remove(from.toLowerCase(java.util.Locale.ROOT));
+					this.to(from, this.stateText());
+				}
+			}
 			case "kick" -> {
 				if (fromRole == Role.LEADER) {
 					this.clear();
@@ -653,7 +695,8 @@ public final class Party extends Module {
 	/** Opis party od leadera (albo pierwszy opis od osoby, której zaproszenie przyjęliśmy). */
 	private void applyState(MinecraftClient client, String from, String[] p) {
 		boolean fromLeader = from.equals(this.leader());
-		boolean firstState = this.roles.isEmpty() && this.pendingJoin.contains(from);
+		boolean firstState = this.roles.isEmpty() && (this.pendingJoin.contains(from)
+			|| this.rejoinNames.stream().anyMatch(name -> name.equalsIgnoreCase(from)) && System.currentTimeMillis() - this.rejoinAt < REJOIN_MS);
 		if ((!fromLeader && !firstState) || p.length < 3) {
 			return;
 		}
@@ -672,6 +715,7 @@ public final class Party extends Module {
 		}
 
 		boolean joining = this.roles.isEmpty();
+		this.rejoinNames.clear();
 		this.roles.clear();
 		this.roles.putAll(parsed);
 		this.coords = p[1].equals("1");
@@ -763,6 +807,8 @@ public final class Party extends Module {
 			return;
 		}
 
+		this.presence(client);
+		this.rejoin(client);
 		long now = System.currentTimeMillis();
 		if (this.vote != null && now > this.vote.expires) {
 			if (this.isLeader(client)) {
@@ -789,6 +835,79 @@ public final class Party extends Module {
 			String command = this.whisper.get().isBlank() ? "msg" : this.whisper.get().strip();
 			client.player.networkHandler.sendChatCommand(command + " " + this.outbox.poll());
 			this.sendCooldown = SEND_GAP_TICKS;
+		}
+	}
+
+	private static Set<String> onlineNames(MinecraftClient client) {
+		Set<String> online = new HashSet<>();
+		if (client.getNetworkHandler() != null) {
+			for (PlayerListEntry entry : client.getNetworkHandler().getPlayerList()) {
+				online.add(entry.getProfile().name().toLowerCase(java.util.Locale.ROOT));
+			}
+		}
+
+		return online;
+	}
+
+	/** Co sekundę sprawdza listę graczy serwera: kto z party z niej zniknął, jest offline (nie dostaje wiadomości i nie blokuje głosowania). */
+	private void presence(MinecraftClient client) {
+		if (!this.inParty() || ++this.presenceTimer < 20) {
+			return;
+		}
+
+		this.presenceTimer = 0;
+		Set<String> online = onlineNames(client);
+		if (online.isEmpty()) {
+			return;
+		}
+
+		String me = this.me(client).toLowerCase(java.util.Locale.ROOT);
+		for (String name : new ArrayList<>(this.roles.keySet())) {
+			String key = name.toLowerCase(java.util.Locale.ROOT);
+			if (key.equals(me)) {
+				continue;
+			}
+
+			if (online.contains(key)) {
+				this.seenOnline.add(key);
+				if (this.offline.remove(key)) {
+					this.say(name + Lang.t(" wrócił na serwer."));
+					this.version++;
+				}
+			} else if (this.seenOnline.contains(key) && this.offline.add(key)) {
+				this.say(name + Lang.t(" wyszedł z serwera."));
+				this.version++;
+			}
+		}
+	}
+
+	/** Po powrocie na serwer (kilka sekund po wejściu, gdy lista graczy jest już pełna) pyta członków party, czy party jeszcze istnieje. */
+	private void rejoin(MinecraftClient client) {
+		if (this.rejoinNames.isEmpty() || this.inParty()) {
+			return;
+		}
+
+		if (System.currentTimeMillis() - this.rejoinAt > REJOIN_MS) {
+			this.rejoinNames.clear();
+			return;
+		}
+
+		if (++this.rejoinDelay != 80) {
+			return;
+		}
+
+		Set<String> online = onlineNames(client);
+		String me = this.me(client);
+		boolean sent = false;
+		for (String name : this.rejoinNames) {
+			if (!name.equalsIgnoreCase(me) && online.contains(name.toLowerCase(java.util.Locale.ROOT))) {
+				this.to(name, "rj");
+				sent = true;
+			}
+		}
+
+		if (sent) {
+			this.say(Lang.t("Wróciłeś na serwer: sprawdzam, czy twoje party nadal istnieje."));
 		}
 	}
 

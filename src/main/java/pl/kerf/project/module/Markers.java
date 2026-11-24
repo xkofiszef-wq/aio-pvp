@@ -20,6 +20,9 @@ import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.EntityHitResult;
 import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Box;
+import net.minecraft.client.render.DrawStyle;
+import net.minecraft.world.debug.gizmo.GizmoDrawing;
 import net.minecraft.util.math.Vec3d;
 import pl.kerf.project.config.Setting;
 
@@ -35,7 +38,9 @@ public final class Markers extends Module {
 
 	public final Setting.Num scale = this.add(new Setting.Num("scale", "Skala", 1.0, 0.5, 4.0, 0.1, "x"));
 	public final Setting.Num duration = this.add(new Setting.Num("duration", "Czas widoczności", 120.0, 10.0, 600.0, 10.0, " s"));
-	public final Setting.Bool animate = this.add(new Setting.Bool("animate", "Animuj marker", true));
+	public final Setting.Bool beacon = this.add(new Setting.Bool("beacon", "Beacon (słup światła)", false));
+	public final Setting.Num beaconWidth = this.add(new Setting.Num("beacon_width", "Grubość beacona", 0.6, 0.1, 1.5, 0.1, " bl"));
+	public final Setting.Bool animate =this.add(new Setting.Bool("animate", "Animuj marker", true));
 	public final Setting.Color color = this.add(new Setting.Color("color", "Kolor markera", 0xFF5EC8FF, false));
 	public final Setting.Bool showBlock = this.add(new Setting.Bool("show_block", "Pokaż blok obok markera", true));
 	public final Setting.Mode showOwner = this.add(new Setting.Mode("show_owner", "Pokaż autora", 0, "Zawsze", "Po najechaniu", "Nigdy"));
@@ -216,6 +221,26 @@ public final class Markers extends Module {
 	}
 
 	// ---------- rysowanie ----------
+
+	/** Wysokość słupa światła nad markerem. */
+	private static final double BEACON_HEIGHT = 96.0;
+
+	/**
+	 * Beacon: półprzezroczysty słup w kolorze markera, domyślnie tak gruby jak hitbox gracza (0,6 bloku); widać go przez ściany.
+	 * Wołane w zakresie gizmo otwartym przez {@link pl.kerf.project.render.WorldOverlays}.
+	 */
+	public void submit(MinecraftClient client) {
+		String dim = client.world.getRegistryKey().getValue().getPath();
+		double half = this.beaconWidth.f() / 2.0;
+		int argb = this.color.argb();
+		int fill = Math.min(argb >>> 24, 110) << 24 | argb & 0xFFFFFF;
+		for (Marker marker : this.markers) {
+			if (marker.dim.equals(dim)) {
+				Box box = new Box(marker.pos.x - half, marker.pos.y - 0.3, marker.pos.z - half, marker.pos.x + half, marker.pos.y + BEACON_HEIGHT, marker.pos.z + half);
+				GizmoDrawing.box(box, DrawStyle.filledAndStroked(argb, 1.5F, fill)).ignoreOcclusion();
+			}
+		}
+	}
 
 	/** Rysuje znaczniki na HUD-zie: pozycja świata jest rzutowana na ekran, a ikona bloku i napisy rysują się zwykłym DrawContext. */
 	public void render(DrawContext context, MinecraftClient client) {

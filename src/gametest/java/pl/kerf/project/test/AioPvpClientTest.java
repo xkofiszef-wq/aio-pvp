@@ -632,6 +632,41 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			context.waitTicks(5);
 			context.takeScreenshot("06s2_marker_fov30");
 			context.runOnClient(client -> client.options.getFov().setValue(70));
+			// Beacon na markerze: slup swiatla o grubosci hitboxa gracza, widoczny z bliska i z daleka.
+			context.runOnClient(client -> {
+				Modules.MARKERS.beacon.set(true);
+				client.player.setPitch(-10.0F);
+			});
+			context.waitTicks(5);
+			context.takeScreenshot("06s3_marker_beacon");
+			context.runOnClient(client -> Modules.MARKERS.beacon.set(false));
+			// Powrot do party po rozlaczeniu: pamietany czlonek moze przyslac opis party bez zaproszenia, obcy nie.
+			context.runOnClient(client -> {
+				try {
+					var party = Modules.PARTY;
+					var names = pl.kerf.project.module.Party.class.getDeclaredField("rejoinNames");
+					var at = pl.kerf.project.module.Party.class.getDeclaredField("rejoinAt");
+					names.setAccessible(true);
+					at.setAccessible(true);
+					@SuppressWarnings("unchecked")
+					java.util.Set<String> remembered = (java.util.Set<String>) names.get(party);
+					remembered.add("Alice");
+					at.setLong(party, System.currentTimeMillis());
+					party.receive(client, "[aio]state 0 Mallory:L Player0:M", "Mallory");
+					if (party.inParty()) {
+						throw new AssertionError("Party: obcy nie moze dolaczyc nas do party po rozlaczeniu");
+					}
+
+					party.receive(client, "[aio]state 0 Alice:L Player0:M", "Alice");
+					if (!party.inParty() || !party.isOnline("Alice")) {
+						throw new AssertionError("Party: po powrocie opis party od pamietanego czlonka powinien zostac przyjety");
+					}
+
+					party.leave();
+				} catch (ReflectiveOperationException e) {
+					throw new AssertionError(e);
+				}
+			});
 			// Animate Only Visible Textures: animowana tekstura (magma) jest "widoczna" tylko, gdy patrzysz na jej blok.
 			context.runOnClient(client -> Modules.OPTIMIZATION.animateOnlyVisible.set(true));
 			double[] magma = context.computeOnClient(client -> {
