@@ -596,6 +596,29 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			});
 			context.waitTicks(3);
 			context.takeScreenshot("06r_party_chat_messages");
+			// Marker ma stac na bloku przy kazdym FOV (np. zoomie): zloty blok i marker na jego srodku, zrzut przy FOV 70 i 30.
+			double[] gold = context.computeOnClient(client -> {
+				net.minecraft.util.math.Vec3d f = client.player.getRotationVec(1.0F);
+				double fl = Math.sqrt(f.x * f.x + f.z * f.z);
+				double fx = f.x / fl;
+				double fz = f.z / fl;
+				return new double[] {Math.floor(client.player.getX() + fx * 8 - fz * 1.5), Math.floor(client.player.getY()), Math.floor(client.player.getZ() + fz * 8 + fx * 1.5)};
+			});
+			server.runCommand(String.format(java.util.Locale.ROOT, "setblock %d %d %d gold_block", (int) gold[0], (int) gold[1], (int) gold[2]));
+			context.waitTicks(10);
+			context.runOnClient(client -> {
+				client.player.setPitch(5.0F);
+				Modules.MARKERS.receive("Tester", new String[] {"m", String.valueOf(gold[0] + 0.5), String.valueOf(gold[1] + 0.5), String.valueOf(gold[2] + 0.5), "overworld", "minecraft:gold_block", "-"});
+				Modules.MARKERS.showCoordinates.set(2);
+				Modules.MARKERS.showDescription.set(2);
+				Modules.MARKERS.showDistance.set(2);
+			});
+			context.waitTicks(5);
+			context.takeScreenshot("06s_marker_fov70");
+			context.runOnClient(client -> client.options.getFov().setValue(30));
+			context.waitTicks(5);
+			context.takeScreenshot("06s2_marker_fov30");
+			context.runOnClient(client -> client.options.getFov().setValue(70));
 			context.runOnClient(client -> {
 				Modules.FPS.rounding.set(0.0);
 				Modules.FPS.brackets.set(false);
