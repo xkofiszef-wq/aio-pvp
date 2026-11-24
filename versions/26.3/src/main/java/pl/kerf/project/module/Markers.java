@@ -100,9 +100,18 @@ public final class Markers extends Module {
 	private void addMarker(Marker marker) {
 		// Ten sam marker tego samego autora (ten sam cel albo punkt prawie w tym samym miejscu) odświeża poprzedni zamiast dublować się,
 		// np. gdy ta sama wiadomość dojdzie dwiema drogami.
-		this.markers.removeIf(m -> m.owner.equals(marker.owner) && m.kind.equals(marker.kind) && java.util.Objects.equals(m.uuid, marker.uuid)
-			&& m.pos.distanceToSqr(marker.pos) < 1.0);
-		List<Marker> mine = this.markers.stream().filter(m -> m.owner.equals(marker.owner)).toList();
+		// Nick porównujemy bez względu na wielkość liter; ten sam cel w promieniu 2 bloków to ten sam marker. Marker na tym samym mobie
+		// od tego samego autora zawsze zastępuje poprzedni (mob się rusza). Dubel od innej osoby w ciągu 5 s też się scala.
+		this.markers.removeIf(m -> {
+			boolean sameOwner = m.owner.equalsIgnoreCase(marker.owner);
+			if (sameOwner && marker.uuid != null && marker.uuid.equals(m.uuid)) {
+				return true;
+			}
+
+			boolean near = m.kind.equals(marker.kind) && java.util.Objects.equals(m.uuid, marker.uuid) && m.pos.distanceToSqr(marker.pos) < 4.0;
+			return near && (sameOwner || marker.born - m.born < 5000L);
+		});
+		List<Marker> mine = this.markers.stream().filter(m -> m.owner.equalsIgnoreCase(marker.owner)).toList();
 		if (mine.size() >= MAX_PER_OWNER) {
 			this.markers.remove(mine.get(0));
 		}

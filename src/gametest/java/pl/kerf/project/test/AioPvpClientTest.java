@@ -489,6 +489,19 @@ public class AioPvpClientTest implements FabricClientGameTest {
 				if (Modules.MARKERS.markerCount() != before + 1) {
 					throw new AssertionError("Marker od czlonka party powinien sie pojawic");
 				}
+
+				// Echo wlasnej wiadomosci (serwer odsyla ja klikajacemu, a nadawca z serwera wskazuje odbiorce) nie moze dac markera.
+				int afterAlice = Modules.MARKERS.markerCount();
+				Modules.PARTY.receive(client, "You whisper to Alice: [aio]m 30.0 -60.0 30.0 overworld minecraft:dirt - ~Player0", "Alice");
+				Modules.PARTY.receive(client, "[aio]m 40.0 -60.0 40.0 overworld minecraft:dirt - ~Bob", "Alice");
+				if (Modules.MARKERS.markerCount() != afterAlice) {
+					throw new AssertionError("Party: echo wlasnej wiadomosci albo wiadomosc z cudzym nickiem nie moze dac markera");
+				}
+
+				Modules.PARTY.receive(client, "[aio]m 50.0 -60.0 50.0 overworld minecraft:dirt - ~Alice", "Alice");
+				if (Modules.MARKERS.markerCount() != afterAlice + 1) {
+					throw new AssertionError("Party: wiadomosc z poprawnym nickiem nadawcy powinna dac marker");
+				}
 			});
 			double[] ahead = context.computeOnClient(client -> {
 				net.minecraft.util.math.Vec3d p = client.player.getEntityPos().add(client.player.getRotationVec(1.0F).multiply(1.0, 0.0, 1.0).normalize().multiply(6.0));

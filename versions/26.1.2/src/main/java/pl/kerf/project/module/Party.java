@@ -49,6 +49,8 @@ public final class Party extends Module {
 
 	public final Setting.Str whisper = this.add(new Setting.Str("whisper_command", "Komenda wiadomości prywatnej", "msg"));
 	public final Setting.Num positionInterval = this.add(new Setting.Num("position_interval", "Odświeżaj moją pozycję w party co", 10.0, 5.0, 60.0, 5.0, " s"));
+	/** Zapisuje w logu gry surowe wiadomości party (do szukania błędów na konkretnym serwerze). */
+	public final Setting.Bool debug = this.add(new Setting.Bool("debug_log", "Log wiadomości party (diagnostyka)", false));
 
 	public enum Role {
 		LEADER("L", "Leader", 0xFFFFD25E),
@@ -174,9 +176,14 @@ public final class Party extends Module {
 
 	/** Pozostałe osoby z party (bez ciebie). */
 	public Set<String> others(Minecraft client) {
-		Set<String> names = new LinkedHashSet<>(this.roles.keySet());
-		names.remove(this.me(client));
-		return names;
+		// Bez ciebie i bez dubli, bez względu na wielkość liter w nickach (inaczej jedna osoba dostawałaby tę samą wiadomość dwa razy).
+		java.util.Map<String, String> unique = new java.util.LinkedHashMap<>();
+		for (String name : this.roles.keySet()) {
+			unique.putIfAbsent(name.toLowerCase(java.util.Locale.ROOT), name);
+		}
+
+		unique.remove(this.me(client).toLowerCase(java.util.Locale.ROOT));
+		return new LinkedHashSet<>(unique.values());
 	}
 
 	private String me(Minecraft client) {
@@ -386,7 +393,10 @@ public final class Party extends Module {
 
 	private void to(String name, String payload) {
 		if (name != null) {
-			this.outbox.add(name + " " + TOKEN + payload);
+			// Na końcu stoi nick nadawcy ("~Nick"): odbiorca po nim rozpozna echo własnej wiadomości, które serwer odsyła klikającemu,
+			// i nie przypisze go odbiorcy. Starsze wersje moda ignorują to dodatkowe pole.
+			Minecraft client = Minecraft.getInstance();
+			this.outbox.add(name + " " + TOKEN + payload + (client.player == null ? "" : " ~" + this.me(client)));
 		}
 	}
 
@@ -449,12 +459,55 @@ public final class Party extends Module {
 			return true;
 		}
 
-		String[] p = text.substring(at + TOKEN.length()).strip().split(" ");
+		// Nadawcę sprowadzamy do pisowni z listy party, żeby marker i role zawsze miały jeden, ten sam nick autora.
+		for (String known : this.roles.keySet()) {
+			if (known.equalsIgnoreCase(from)) {
+				from = known;
+				break;
+			}
+		}
+
+		String[] raw = text.substring(at + TOKEN.length()).strip().split(" ");
+		String[] p = raw;
+		String origin = null;
+		if (raw.length > 1 && raw[raw.length - 1].startsWith("~")) {
+			origin = raw[raw.length - 1].substring(1);
+			p = java.util.Arrays.copyOf(raw, raw.length - 1);
+		}
+
+		if (this.debug.on()) {
+			pl.kerf.project.AioPvp.LOGGER.info("[party] raw='{}' sender='{}' resolved='{}' origin='{}'", text, sender, from, origin);
+		}
+
+		if (origin != null) {
+			// To nasza własna wiadomość odesłana przez serwer (echo "You whisper to ..."): nic z niej nie robimy.
+			if (origin.equalsIgnoreCase(me)) {
+				return true;
+			}
+
+			// Serwer podał nadawcę (wiadomość czatu): jeśli deklaracja z wiadomości jest inna, to pomyłka albo podszywanie się.
+			// Bez nadawcy od serwera (wiadomość systemowa) nick ze środka wiadomości jest pewniejszy niż zgadywanie z tekstu.
+			if (sender != null && !origin.equalsIgnoreCase(from)) {
+				return true;
+			}
+
+			if (sender == null) {
+				from = origin;
+				for (String known : this.roles.keySet()) {
+					if (known.equalsIgnoreCase(from)) {
+						from = known;
+						break;
+					}
+				}
+			}
+		}
+
 		if (!this.on()) {
 			// Mod jest, ale moduł Party wyłączony: wiadomość znika z czatu, a zapraszającemu odpowiadamy od razu, żeby wiedział dlaczego.
 			if (p[0].equals("inv")) {
+				final String replyTo = from;
 				String command = this.whisper.get().isBlank() ? "msg" : this.whisper.get().strip();
-				client.execute(() -> client.player.connection.sendCommand(command + " " + from + " " + TOKEN + "ack " + PROTOCOL + " " + MOD_VERSION + " off"));
+				client.execute(() -> client.player.connection.sendCommand(command + " " + replyTo + " " + TOKEN + "ack " + PROTOCOL + " " + MOD_VERSION + " off ~" + me));
 			}
 
 			return true;
@@ -586,7 +639,7 @@ public final class Party extends Module {
 	}
 
 	private void addMember(String name) {
-		if (this.validName(name) && !this.roles.containsKey(name)) {
+		if (this.validName(name) && this.roles.keySet().stream().noneMatch(known -> known.equalsIgnoreCase(name))) {
 			this.roles.put(name, Role.MEMBER);
 			this.say(name + Lang.t(" dołączył do party."));
 			this.broadcastState(null);

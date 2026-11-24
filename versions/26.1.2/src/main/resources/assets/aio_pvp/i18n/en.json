@@ -512,5 +512,7 @@
   " nie odpowiada: prawdopodobnie nie ma tego moda (albo serwer blokuje wiadomości prywatne).": " is not responding: they probably do not have this mod (or the server blocks private messages).",
   "Zapisz": "Save",
   "Zapisano waypoint: ": "Waypoint saved: ",
-  "Edytujesz: ": "Editing: "
+  "Edytujesz: ": "Editing: ",
+  "Animate Only Visible Textures": "Animate Only Visible Textures",
+  "Log wiadomości party (diagnostyka)": "Party message log (diagnostics)"
 }
