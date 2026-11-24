@@ -39,9 +39,20 @@ public class ClientPlayNetworkHandlerMixin {
 			net.minecraft.entity.Entity target = client.world.getEntityById(packet.entityId());
 			FightTracker.damaged(target);
 			// Obrażenia ze sprawcą (gracz, mob, pocisk) to uderzenie; ogień, lawa i upadek nie mają sprawcy (id -1).
-			if (target != null && (packet.sourceCauseId() >= 0 || packet.sourceDirectId() >= 0)) {
+			if (target != null && (packet.sourceCauseId() >= 0 || packet.sourceDirectId() >= 0) && !aio$fireIgnored(target, packet)) {
 				pl.kerf.project.render.HitTracker.mark(target);
 			}
 		}
+	}
+
+	/** Płonący gracz z odpornością na ogień nie dostaje obrażeń, więc palenie się nie jest uderzeniem (niektóre serwery przypisują je podpalającemu). */
+	private static boolean aio$fireIgnored(net.minecraft.entity.Entity target, EntityDamageS2CPacket packet) {
+		if (!(target instanceof net.minecraft.entity.LivingEntity living) || !living.hasStatusEffect(net.minecraft.entity.effect.StatusEffects.FIRE_RESISTANCE)) {
+			return false;
+		}
+
+		var type = packet.sourceType();
+		return type.matchesKey(net.minecraft.entity.damage.DamageTypes.IN_FIRE) || type.matchesKey(net.minecraft.entity.damage.DamageTypes.ON_FIRE)
+			|| type.matchesKey(net.minecraft.entity.damage.DamageTypes.LAVA) || type.matchesKey(net.minecraft.entity.damage.DamageTypes.HOT_FLOOR);
 	}
 }
