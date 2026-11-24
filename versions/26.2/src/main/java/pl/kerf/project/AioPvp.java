@@ -89,6 +89,9 @@ public class AioPvp implements ClientModInitializer {
 		ClientReceiveMessageEvents.ALLOW_GAME.register((message, overlay) -> !Modules.PARTY.receive(Minecraft.getInstance(), message.getString(), null));
 		ClientReceiveMessageEvents.ALLOW_CHAT.register((message, signed, sender, params, time) ->
 			!Modules.PARTY.receive(Minecraft.getInstance(), message.getString(), sender == null ? null : sender.name()));
+		// Fight Report: zapamiętuje ostatnie wiadomości, żeby poznać zabójstwo na serwerach bez statusu śmierci.
+		ClientReceiveMessageEvents.GAME.register((message, overlay) -> FightTracker.chat(message.getString()));
+		ClientReceiveMessageEvents.CHAT.register((message, signed, sender, params, time) -> FightTracker.chat(message.getString()));
 		// /calc 2+2*3: zwykły kalkulator na czacie (tylko u ciebie, nic nie idzie na serwer).
 		ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(
 			ClientCommands.literal("calc").then(ClientCommands.argument("wyrazenie", StringArgumentType.greedyString()).executes(context -> {

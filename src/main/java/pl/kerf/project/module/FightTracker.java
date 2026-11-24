@@ -87,6 +87,21 @@ public final class FightTracker {
 	private static final ArrayDeque<Integer> RECENT_HURTS = new ArrayDeque<>();
 	private static boolean openRequested;
 	private static boolean opponentDied;
+	/** Kiedy ostatnio uderzyliśmy przeciwnika (nasz atak, niezależnie od potwierdzenia przez serwer). */
+	private static int lastAttackTick = -1000;
+	/** Ostatnie wiadomości z czatu (tick, tekst małymi literami): z nich poznajemy zabójstwo na serwerach bez statusu śmierci. */
+	private record Chat(int tick, String text) {
+	}
+
+	private static final ArrayDeque<Chat> CHAT = new ArrayDeque<>();
+	/** Przeciwnik zniknął (usunięty) do tylu ticków po naszym ciosie: tak wygląda zabójstwo na serwerach, które od razu usuwają zabitego. */
+	private static final int REMOVED_AFTER_HIT = 40;
+	/** Komunikat o zabójstwie liczy się, gdy padł do 4 s po naszym ciosie. */
+	private static final int KILL_MESSAGE_WINDOW = 80;
+	private static final String[] KILL_WORDS = {
+		"slain", "killed", "kill", "died", "defeated", "murdered", "eliminated", "destroyed", "shot", "fell", "knocked", "finished",
+		"zabi", "zgin", "pokona", "wygra", "pokonan", "eliminac", "pad"
+	};
 
 	private FightTracker() {
 	}
@@ -143,6 +158,7 @@ public final class FightTracker {
 		}
 
 		attempts++;
+		lastAttackTick = ticks;
 		pendingTick = ticks;
 		pendingDistance = Math.sqrt(living.getBoundingBox().squaredMagnitude(player.getEyePos()));
 		lastEvent = ticks;
@@ -173,6 +189,44 @@ public final class FightTracker {
 		if (entity != null && entity == opponent) {
 			opponentDied = true;
 		}
+	}
+
+	/** Każda wiadomość z czatu trafia do krótkiej pamięci; wołane z odbioru wiadomości, niczego nie zmienia ani nie ukrywa. */
+	public static void chat(String text) {
+		CHAT.addLast(new Chat(ticks, text.toLowerCase(java.util.Locale.ROOT)));
+		while (CHAT.size() > 30 || !CHAT.isEmpty() && ticks - CHAT.peekFirst().tick() > 400) {
+			CHAT.removeFirst();
+		}
+	}
+
+	/**
+	 * Czy na czacie padł komunikat o zabójstwie przeciwnika po naszym ciosie: wiadomość z jego nickiem i naszym nickiem
+	 * albo ze słowem o śmierci. Dla serwerów (praktyki, minigry), które nie wysyłają statusu śmierci ani zdrowia.
+	 */
+	private static boolean killMessage(MinecraftClient client) {
+		if (attempts == 0 || ticks - lastAttackTick > KILL_MESSAGE_WINDOW) {
+			return false;
+		}
+
+		String name = opponentName.toLowerCase(java.util.Locale.ROOT);
+		String me = client.player.getName().getString().toLowerCase(java.util.Locale.ROOT);
+		for (Chat chat : CHAT) {
+			if (chat.tick() < startTick || !chat.text().contains(name)) {
+				continue;
+			}
+
+			if (chat.text().contains(me)) {
+				return true;
+			}
+
+			for (String word : KILL_WORDS) {
+				if (chat.text().contains(word)) {
+					return true;
+				}
+			}
+		}
+
+		return false;
 	}
 
 	/** Zużyty totem (status 35 z serwera). */
@@ -267,9 +321,13 @@ public final class FightTracker {
 
 		if (player.isDead()) {
 			finish(client, Outcome.LOSS);
-		} else if (opponent.isDead() || opponentDied) {
+		} else if (opponent.isDead() || opponentDied || killMessage(client)) {
 			finish(client, Outcome.WIN);
-		} else if (opponent.isRemoved() || ticks - lastEvent > IDLE_END) {
+		} else if (opponent.isRemoved()) {
+			// Serwery praktyk i minigier po zabójstwie od razu usuwają przeciwnika albo przenoszą go do lobby, a zdrowia ani statusu
+			// śmierci nie wysyłają: zniknięcie zaraz po naszym ciosie liczymy jako wygraną, późniejsze jako niezakończoną walkę.
+			finish(client, attempts > 0 && ticks - lastAttackTick <= REMOVED_AFTER_HIT ? Outcome.WIN : Outcome.ENDED);
+		} else if (ticks - lastEvent > IDLE_END) {
 			finish(client, Outcome.ENDED);
 		}
 	}

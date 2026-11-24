@@ -710,6 +710,25 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			if (context.computeOnClient(client -> pl.kerf.project.module.FightTracker.last()) != null) {
 				throw new AssertionError("Fight Report: walka z mobem dala raport");
 			}
+			// Fight Report: zabojstwo bez statusu smierci i bez zdrowia (serwery praktyk) rozpoznane z komunikatu na czacie.
+			int fightsBefore = context.computeOnClient(client -> pl.kerf.project.module.FightTracker.history().size());
+			context.runOnClient(client -> {
+				for (net.minecraft.entity.Entity entity : client.world.getEntities()) {
+					if (entity.getName().getString().equals("Kerfuss_") && entity instanceof net.minecraft.entity.LivingEntity) {
+						pl.kerf.project.module.FightTracker.attack(client, entity);
+						break;
+					}
+				}
+
+				pl.kerf.project.module.FightTracker.chat("Kerfuss_ was slain by Player0");
+			});
+			context.waitTicks(3);
+			context.runOnClient(client -> {
+				var history = pl.kerf.project.module.FightTracker.history();
+				if (history.size() != fightsBefore + 1 || history.get(0).outcome() != pl.kerf.project.module.FightTracker.Outcome.WIN) {
+					throw new AssertionError("Fight Report: komunikat o zabojstwie powinien dac wygrana, a jest: " + (history.isEmpty() ? "brak" : history.get(0).outcome()));
+				}
+			});
 
 			// Walka z postacią gracza (manekin): dwa ciosy, manekin ginie = wygrana, raport 2 z 2.
 			server.runCommand("execute at @p run summon mannequin ^ ^ ^-2 {CustomName:\"Rywal_\"}");
