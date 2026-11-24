@@ -32,7 +32,12 @@
         "WindowMixin",
         "SpriteContentsAccessor",
         "PlayerArmMixin",
-        "PlayerEntityRendererMixin"
+        "PlayerEntityRendererMixin",
+        "SpriteContentsMixin",
+        "AnimationStateMixin",
+        "SectionCompilerMixin",
+        "ResultsMixin",
+        "CompiledSectionMeshMixin"
     ],
     "injectors": {
         "defaultRequire": 1

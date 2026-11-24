@@ -573,6 +573,41 @@ public class AioPvpClientTest implements FabricClientGameTest {
 				Modules.FPS.rounding.set(0.0);
 				Modules.FPS.brackets.set(false);
 			});
+			// Animate Only Visible Textures: animowana tekstura (magma) jest "widoczna" tylko, gdy patrzysz na jej blok.
+			context.runOnClient(client -> Modules.OPTIMIZATION.animateOnlyVisible.set(true));
+			double[] magma = context.computeOnClient(client -> {
+				net.minecraft.world.phys.Vec3 f = client.player.getViewVector(1.0F);
+				double fl = Math.sqrt(f.x * f.x + f.z * f.z);
+				return new double[] {Math.floor(client.player.getX() + f.x / fl * 70), Math.floor(client.player.getY()), Math.floor(client.player.getZ() + f.z / fl * 70)};
+			});
+			server.runCommand(String.format(java.util.Locale.ROOT, "setblock %d %d %d magma_block", (int) magma[0], (int) magma[1], (int) magma[2]));
+			// Opcja wlaczona w tym tescie przebudowuje swiat; czekamy, az fragmenty beda gotowe.
+			context.waitTicks(80);
+			singleplayer.getConnection().waitForChunksRender();
+			java.util.Set<String> inView = context.computeOnClient(client -> pl.kerf.project.render.AnimatedSprites.visiblePaths());
+			if (inView == null || !inView.contains("block/magma")) {
+				throw new 
+				AssertionError("Animate Only Visible: magma przed graczem powinno byc widoczne: " + inView);
+			}
+
+			context.runOnClient(client -> client.player.setYRot(client.player.getYRot() + 180.0F));
+			context.waitTicks(30);
+			int skippedBefore = pl.kerf.project.render.AnimatedSprites.skipped;
+			context.waitTicks(40);
+			java.util.Set<String> behind = context.computeOnClient(client -> pl.kerf.project.render.AnimatedSprites.visiblePaths());
+			if (behind == null || behind.contains("block/magma")) {
+				throw new AssertionError("Animate Only Visible: magma za plecami nie powinno byc widoczne: " + behind);
+			}
+
+			if (pl.kerf.project.render.AnimatedSprites.skipped <= skippedBefore) {
+				throw new AssertionError("Animate Only Visible: wysylka niewidocznej animacji powinna byc pomijana");
+			}
+
+			context.runOnClient(client -> {
+				client.player.setYRot(client.player.getYRot() + 180.0F);
+				Modules.OPTIMIZATION.animateOnlyVisible.set(false);
+			});
+			context.waitTicks(20);
 			context.runOnClient(client -> {
 				Modules.HUD_TWEAKER.lift.set(0.0);
 				Modules.HUD_TWEAKER.setEnabled(false);

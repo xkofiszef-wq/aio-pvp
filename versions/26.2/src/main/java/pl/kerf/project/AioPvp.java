@@ -58,6 +58,7 @@ public class AioPvp implements ClientModInitializer {
 			Modules.WAYPOINTS.tick(client);
 			Modules.MARKERS.tick(client);
 			Modules.PARTY.tick(client);
+			Modules.OPTIMIZATION.tick(client);
 			Modules.GUI_THEME.sync();
 			if (FightTracker.consumeOpenRequest() && FightTracker.last() != null) {
 				client.gui.setScreen(new FightReportScreen(null, FightTracker.last()));

@@ -25,6 +25,25 @@ public final class Optimization extends Module {
 	public final Setting.Bool noErrorContext = this.add(new Setting.Bool("no_error_context", "No Error Context (restart)", false)
 		.lockedBy(() -> loaded("sodium")));
 
+	/**
+	 * Animacje tekstur wysyłają się na GPU tylko dla tych, które widać w widocznych fragmentach świata (szczególnie
+	 * ważne przy paczkach tekstur 128x i większych). Zmiana wymaga przebudowy świata, robi ją sam mod.
+	 */
+	public final Setting.Bool animateOnlyVisible = this.add(new Setting.Bool("animate_only_visible", "Animate Only Visible Textures", false)
+		.lockedBy(() -> loaded("sodium")));
+	private boolean animateWas;
+
+	/** Wołane co tick: po zmianie opcji "Animate Only Visible Textures" świat buduje się od nowa, żeby fragmenty miały zapisane tekstury. */
+	public void tick(net.minecraft.client.Minecraft client) {
+		boolean now = this.active(this.animateOnlyVisible);
+		if (now != this.animateWas) {
+			this.animateWas = now;
+			if (client.levelRenderer != null && client.level != null) {
+				client.levelRenderer.allChanged();
+			}
+		}
+	}
+
 	public Optimization() {
 		super("optimization", "Optimization", "Opcje poprawiające FPS. Opcja, którą robi już inny mod (np. Sodium), jest zablokowana, a pod nią widać dlaczego.", Category.MISC, true);
 		this.preview = false;
