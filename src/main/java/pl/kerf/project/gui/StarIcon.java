@@ -4,12 +4,12 @@ import net.minecraft.client.gui.DrawContext;
 
 /**
  * Gwiazdka "ulubione" według projektu użytkownika: obrys 22x21 komórek (lewa połowa z rysunku, prawa to jej lustrzane odbicie,
- * więc jest dokładnie symetryczna). Komórka ma pół piksela GUI, więc gwiazdka ma 11 px szerokości. Ulubiona jest wypełniona
+ * więc jest dokładnie symetryczna). Komórka ma 0,4 piksela GUI, więc gwiazdka ma około 9 px szerokości. Ulubiona jest wypełniona
  * złotem i ma ciemniejszy obrys, pozostałe mają sam szary obrys.
  */
 final class StarIcon {
 	/** Szerokość gwiazdki w pikselach GUI (komórka = 0,5 px). */
-	static final int SIZE = 11;
+	static final int SIZE = 9;
 	private static final int COLS = 22;
 	private static final int ROWS = 21;
 	/** Lewa połowa obrysu (kolumny 0-10), prawa jest odbiciem. */
@@ -119,7 +119,7 @@ final class StarIcon {
 	static void draw(DrawContext context, int x, int y, boolean filled, int color) {
 		context.getMatrices().pushMatrix();
 		context.getMatrices().translate(x, y);
-		context.getMatrices().scale(0.5F, 0.5F);
+		context.getMatrices().scale(0.4F, 0.4F);
 		for (int r = 0; r < ROWS; r++) {
 			for (int c = 0; c < COLS; c++) {
 				if (filled) {

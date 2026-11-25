@@ -1053,7 +1053,7 @@ public class SettingsScreen extends Screen {
 		}
 
 		Draw.toggle(context, x + w - 28, y + 26, on);
-		this.drawCardStar(context, module, x + w - 15, y + 4);
+		this.drawCardStar(context, module, x + w - 13, y + 5);
 	}
 
 	private int tileMx;
@@ -1102,7 +1102,7 @@ public class SettingsScreen extends Screen {
 		if (hovered && this.rightW == 0) {
 			Tip.offer(description);
 		}
-		this.drawCardStar(context, module, x + w - 15, y + 4);
+		this.drawCardStar(context, module, x + w - 13, y + 5);
 	}
 
 	// --- sortowanie i ulubione ---
@@ -1147,7 +1147,7 @@ public class SettingsScreen extends Screen {
 		boolean starHot = this.onFavoritesButton(this.tileMx, this.tileMy);
 		Draw.round(context, this.starBtnX(), y, 20, 14, 4, favoritesOnly ? Theme.alpha(0xFFFFD25E, 0x30) : starHot ? Theme.SURFACE_HOVER : Theme.INSET);
 		Draw.outline(context, this.starBtnX(), y, 20, 14, 4, favoritesOnly ? 0xFFFFD25E : starHot ? Theme.BORDER_ACTIVE : Theme.BORDER_STRONG);
-		StarIcon.draw(context, this.starBtnX() + 4, y + 2, favoritesOnly, favoritesOnly ? 0xFFFFD25E : Theme.TEXT_3);
+		StarIcon.draw(context, this.starBtnX() + 6, y + 3, favoritesOnly, favoritesOnly ? 0xFFFFD25E : Theme.TEXT_3);
 		if (sortHot) {
 			Tip.offer(Lang.t("Sortowanie listy: domyślne, alfabetycznie albo najnowsze. Ulubione zawsze na górze."));
 		} else if (starHot) {
