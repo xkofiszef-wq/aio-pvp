@@ -148,6 +148,19 @@ public class AioPvpClientTest implements FabricClientGameTest {
 
 		context.setScreen(() -> new SettingsScreen(null));
 		context.takeScreenshot("01_menu_hud");
+		// Styl "Kafelki" i motyw Redstone: dwa rowne przyciski na kazdym kafelku.
+		context.runOnClient(client -> {
+			Modules.GUI_THEME.theme.set(7);
+			Modules.GUI_THEME.cardStyle.set(1);
+		});
+		context.setScreen(() -> new SettingsScreen(null));
+		context.waitTicks(10);
+		context.takeScreenshot("01c_menu_tiles_redstone");
+		context.runOnClient(client -> {
+			Modules.GUI_THEME.theme.set(0);
+			Modules.GUI_THEME.cardStyle.set(0);
+		});
+		context.setScreen(() -> new SettingsScreen(null));
 		// Pasek przewijania bez kółka myszy: chwyć uchwyt u góry, przeciągnij na dół toru, lista ma się przewinąć do końca.
 		double[] bar = context.computeOnClient(client -> {
 			double[] b = ((SettingsScreen) client.gui.screen()).cardScrollbarForTest();
@@ -188,6 +201,22 @@ public class AioPvpClientTest implements FabricClientGameTest {
 
 		try (TestSingleplayerContext singleplayer = context.worldBuilder().create()) {
 			singleplayer.getConnection().waitForChunksRender();
+			// Tryb "smoke" (-Daio.smoke=true): tylko start gry z innymi modami, wszystkie moduly wlaczone, krotki zrzut.
+			if (Boolean.getBoolean("aio.smoke")) {
+				context.runOnClient(client -> {
+					for (Module module : Modules.ALL) {
+						module.setEnabled(true);
+					}
+
+					Modules.OPTIMIZATION.entityCulling.set(true);
+					Modules.OPTIMIZATION.fogOcclusion.set(true);
+					Modules.OPTIMIZATION.animateOnlyVisible.set(true);
+				});
+				context.waitTicks(120);
+				context.takeScreenshot("smoke");
+				return;
+			}
+
 			TestServerContext server = singleplayer.getServer();
 			server.runCommand("gamemode survival @p");
 			server.runCommand("time set noon");

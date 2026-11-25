@@ -37,6 +37,7 @@ public class SettingsScreen extends Screen {
 	private static final int GAP = 6;
 	private static final int ROW = 20;
 	private static final int CARD_H = 46;
+	private static final int TILE_H = 70;
 	private static final int CARD_GAP = 6;
 	private static final int SEARCH_H = 20;
 
@@ -266,6 +267,11 @@ public class SettingsScreen extends Screen {
 		return this.contentW - 16 - CARD_GAP >= 280 ? 2 : 1;
 	}
 
+	/** Wysokosc modulu na liscie: karta albo kafelek z dwoma przyciskami (ustawienie Styl modulow). */
+	private int cardH() {
+		return Modules.GUI_THEME.cardStyle.is(1) ? TILE_H : CARD_H;
+	}
+
 	private int cardsTop() {
 		return this.wy + (this.floating ? 42 : 68);
 	}
@@ -284,12 +290,12 @@ public class SettingsScreen extends Screen {
 	}
 
 	private int cardY(int index) {
-		return this.cardsTop() + index / this.columns() * (CARD_H + CARD_GAP) - Math.round(this.cardScroll.get());
+		return this.cardsTop() + index / this.columns() * (this.cardH() + CARD_GAP) - Math.round(this.cardScroll.get());
 	}
 
 	private int cardsContentH() {
 		int rows = (this.visible.size() + this.columns() - 1) / this.columns();
-		return Math.max(0, rows * (CARD_H + CARD_GAP) - CARD_GAP);
+		return Math.max(0, rows * (this.cardH() + CARD_GAP) - CARD_GAP);
 	}
 
 	private Module cardAt(double mx, double my) {
@@ -298,7 +304,7 @@ public class SettingsScreen extends Screen {
 		}
 
 		for (int i = 0; i < this.visible.size(); i++) {
-			if (inside(mx, my, this.cardX(i), this.cardY(i), this.cardW(), CARD_H)) {
+			if (inside(mx, my, this.cardX(i), this.cardY(i), this.cardW(), this.cardH())) {
 				return this.visible.get(i);
 			}
 		}
@@ -623,7 +629,8 @@ public class SettingsScreen extends Screen {
 
 		Module module = this.cardAt(mx, my);
 		if (module != null) {
-			if (button == 0 && this.onCardSwitch(module, mx, my)) {
+			boolean tiles = Modules.GUI_THEME.cardStyle.is(1);
+			if (button == 0 && (tiles ? this.tileButton(this.visible.indexOf(module), mx, my) == 2 : this.onCardSwitch(module, mx, my))) {
 				module.toggle();
 			} else {
 				this.buildPanel(module);
@@ -746,7 +753,7 @@ public class SettingsScreen extends Screen {
 
 		if (this.insideCenter(mouseX, mouseY)) {
 			int max = Math.max(0, this.cardsContentH() - (this.cardsBottom() - this.cardsTop()));
-			this.cardScrollTarget = Math.max(0.0, Math.min(max, this.cardScrollTarget - verticalAmount * (CARD_H + CARD_GAP) / 2.0));
+			this.cardScrollTarget = Math.max(0.0, Math.min(max, this.cardScrollTarget - verticalAmount * (this.cardH() + CARD_GAP) / 2.0));
 			return true;
 		}
 
@@ -853,6 +860,8 @@ public class SettingsScreen extends Screen {
 		}
 
 		this.hoveredCard = this.dropdown == null ? this.cardAt(mouseX, mouseY) : null;
+		this.tileMx = mouseX;
+		this.tileMy = mouseY;
 		glassPanel(context, this.sideX, this.sideY, this.sideW, this.sideH, this.panelR);
 		if (this.floating) {
 			// Moduły i podgląd w jednym panelu, rozdzielone cienką linią; nad nim pigułka wyszukiwarki.
@@ -961,7 +970,7 @@ public class SettingsScreen extends Screen {
 			Module module = this.visible.get(i);
 			int x = this.cardX(i);
 			int y = this.cardY(i);
-			if (y + CARD_H < this.cardsTop() - 2 || y > this.cardsBottom()) {
+			if (y + this.cardH() < this.cardsTop() - 2 || y > this.cardsBottom()) {
 				continue;
 			}
 
@@ -974,6 +983,11 @@ public class SettingsScreen extends Screen {
 
 	/** Karta modułu z Figmy: ikona, nazwa, opis; przełącznik w prawym dolnym rogu. */
 	private void renderCard(GuiGraphicsExtractor context, Module module, int x, int y, int w, boolean hovered) {
+		if (Modules.GUI_THEME.cardStyle.is(1)) {
+			this.renderTile(context, module, x, y, w, hovered);
+			return;
+		}
+
 		Font font = this.font;
 		float hover = this.cardHover.computeIfAbsent(module, m -> new Anim(0.0F, 16.0F)).to(hovered);
 		float on = this.cardSwitch.computeIfAbsent(module, m -> new Anim(m.on() ? 1.0F : 0.0F, 16.0F)).to(module.on());
@@ -991,6 +1005,62 @@ public class SettingsScreen extends Screen {
 		}
 
 		Draw.toggle(context, x + w - 28, y + 26, on);
+	}
+
+	private int tileMx;
+	private int tileMy;
+
+	/** Czesc kafelka pod kursorem: 0 = poza przyciskami, 1 = Ustawienia, 2 = Wlacz/Wylacz. Oba przyciski sa rowne i symetryczne. */
+	private int tileButton(int index, double mx, double my) {
+		int x = this.cardX(index);
+		int y = this.cardY(index);
+		int w = this.cardW();
+		int bw = (w - 24) / 2;
+		int by = y + TILE_H - 26;
+		if (my < by || my >= by + 18) {
+			return 0;
+		}
+
+		if (mx >= x + 8 && mx < x + 8 + bw) {
+			return 1;
+		}
+
+		return mx >= x + w - 8 - bw && mx < x + w - 8 ? 2 : 0;
+	}
+
+	/** Kafelek modulu: ikona, nazwa i opis, pod spodem dwa rowne przyciski (Ustawienia i Wlacz/Wylacz). */
+	private void renderTile(GuiGraphicsExtractor context, Module module, int x, int y, int w, boolean hovered) {
+		var font = this.font;
+		float hover = this.cardHover.computeIfAbsent(module, m -> new Anim(0.0F, 16.0F)).to(hovered);
+		boolean on = module.on();
+		Draw.round(context, x, y, w, TILE_H, 2, Theme.mix(Theme.CARD, Theme.CARD_HOVER, hover));
+		Draw.outline(context, x, y, w, TILE_H, 2, on ? Theme.alpha(Theme.ACCENT, 0xB0) : Theme.mix(Theme.BORDER, Theme.BORDER_STRONG, hover));
+		Draw.round(context, x + 8, y + 8, 22, 22, 2, Theme.INSET);
+		context.item(Previews.icon(module), x + 11, y + 11);
+		Draw.text(context, font, Draw.fit(font, module.name, w - 46), x + 38, y + 10, on ? Theme.TEXT : Theme.TEXT_2);
+		String description = Draw.fit(font, module.description, w - 46);
+		Draw.text(context, font, description, x + 38, y + 21, Theme.TEXT_3);
+		if (hovered && !description.equals(module.description) && this.rightW == 0) {
+			Tip.offer(module.description);
+		}
+
+		int bw = (w - 24) / 2;
+		int by = y + TILE_H - 26;
+		int hot = hovered ? this.tileButton(this.visible.indexOf(module), this.tileMx, this.tileMy) : 0;
+		Draw.round(context, x + 8, by, bw, 18, 2, hot == 1 ? Theme.SURFACE_HOVER : Theme.INSET);
+		Draw.outline(context, x + 8, by, bw, 18, 2, hot == 1 ? Theme.BORDER_ACTIVE : Theme.BORDER_STRONG);
+		String settings = Lang.t("Ustawienia");
+		Draw.text(context, font, settings, x + 8 + (bw - font.width(settings)) / 2, by + 5, Theme.TEXT_2);
+		int rx = x + w - 8 - bw;
+		String state = Lang.t(on ? "Włączony" : "Wyłączony");
+		if (on) {
+			Draw.round(context, rx, by, bw, 18, 2, hot == 2 ? Theme.mix(Theme.ACCENT, 0xFFFFFFFF, 0.15F) : Theme.ACCENT);
+			Draw.text(context, font, state, rx + (bw - font.width(state)) / 2, by + 5, 0xFF16080A);
+		} else {
+			Draw.round(context, rx, by, bw, 18, 2, hot == 2 ? Theme.SURFACE_HOVER : Theme.INSET);
+			Draw.outline(context, rx, by, bw, 18, 2, hot == 2 ? Theme.BORDER_ACTIVE : Theme.BORDER_STRONG);
+			Draw.text(context, font, state, rx + (bw - font.width(state)) / 2, by + 5, Theme.TEXT_3);
+		}
 	}
 
 	/** Prawy panel: duży podgląd z podpisem na dole, pod nim krótkie informacje. */

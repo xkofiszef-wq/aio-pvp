@@ -540,6 +540,8 @@ public final class Modules {
 		public final Setting.Color accent = this.add(new Setting.Color("accent", "Kolor akcentu", 0xFF8C8CF0, false));
 		/** Układ menu: klasyczne trzy panele albo pływające (osobna pigułka wyszukiwarki, moduły i podgląd w jednym panelu). */
 		public final Setting.Mode layout = this.add(new Setting.Mode("layout", "Układ menu", 0, "Klasyczny", "Pływający", "Pływający, pasek z prawej"));
+		/** Wygląd modułów na liście: karty z przełącznikiem albo kafelki z dwoma równymi przyciskami (Ustawienia i Włącz/Wyłącz). */
+		public final Setting.Mode cardStyle = this.add(new Setting.Mode("card_style", "Styl modułów", 0, "Karty", "Kafelki"));
 		/** Język menu i HUD-u moda; domyślnie angielski (patrz {@link pl.kerf.project.Lang}). */
 		public final Setting.Mode language = this.add(new Setting.Mode("language", "Język", 0, "English", "Polski"));
 		/** Na własne ryzyko: moduły z szarej strefy (Freelook, Instant Hit) zostają włączone po restarcie gry. Włącza się tylko przez okno z ostrzeżeniem. */
