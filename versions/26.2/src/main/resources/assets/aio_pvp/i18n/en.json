@@ -539,5 +539,7 @@
   "Kafelki": "Tiles",
   "Redstone": "Redstone",
   "Wyłączony": "Disabled",
-  "Włączony": "Enabled"
+  "Włączony": "Enabled",
+  "Przezroczystość menu": "Menu transparency",
+  "Szron": "Frost"
 }

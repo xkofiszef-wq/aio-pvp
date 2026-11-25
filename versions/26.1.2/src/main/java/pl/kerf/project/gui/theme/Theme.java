@@ -44,7 +44,7 @@ public final class Theme {
 	 * CARD_HOVER, INSET, BORDER, BORDER_STRONG, BORDER_ACTIVE, DIVIDER, ACCENT. Teksty i kolory kategorii zostają,
 	 * więc każdy motyw ma tę samą czytelność. Pierwszy to domyślny (granat), zgodny z plikiem Figmy.
 	 */
-	public static final String[] THEME_NAMES = {"Granat", "Grafit", "Północ (czarny)", "Las", "Wino", "Ocean", "Zachód", "Redstone"};
+	public static final String[] THEME_NAMES = {"Granat", "Grafit", "Północ (czarny)", "Las", "Wino", "Ocean", "Zachód", "Redstone", "Szron"};
 	private static final int[][] THEMES = {
 		{0xB40C1020, 0xE80E1222, 0xF4121728, 0xD8282B34, 0xE233363F, 0xD0040508, 0x40707896, 0x90808AA8, 0xE0B4B0E8, 0x30707896, 0xFF8C8CF0},
 		{0xB4121316, 0xE8151619, 0xF418191D, 0xD82A2B2F, 0xE2353639, 0xD0050506, 0x40808084, 0x90A0A0A8, 0xE0D0D0D8, 0x30808084, 0xFFC8C8D0},
@@ -54,7 +54,9 @@ public final class Theme {
 		{0xB40C1A1C, 0xE80E1C1F, 0xF4122226, 0xD8243034, 0xE22E3A3E, 0xD0040808, 0x40709096, 0x9080A4A8, 0xE0B0E4E8, 0x30709096, 0xFF4FC3D9},
 		{0xB41C140C, 0xE81F160E, 0xF4261C12, 0xD8342C24, 0xE23E362E, 0xD0080604, 0x40968670, 0x90A89A80, 0xE0E8D4B0, 0x30968670, 0xFFE6A04E},
 		// Redstone: grafit z czerwienią redstone jako jedynym akcentem, prawie kryjące panele.
-		{0xF00F1318, 0xF80F1318, 0xFC141A21, 0xFF161B22, 0xFF1D242C, 0xFF0B0E12, 0xFF27303A, 0xFF333D48, 0xFFD9452E, 0xFF27303A, 0xFFD9452E}
+		{0xF00F1318, 0xF80F1318, 0xFC141A21, 0xFF161B22, 0xFF1D242C, 0xFF0B0E12, 0xFF27303A, 0xFF333D48, 0xFFD9452E, 0xFF27303A, 0xFFD9452E},
+		// Szron: matowe szkło w stylu OneConfig, półprzezroczyste karty, cienka biała ramka, jedna niebieska barwa akcentu.
+		{0xC411171C, 0xE011171C, 0xF21A2229, 0x59232D32, 0x80232D32, 0xB2151C22, 0x26FFFFFF, 0x40FFFFFF, 0xB0FFFFFF, 0x1AFFFFFF, 0xFF2B4BFF}
 	};
 
 	private Theme() {
@@ -62,18 +64,27 @@ public final class Theme {
 
 	/** Ustawia motyw; accent != null nadpisuje kolor akcentu motywu (własny kolor z ustawień). */
 	public static void apply(int theme, Integer accent) {
+		apply(theme, accent, 1.0F);
+	}
+
+	/** Jak wyżej, a opacity (0..1) skaluje krycie paneli, kart i okien: mniej = bardziej przezroczyste menu. */
+	public static void apply(int theme, Integer accent, float opacity) {
 		int[] t = THEMES[Math.max(0, Math.min(THEMES.length - 1, theme))];
-		BASE = t[0];
-		GLASS_STRONG = t[1];
-		POPUP = t[2];
-		CARD = t[3];
-		CARD_HOVER = t[4];
+		BASE = scaleAlpha(t[0], opacity);
+		GLASS_STRONG = scaleAlpha(t[1], opacity);
+		POPUP = scaleAlpha(t[2], opacity);
+		CARD = scaleAlpha(t[3], opacity);
+		CARD_HOVER = scaleAlpha(t[4], opacity);
 		INSET = t[5];
 		BORDER = t[6];
 		BORDER_STRONG = t[7];
 		BORDER_ACTIVE = t[8];
 		DIVIDER = t[9];
 		ACCENT = accent != null ? accent | 0xFF000000 : t[10];
+	}
+
+	private static int scaleAlpha(int argb, float opacity) {
+		return alpha(argb, Math.round((argb >>> 24) * Math.max(0.0F, Math.min(1.0F, opacity))));
 	}
 
 	public static int category(Module.Category category) {

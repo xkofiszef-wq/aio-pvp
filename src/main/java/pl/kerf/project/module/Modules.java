@@ -542,6 +542,8 @@ public final class Modules {
 		public final Setting.Mode layout = this.add(new Setting.Mode("layout", "Układ menu", 0, "Klasyczny", "Pływający", "Pływający, pasek z prawej"));
 		/** Wygląd modułów na liście: karty z przełącznikiem albo kafelki z dwoma równymi przyciskami (Ustawienia i Włącz/Wyłącz). */
 		public final Setting.Mode cardStyle = this.add(new Setting.Mode("card_style", "Styl modułów", 0, "Karty", "Kafelki"));
+		/** Przezroczystość menu: 100% = jak w motywie, mniej = bardziej widać świat za panelami. */
+		public final Setting.Num menuOpacity = this.add(new Setting.Num("menu_opacity", "Przezroczystość menu", 100.0, 30.0, 100.0, 5.0, "%"));
 		/** Język menu i HUD-u moda; domyślnie angielski (patrz {@link pl.kerf.project.Lang}). */
 		public final Setting.Mode language = this.add(new Setting.Mode("language", "Język", 0, "English", "Polski"));
 		/** Na własne ryzyko: moduły z szarej strefy (Freelook, Instant Hit) zostają włączone po restarcie gry. Włącza się tylko przez okno z ostrzeżeniem. */
@@ -557,7 +559,7 @@ public final class Modules {
 
 		/** Wołane co tick: zmiana w ustawieniach od razu widać w otwartym menu. */
 		public void sync() {
-			pl.kerf.project.gui.theme.Theme.apply(this.theme.get(), this.customAccent.on() ? this.accent.argb() : null);
+			pl.kerf.project.gui.theme.Theme.apply(this.theme.get(), this.customAccent.on() ? this.accent.argb() : null, this.menuOpacity.f() / 100.0F);
 		}
 	}
 

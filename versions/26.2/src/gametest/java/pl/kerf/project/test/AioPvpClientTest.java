@@ -161,6 +161,34 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			Modules.GUI_THEME.cardStyle.set(0);
 		});
 		context.setScreen(() -> new SettingsScreen(null));
+		// Przezroczystosc menu i motyw Szron: mniejsza wartosc musi realnie obnizyc krycie paneli.
+		int[] baseAlpha = new int[2];
+		context.runOnClient(client -> {
+			Modules.GUI_THEME.theme.set(8);
+			Modules.GUI_THEME.menuOpacity.set(100.0);
+			Modules.GUI_THEME.sync();
+			baseAlpha[0] = pl.kerf.project.gui.theme.Theme.BASE >>> 24;
+		});
+		context.setScreen(() -> new SettingsScreen(null));
+		context.waitTicks(10);
+		context.takeScreenshot("01d_menu_frost_100");
+		context.runOnClient(client -> {
+			Modules.GUI_THEME.menuOpacity.set(50.0);
+			Modules.GUI_THEME.sync();
+			baseAlpha[1] = pl.kerf.project.gui.theme.Theme.BASE >>> 24;
+		});
+		context.waitTicks(5);
+		context.takeScreenshot("01e_menu_frost_50");
+		if (baseAlpha[1] >= baseAlpha[0] || baseAlpha[1] != Math.round(baseAlpha[0] * 0.5F)) {
+			throw new AssertionError("Przezroczystosc menu: 50% powinno obnizyc krycie panelu do polowy: " + baseAlpha[0] + " -> " + baseAlpha[1]);
+		}
+
+		context.runOnClient(client -> {
+			Modules.GUI_THEME.theme.set(0);
+			Modules.GUI_THEME.menuOpacity.set(100.0);
+			Modules.GUI_THEME.sync();
+		});
+		context.setScreen(() -> new SettingsScreen(null));
 		// Pasek przewijania bez kółka myszy: chwyć uchwyt u góry, przeciągnij na dół toru, lista ma się przewinąć do końca.
 		double[] bar = context.computeOnClient(client -> {
 			double[] b = ((SettingsScreen) client.gui.screen()).cardScrollbarForTest();
