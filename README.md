@@ -6,7 +6,7 @@ Client side only. It works on any server and in singleplayer.
 
 ## Requirements
 
-- Minecraft 1.21.11
+- Minecraft 1.21.11 or newer
 - Fabric Loader 0.15 or newer
 - Fabric API
 - Java 21
