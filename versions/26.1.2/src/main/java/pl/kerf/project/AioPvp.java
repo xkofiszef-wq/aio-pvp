@@ -160,6 +160,7 @@ public class AioPvp implements ClientModInitializer {
 		}
 
 		Modules.MARKERS.render(context, client);
+		Modules.PARTY.renderHeads(context, client);
 		for (HudModule module : Modules.HUD) {
 			if (module == Modules.PARTY_VOTE && !editing) {
 				// Okienko głosowania rysuje się na końcu, na wierzchu wszystkich elementów (patrz niżej i hook ekranu).

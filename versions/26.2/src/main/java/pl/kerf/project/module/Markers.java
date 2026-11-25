@@ -242,6 +242,27 @@ public final class Markers extends Module {
 		}
 	}
 
+	/** Rzutuje punkt świata na ekran HUD-u: {x, y, odległość od kamery} albo null, gdy punkt jest za kamerą. */
+	public static double[] project(GuiGraphicsExtractor context, Minecraft client, Vec3 point) {
+		Camera camera = client.gameRenderer.mainCamera();
+		Vec3 eye = camera.position();
+		Vec3 forward = new Vec3(camera.forwardVector());
+		Vec3 right = new Vec3(camera.leftVector()).scale(-1.0);
+		Vec3 up = new Vec3(camera.upVector());
+		int sw = context.guiWidth();
+		int sh = context.guiHeight();
+		double fov = camera.getFov();
+		double tanY = Math.tan(Math.toRadians(fov) / 2.0);
+		double tanX = tanY * sw / sh;
+		Vec3 d = point.subtract(eye);
+		double z = d.dot(forward);
+		if (z < 0.05) {
+			return null;
+		}
+
+		return new double[] {sw / 2.0 + d.dot(right) / z / tanX * sw / 2.0, sh / 2.0 - d.dot(up) / z / tanY * sh / 2.0, d.length()};
+	}
+
 	/** Rysuje znaczniki na HUD-zie: pozycja świata jest rzutowana na ekran, a ikona bloku i napisy rysują się zwykłym GuiGraphicsExtractor. */
 	public void render(GuiGraphicsExtractor context, Minecraft client) {
 		if (!this.on() || client.player == null || client.level == null || this.markers.isEmpty()) {

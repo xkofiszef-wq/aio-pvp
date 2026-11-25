@@ -17,6 +17,7 @@ import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.network.PlayerListEntry;
 import net.minecraft.client.option.KeyBinding;
@@ -51,6 +52,8 @@ public final class Party extends Module {
 	public final Setting.Str whisper = this.add(new Setting.Str("whisper_command", "Komenda wiadomości prywatnej", "msg"));
 	public final Setting.Num positionInterval = this.add(new Setting.Num("position_interval", "Odświeżaj moją pozycję w party co", 10.0, 5.0, 60.0, 5.0, " s"));
 	/** Zapisuje w logu gry surowe wiadomości party (do szukania błędów na konkretnym serwerze). */
+	public final Setting.Bool memberHeads = this.add(new Setting.Bool("member_heads", "Głowy członków na ekranie", true));
+	public final Setting.Num headFade = this.add(new Setting.Num("head_fade", "Głowa znika bliżej niż", 10.0, 0.0, 50.0, 1.0, " bl"));
 	public final Setting.Bool debug = this.add(new Setting.Bool("debug_log", "Log wiadomości party (diagnostyka)", false));
 
 	public enum Role {
@@ -772,6 +775,79 @@ public final class Party extends Module {
 		}
 
 		return best;
+	}
+
+	// ---------- głowy członków na ekranie ----------
+
+	/** Jak mocno (0..1) kursor najeżdża na głowę danego członka; służy do płynnego powiększania. */
+	private final Map<String, Float> headHover = new HashMap<>();
+
+	/**
+	 * Głowy członków party rysowane w miejscu, w którym są w świecie (jak waypointy): zawsze tej samej wielkości, niezależnie od odległości.
+	 * Pod głową stoi odległość, po najechaniu głowa lekko rośnie i pojawia się nick. Bliżej niż "Głowa znika bliżej niż" głowa zanika.
+	 * Pozycja pochodzi z postaci, gdy jest załadowana, a dalej z koordynat party (wymagają włączenia koordynat przez głosowanie).
+	 */
+	public void renderHeads(DrawContext context, MinecraftClient client) {
+		if (!this.on() || !this.memberHeads.on() || !this.inParty() || client.player == null || client.world == null) {
+			return;
+		}
+
+		String dim = client.world.getRegistryKey().getValue().getPath();
+		float tickProgress = client.getRenderTickCounter().getTickProgress(false);
+		float fade = this.headFade.f();
+		TextRenderer font = client.textRenderer;
+		for (String name : this.others(client)) {
+			Vec3d pos = null;
+			for (net.minecraft.entity.player.PlayerEntity player : client.world.getPlayers()) {
+				if (player.getName().getString().equalsIgnoreCase(name)) {
+					pos = player.getLerpedPos(tickProgress).add(0.0, player.getHeight() + 0.5, 0.0);
+					break;
+				}
+			}
+
+			if (pos == null) {
+				Position shared = this.positions.get(name);
+				if (!this.coords || shared == null || !shared.dim().equals(dim)) {
+					continue;
+				}
+
+				pos = new Vec3d(shared.x(), shared.y() + 2.3, shared.z());
+			}
+
+			double[] at = Markers.project(context, client, pos);
+			if (at == null) {
+				continue;
+			}
+
+			// Daleko w pełni widoczna, od 1,5 x "znika bliżej niż" zanika, a w tej odległości i bliżej znika całkiem.
+			float alpha = fade <= 0.0F ? 1.0F : (float) Math.max(0.0, Math.min(1.0, (at[2] - fade) / (fade * 0.5)));
+			if (alpha < 0.04F) {
+				continue;
+			}
+
+			double aimX = at[0] - context.getScaledWindowWidth() / 2.0;
+			double aimY = at[1] - context.getScaledWindowHeight() / 2.0;
+			float target = aimX * aimX + aimY * aimY < 14.0 * 14.0 ? 1.0F : 0.0F;
+			float hover = this.headHover.getOrDefault(name, 0.0F);
+			hover += (target - hover) * 0.3F;
+			this.headHover.put(name, hover);
+			PlayerListEntry entry = client.getNetworkHandler() == null ? null : client.getNetworkHandler().getPlayerListEntry(name);
+			var skin = entry != null ? entry.getSkinTextures() : net.minecraft.client.util.DefaultSkinHelper.getSkinTextures(net.minecraft.util.Uuids.getOfflinePlayerUuid(name));
+			int alphaBits = Math.round(alpha * 255.0F) << 24;
+			context.getMatrices().pushMatrix();
+			context.getMatrices().translate((float) at[0], (float) at[1]);
+			float scale = 1.0F + 0.3F * hover;
+			context.getMatrices().scale(scale, scale);
+			net.minecraft.client.gui.PlayerSkinDrawer.draw(context, skin, -7, -7, 14, alphaBits | 0xFFFFFF);
+			String distance = at[2] >= 1000.0 ? String.format(Locale.ROOT, "%.1fkm", at[2] / 1000.0) : Math.round(at[2]) + "m";
+			context.drawText(font, distance, -font.getWidth(distance) / 2, 9, alphaBits | 0xFFFFFF, true);
+			if (hover > 0.3F) {
+				int nickAlpha = Math.round(alpha * Math.min(1.0F, (hover - 0.3F) / 0.5F) * 255.0F) << 24;
+				context.drawText(font, name, -font.getWidth(name) / 2, -19, nickAlpha | 0xFFFFFF, true);
+			}
+
+			context.getMatrices().popMatrix();
+		}
 	}
 
 	// ---------- co tick ----------

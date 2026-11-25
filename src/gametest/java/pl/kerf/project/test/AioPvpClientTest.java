@@ -632,6 +632,29 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			context.waitTicks(5);
 			context.takeScreenshot("06s2_marker_fov30");
 			context.runOnClient(client -> client.options.getFov().setValue(70));
+			// Glowy czlonkow party na ekranie: Bob 30 blokow przed graczem (z koordynat party), glowa i odleglosc pod nia.
+			context.runOnClient(client -> {
+				net.minecraft.util.math.Vec3d f = client.player.getRotationVec(1.0F);
+				double fl = Math.sqrt(f.x * f.x + f.z * f.z);
+				try {
+					var names = pl.kerf.project.module.Party.class.getDeclaredField("rejoinNames");
+					var at = pl.kerf.project.module.Party.class.getDeclaredField("rejoinAt");
+					names.setAccessible(true);
+					at.setAccessible(true);
+					((java.util.Set<String>) names.get(Modules.PARTY)).add("Alice");
+					at.setLong(Modules.PARTY, System.currentTimeMillis());
+				} catch (ReflectiveOperationException e) {
+					throw new AssertionError(e);
+				}
+
+				Modules.PARTY.receive(client, "[aio]state 1 Alice:L Player0:M Bob:I", "Alice");
+				Modules.PARTY.receive(client, String.format(java.util.Locale.ROOT, "[aio]pos %.1f %.1f %.1f overworld",
+					client.player.getX() + f.x / fl * 30, client.player.getY(), client.player.getZ() + f.z / fl * 30), "Bob");
+				client.player.setPitch(0.0F);
+			});
+			context.waitTicks(10);
+			context.takeScreenshot("06u_party_head");
+			context.runOnClient(client -> Modules.PARTY.leave());
 			// Locator Bar: waypoint przed graczem, kierunek na srodku, nick, w obu trybach (pasek lokalizacji i na pasku XP).
 			context.runOnClient(client -> {
 				var config = new net.minecraft.world.waypoint.Waypoint.Config();

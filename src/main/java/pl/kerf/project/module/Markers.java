@@ -242,6 +242,27 @@ public final class Markers extends Module {
 		}
 	}
 
+	/** Rzutuje punkt świata na ekran HUD-u: {x, y, odległość od kamery} albo null, gdy punkt jest za kamerą. */
+	public static double[] project(DrawContext context, MinecraftClient client, Vec3d point) {
+		Camera camera = client.gameRenderer.getCamera();
+		Vec3d eye = camera.getCameraPos();
+		Vec3d forward = new Vec3d(camera.getHorizontalPlane());
+		Vec3d right = new Vec3d(camera.getDiagonalPlane()).multiply(-1.0);
+		Vec3d up = new Vec3d(camera.getVerticalPlane());
+		int sw = context.getScaledWindowWidth();
+		int sh = context.getScaledWindowHeight();
+		double fov = ((pl.kerf.project.mixin.GameRendererInvoker) client.gameRenderer).aio$getFov(camera, client.getRenderTickCounter().getTickProgress(false), true);
+		double tanY = Math.tan(Math.toRadians(fov) / 2.0);
+		double tanX = tanY * sw / sh;
+		Vec3d d = point.subtract(eye);
+		double z = d.dotProduct(forward);
+		if (z < 0.05) {
+			return null;
+		}
+
+		return new double[] {sw / 2.0 + d.dotProduct(right) / z / tanX * sw / 2.0, sh / 2.0 - d.dotProduct(up) / z / tanY * sh / 2.0, d.length()};
+	}
+
 	/** Rysuje znaczniki na HUD-zie: pozycja świata jest rzutowana na ekran, a ikona bloku i napisy rysują się zwykłym DrawContext. */
 	public void render(DrawContext context, MinecraftClient client) {
 		if (!this.on() || client.player == null || client.world == null || this.markers.isEmpty()) {
