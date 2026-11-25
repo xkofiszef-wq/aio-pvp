@@ -3,6 +3,7 @@ package pl.kerf.project.gui;
 import pl.kerf.project.Lang;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -46,6 +47,9 @@ public class SettingsScreen extends Screen {
 	private static Module.Category category;
 	private static Module openModule;
 	private static String query = "";
+	/** Sortowanie listy: 0 = domyślne, 1 = alfabetycznie, 2 = najnowsze; oraz filtr "tylko ulubione". Zapamiętane między otwarciami. */
+	private static int sortMode;
+	private static boolean favoritesOnly;
 
 	private final Screen parent;
 	private final List<Module> visible = new ArrayList<>();
@@ -220,11 +224,19 @@ public class SettingsScreen extends Screen {
 		String q = query.trim().toLowerCase(Locale.ROOT);
 		for (Module module : Modules.ALL) {
 			// Settings (motyw, język, reset) ma własny przycisk w pasku bocznym, nie kartę.
-			boolean match = module != Modules.GUI_THEME && (q.isEmpty() ? category == null || module.category == category : matches(module, q));
-			if (match) {
+			boolean match = module != Modules.GUI_THEME && module != Modules.PARTY_VOTE && (q.isEmpty() ? category == null || module.category == category : matches(module, q));
+			if (match && (!favoritesOnly || Modules.GUI_THEME.isFavorite(module))) {
 				this.visible.add(module);
 			}
 		}
+
+		// Ulubione zawsze na początku; w ich obrębie i poza nimi wg wybranego sortowania (stabilnie, więc domyślna kolejność zostaje).
+		Comparator<Module> order = switch (sortMode) {
+			case 1 -> Comparator.comparing(module -> module.name.toLowerCase(Locale.ROOT));
+			case 2 -> Comparator.comparingInt((Module module) -> Modules.addedRank(module)).reversed();
+			default -> (a, b) -> 0;
+		};
+		this.visible.sort(Comparator.comparing((Module module) -> !Modules.GUI_THEME.isFavorite(module)).thenComparing(order));
 	}
 
 	/** Wyszukiwanie po nazwie, opisie i nazwach ustawień (np. "kolor" znajdzie wszystko z kolorem). */
@@ -341,7 +353,7 @@ public class SettingsScreen extends Screen {
 	/** Odstęp między kategoriami: przyciski prawie stykają się jak w Shine; w niskim oknie ciaśniej. */
 	private int sidePitch() {
 		// 58 px na dole: przyciski "Menu: klawisz" i "Resetuj".
-		return Math.max(16, Math.min(22, (this.sideH - 66 - 58) / (Module.Category.values().length + 1)));
+		return Math.max(12, Math.min(22, (this.sideH - 66 - 74) / (Module.Category.values().length + 2)));
 	}
 
 	private int sideRowY(int row) {
@@ -355,7 +367,7 @@ public class SettingsScreen extends Screen {
 		}
 
 		Module.Category[] categories = Module.Category.values();
-		for (int row = 0; row <= categories.length; row++) {
+		for (int row = 0; row <= categories.length + 1; row++) {
 			if (inside(mx, my, this.sideX + 6, this.sideRowY(row), this.sideW - 12, this.sidePitch() - 2)) {
 				return row - 1;
 			}
@@ -624,6 +636,11 @@ public class SettingsScreen extends Screen {
 		}
 
 		int row = this.sideRowAt(mx, my);
+		if (row == Module.Category.values().length) {
+			this.client.setScreen(new PartyScreen(this));
+			return true;
+		}
+
 		if (row != -2) {
 			category = row == -1 ? null : Module.Category.values()[row];
 			this.search.setText("");
@@ -632,8 +649,28 @@ public class SettingsScreen extends Screen {
 			return true;
 		}
 
+		if (button == 0 && this.onSortButton(mx, my)) {
+			sortMode = (sortMode + 1) % 3;
+			this.cardScrollTarget = 0.0;
+			this.refresh();
+			return true;
+		}
+
+		if (button == 0 && this.onFavoritesButton(mx, my)) {
+			favoritesOnly = !favoritesOnly;
+			this.cardScrollTarget = 0.0;
+			this.refresh();
+			return true;
+		}
+
 		Module module = this.cardAt(mx, my);
 		if (module != null) {
+			if (button == 0 && this.onCardStar(module, mx, my)) {
+				Modules.GUI_THEME.toggleFavorite(module);
+				this.refresh();
+				return true;
+			}
+
 			boolean tiles = Modules.GUI_THEME.cardStyle.is(1);
 			if (button == 0 && (tiles ? this.tileButton(this.visible.indexOf(module), mx, my) == 2 : this.onCardSwitch(module, mx, my))) {
 				module.toggle();
@@ -919,7 +956,12 @@ public class SettingsScreen extends Screen {
 		int activeRow = searching ? -1 : category == null ? 0 : category.ordinal() + 1;
 		int pitch = this.sidePitch();
 		int hovered = this.sideRowAt(mouseX, mouseY);
-		for (int row = 0; row <= categories.length; row++) {
+		for (int row = 0; row <= categories.length + 1; row++) {
+			if (row == categories.length + 1) {
+				this.renderPartyRow(context, x, w, this.sideRowY(row), pitch - 2, hovered == categories.length);
+				continue;
+			}
+
 			Module.Category entry = row == 0 ? null : categories[row - 1];
 			int y = this.sideRowY(row);
 			int h = pitch - 2;
@@ -942,7 +984,8 @@ public class SettingsScreen extends Screen {
 		String heading = !query.isBlank() ? "Wyniki wyszukiwania" : category == null ? "Wszystkie funkcje" : category.label;
 		Draw.text(context, font, heading, hx, this.wy + 9, Theme.TEXT);
 		String hint = !query.isBlank() ? this.visible.size() + Lang.t(" pasujących funkcji") : categoryHint(category);
-		Draw.text(context, font, Draw.fit(font, hint, this.contentW - 40), hx, this.wy + 21, Theme.TEXT_3);
+		Draw.text(context, font, Draw.fit(font, hint, this.sortBtnX() - hx - 8), hx, this.wy + 21, Theme.TEXT_3);
+		this.renderHeaderControls(context);
 
 		// Zamknięcie.
 		int cx = this.contentX + this.contentW - 22;
@@ -1002,14 +1045,15 @@ public class SettingsScreen extends Screen {
 		context.drawItem(Previews.icon(module), x + 10, y + (CARD_H - 16) / 2);
 
 		int textX = x + 34;
-		Draw.text(context, font, Draw.fit(font, module.name, w - 34 - 8), textX, y + 12, Theme.mix(Theme.TEXT_2, Theme.TEXT, Math.max(on, hover)));
+		Draw.text(context, font, Draw.fit(font, module.name, w - 34 - 24), textX, y + 12, Theme.mix(Theme.TEXT_2, Theme.TEXT, Math.max(on, hover)));
 		String description = Draw.fit(font, module.description, w - 34 - 34);
-		Draw.text(context, font, description, textX, y + 27, Theme.TEXT_3);
+		Draw.textScaled(context, font, module.description, textX, y + 27, w - 34 - 34, Theme.TEXT_3);
 		if (hovered && !description.equals(module.description) && this.rightW == 0) {
 			Tip.offer(module.description);
 		}
 
 		Draw.toggle(context, x + w - 28, y + 26, on);
+		this.drawCardStar(context, module, x + w - 17, y + 4);
 	}
 
 	private int tileMx;
@@ -1044,7 +1088,7 @@ public class SettingsScreen extends Screen {
 		Draw.outline(context, x, y, w, TILE_H, 4, Theme.mix(Theme.BORDER, Theme.BORDER_ACTIVE, hover));
 		// Duża ikona (2x) w prawej części górnego pola.
 		context.getMatrices().pushMatrix();
-		context.getMatrices().translate(x + w - 44, y + 8);
+		context.getMatrices().translate(x + w - 52, y + 8);
 		context.getMatrices().scale(2.0F, 2.0F);
 		context.drawItem(Previews.icon(module), 0, 0);
 		context.getMatrices().popMatrix();
@@ -1058,6 +1102,78 @@ public class SettingsScreen extends Screen {
 		if (hovered && this.rightW == 0) {
 			Tip.offer(description);
 		}
+		this.drawCardStar(context, module, x + w - 17, y + 4);
+	}
+
+	// --- sortowanie i ulubione ---
+
+	private int starBtnX() {
+		return this.contentX + this.contentW - 48;
+	}
+
+	private int sortBtnW() {
+		return 64;
+	}
+
+	private int sortBtnX() {
+		return this.starBtnX() - 6 - this.sortBtnW();
+	}
+
+	private int controlsY() {
+		return this.wy + 17;
+	}
+
+	private static String sortLabel() {
+		return Lang.t(sortMode == 1 ? "A-Z" : sortMode == 2 ? "Najnowsze" : "Domyślnie");
+	}
+
+	private boolean onSortButton(double mx, double my) {
+		return this.panel.get() <= 0.05F && inside(mx, my, this.sortBtnX(), this.controlsY(), this.sortBtnW(), 14);
+	}
+
+	private boolean onFavoritesButton(double mx, double my) {
+		return this.panel.get() <= 0.05F && inside(mx, my, this.starBtnX(), this.controlsY(), 20, 14);
+	}
+
+	/** Przycisk sortowania (zmienia tryb po kliknięciu) i gwiazdka "tylko ulubione" po prawej stronie podtytułu. */
+	private void renderHeaderControls(DrawContext context) {
+		TextRenderer font = this.textRenderer;
+		int y = this.controlsY();
+		boolean sortHot = this.onSortButton(this.tileMx, this.tileMy);
+		Draw.round(context, this.sortBtnX(), y, this.sortBtnW(), 14, 4, sortHot ? Theme.SURFACE_HOVER : Theme.INSET);
+		Draw.outline(context, this.sortBtnX(), y, this.sortBtnW(), 14, 4, sortHot ? Theme.BORDER_ACTIVE : Theme.BORDER_STRONG);
+		String label = sortLabel();
+		Draw.text(context, font, label, this.sortBtnX() + (this.sortBtnW() - font.getWidth(label)) / 2, y + 3, Theme.TEXT_2);
+		boolean starHot = this.onFavoritesButton(this.tileMx, this.tileMy);
+		Draw.round(context, this.starBtnX(), y, 20, 14, 4, favoritesOnly ? Theme.alpha(0xFFFFD25E, 0x30) : starHot ? Theme.SURFACE_HOVER : Theme.INSET);
+		Draw.outline(context, this.starBtnX(), y, 20, 14, 4, favoritesOnly ? 0xFFFFD25E : starHot ? Theme.BORDER_ACTIVE : Theme.BORDER_STRONG);
+		StarIcon.draw(context, this.starBtnX() + 4, y + 2, favoritesOnly, favoritesOnly ? 0xFFFFD25E : Theme.TEXT_3);
+		if (sortHot) {
+			Tip.offer(Lang.t("Sortowanie listy: domyślne, alfabetycznie albo najnowsze. Ulubione zawsze na górze."));
+		} else if (starHot) {
+			Tip.offer(Lang.t("Pokaż tylko ulubione funkcje."));
+		}
+	}
+
+	private boolean onCardStar(Module module, double mx, double my) {
+		int i = this.visible.indexOf(module);
+		return inside(mx, my, this.cardX(i) + this.cardW() - 20, this.cardY(i) + 2, 16, 16);
+	}
+
+	private void drawCardStar(DrawContext context, Module module, int x, int y) {
+		boolean favorite = Modules.GUI_THEME.isFavorite(module);
+		boolean hot = inside(this.tileMx, this.tileMy, x - 2, y - 2, 15, 15);
+		int color = favorite ? 0xFFFFD25E : hot ? Theme.TEXT_2 : Theme.alpha(Theme.TEXT_3, 0xA0);
+		StarIcon.draw(context, x, y, favorite, color);
+	}
+
+	/** Osobny przycisk "Party" pod kategoriami: konfetti z pikseli, od razu otwiera menu party. */
+	private void renderPartyRow(DrawContext context, int x, int w, int y, int h, boolean hovered) {
+		TextRenderer font = this.textRenderer;
+		frameButton(context, x, y, w, h, false, hovered ? 1.0F : 0.0F);
+		int textY = y + (h - 8) / 2;
+		PartyIcon.draw(context, x + 8, textY - 1);
+		Draw.text(context, font, "Party", x + 23, textY, hovered ? Theme.TEXT : Theme.TEXT_2);
 	}
 
 	/** Prawy panel: duży podgląd z podpisem na dole, pod nim krótkie informacje. */
@@ -1087,7 +1203,7 @@ public class SettingsScreen extends Screen {
 		int accent = Theme.category(module.category);
 		Draw.text(context, font, Draw.fit(font, module.name, w - 10), x + 5, capY, Theme.TEXT);
 		Draw.text(context, font, module.category.label, x + 5, capY + 10, accent);
-		Draw.text(context, font, Draw.fit(font, module.description, w - 10), x + 5, capY + 20, Theme.TEXT_3);
+		Draw.textScaled(context, font, module.description, x + 5, capY + 20, w - 10, Theme.TEXT_3);
 		Draw.outline(context, x, by, w, boxH, 0, Theme.BORDER_STRONG);
 
 		// Informacje u dołu, jak "Workspace / Enabled" w Shine.

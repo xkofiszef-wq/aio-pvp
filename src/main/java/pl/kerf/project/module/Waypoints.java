@@ -275,7 +275,7 @@ public final class Waypoints extends Module {
 			} else {
 				// Wiązka przerywa się tam, gdzie wisi ikona (i napis pod nią), żeby nie przecinała rysunku.
 				// Rozmiary ikony i napisu policzone w odległości napisu przeliczamy na odległość samego punktu.
-				double iconW = ICON_WIDTH_PER_BLOCK * shown;
+				double iconW = ICON_WIDTH_PER_BLOCK * shown * this.labelSize.f();
 				double back = Math.max(distance, 2.0) / shown;
 				double low = anchor.y - ((labelShown ? 9.0 * unit + 3.0 * pad : pad)) * back;
 				double high = anchor.y + (3.0 * pad + iconW + 0.04 * shown) * back;
@@ -308,7 +308,7 @@ public final class Waypoints extends Module {
 			}
 
 			if (hasIcon) {
-				double iconW = ICON_WIDTH_PER_BLOCK * shown;
+				double iconW = ICON_WIDTH_PER_BLOCK * shown * this.labelSize.f();
 				Vec3d center = at.add(up.multiply(pad * 2.0 + iconW / 2.0 + 0.02 * shown));
 				drawIcon(PixelGrid.decode(point.icon()), center, right, up, iconW / PixelGrid.SIZE, opacity);
 			}

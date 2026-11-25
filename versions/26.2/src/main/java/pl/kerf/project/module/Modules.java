@@ -152,6 +152,13 @@ public final class Modules {
 		ARMOR_HUD, ITEM_PREVIEW, POTION_STATUS, ELYTRA_PITCH, BOW_PITCH, COORDINATES, FPS, PING, CPS, DAY, CLOCK, SPRINT_STATUS, LAG_DETECTOR, COMPASS, MEDIA, KEY_OVERLAY, PARTY_VOTE
 	);
 
+	/** Kolejność dodawania modułów od najstarszego (tylko te dodane w nowszych wersjach); reszta ma rangę 0. Służy do sortowania "najnowsze". */
+	private static final List<String> ADDED_ORDER = List.of("waypoints", "markers", "party", "sounds", "optimization", "locator_bar");
+
+	public static int addedRank(Module module) {
+		return ADDED_ORDER.indexOf(module.id) + 1;
+	}
+
 	private Modules() {
 	}
 
@@ -544,6 +551,8 @@ public final class Modules {
 		public final Setting.Mode cardStyle = this.add(new Setting.Mode("card_style", "Styl modułów", 0, "Karty", "Kafelki"));
 		/** Przezroczystość menu: 100% = jak w motywie, mniej = bardziej widać świat za panelami. */
 		public final Setting.Num menuOpacity = this.add(new Setting.Num("menu_opacity", "Przezroczystość menu", 100.0, 30.0, 100.0, 5.0, "%"));
+		/** Ulubione moduły (id po przecinku): na liście stoją na początku i mają zapełnioną gwiazdkę. Ukryte, zapisywane w configu. */
+		private final Setting.Str favorites = this.add(new Setting.Str("favorites", "Ulubione", "")).hide();
 		/** Język menu i HUD-u moda; domyślnie angielski (patrz {@link pl.kerf.project.Lang}). */
 		public final Setting.Mode language = this.add(new Setting.Mode("language", "Język", 0, "English", "Polski"));
 		/** Na własne ryzyko: moduły z szarej strefy (Freelook, Instant Hit) zostają włączone po restarcie gry. Włącza się tylko przez okno z ostrzeżeniem. */
@@ -555,6 +564,21 @@ public final class Modules {
 		 */
 		GuiTheme() {
 			super("gui_theme", "Settings", "Motyw, układ i język menu oraz reset wszystkich ustawień.", Category.MISC, true);
+		}
+
+
+		public boolean isFavorite(Module module) {
+			return java.util.Arrays.asList(this.favorites.get().split(",")).contains(module.id);
+		}
+
+		public void toggleFavorite(Module module) {
+			java.util.List<String> ids = new java.util.ArrayList<>(java.util.Arrays.asList(this.favorites.get().split(",")));
+			ids.removeIf(String::isBlank);
+			if (!ids.remove(module.id)) {
+				ids.add(module.id);
+			}
+
+			this.favorites.set(String.join(",", ids));
 		}
 
 		/** Wołane co tick: zmiana w ustawieniach od razu widać w otwartym menu. */

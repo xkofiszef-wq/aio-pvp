@@ -55,6 +55,14 @@ public final class Party extends Module {
 	public final Setting.Bool memberHeads = this.add(new Setting.Bool("member_heads", "Głowy członków na ekranie", true));
 	public final Setting.Num headFade = this.add(new Setting.Num("head_fade", "Głowa znika bliżej niż", 10.0, 0.0, 50.0, 1.0, " bl"));
 	public final Setting.Num headSize = this.add(new Setting.Num("head_size", "Rozmiar głowy", 11.0, 6.0, 20.0, 1.0, " px"));
+	/* Okienko głosowania (Party Vote): jego wygląd i dźwięk ustawiasz tutaj, a położenie i skalę w edytorze HUD. */
+	public final Setting.Bool voteSound = this.add(new Setting.Bool("vote_sound", "Dźwięk początku głosowania", true));
+	public final Setting.Bool voteAnimation = this.add(new Setting.Bool("vote_animation", "Animacja okienka głosowania", true));
+	public final Setting.Mode voteStyle = this.add(new Setting.Mode("vote_style", "Wygląd okienka głosowania", 0, "Zwykły", "Vanilla GUI", "Resourcepack GUI"));
+	public final Setting.Color voteBackground = this.add(new Setting.Color("vote_background", "Kolor tła okienka głosowania", 0xE0101420, true));
+	public final Setting.Color voteYes = this.add(new Setting.Color("vote_yes_color", "Kolor przycisku Tak", 0xFF2E8B57, false));
+	public final Setting.Color voteNo = this.add(new Setting.Color("vote_no_color", "Kolor przycisku Nie", 0xFFB04040, false));
+	public final Setting.Num voteRounding = this.add(new Setting.Num("vote_rounding", "Zaokrąglenie rogów okienka", 4, 0, 8, 1, " px"));
 	public final Setting.Mode headName = this.add(new Setting.Mode("head_name", "Nick przy głowie", 1, "Nigdy", "Po najechaniu", "Zawsze"));
 	public final Setting.Mode headDistance = this.add(new Setting.Mode("head_distance", "Dystans przy głowie", 1, "Nigdy", "Po najechaniu", "Zawsze"));
 	public final Setting.Bool swapLabels = this.add(new Setting.Bool("swap_labels", "Zamień miejscami nick i dystans", false));
@@ -142,7 +150,7 @@ public final class Party extends Module {
 	private int rejoinDelay;
 
 	public Party() {
-		super("party", "Party", "Party po stronie klienta: leader, inviter i członkowie, markery wspólne dla party i opcjonalne koordynaty (za zgodą wszystkich). Menu party otwierasz klawiszem (Sterowanie) albo przyciskiem tutaj.", Category.MISC, false);
+		super("party", "Party", "Party po stronie klienta: leader, inviter i członkowie, markery wspólne dla party i opcjonalne koordynaty (za zgodą wszystkich). Menu party otwierasz klawiszem (Sterowanie) albo przyciskiem tutaj. Okienko głosowania (Party Vote) ustawisz w Edytorze HUD, a jego wygląd i dźwięk poniżej.", Category.MISC, false);
 		this.preview = false;
 	}
 
@@ -650,6 +658,7 @@ public final class Party extends Module {
 				if (fromRole == Role.LEADER && p.length > 2 && p[2].equals("coords")) {
 					try {
 						this.vote = new Vote(Integer.parseInt(p[1]), from, System.currentTimeMillis() + VOTE_MS);
+						this.startVoteSound(client);
 						this.say(Lang.t("Leader chce włączyć koordynaty w party. Y = tak, N = nie (albo menu party)."));
 						this.version++;
 					} catch (NumberFormatException ignored) {
@@ -947,6 +956,20 @@ public final class Party extends Module {
 		}
 	}
 
+	/** Dźwięk początku głosowania: dwa krótkie tony jak odbiór doświadczenia albo handel z villagerem. */
+	private int voteSoundTicks;
+
+	private void playVoteSound(Minecraft client, float pitch) {
+		client.getSoundManager().play(net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(net.minecraft.sounds.SoundEvents.EXPERIENCE_ORB_PICKUP, pitch, 1.0F));
+	}
+
+	private void startVoteSound(Minecraft client) {
+		if (this.voteSound.on()) {
+			this.playVoteSound(client, 0.9F);
+			this.voteSoundTicks = 5;
+		}
+	}
+
 	// ---------- co tick ----------
 
 	/** Kolejka wiadomości, wysyłanie pozycji, wygasanie głosowania i klawisze; wołane co tick. */
@@ -982,6 +1005,10 @@ public final class Party extends Module {
 
 		this.presence(client);
 		this.rejoin(client);
+		if (this.voteSoundTicks > 0 && --this.voteSoundTicks == 0) {
+			this.playVoteSound(client, 1.35F);
+		}
+
 		long now = System.currentTimeMillis();
 		if (this.vote != null && now > this.vote.expires) {
 			if (this.isLeader(client)) {

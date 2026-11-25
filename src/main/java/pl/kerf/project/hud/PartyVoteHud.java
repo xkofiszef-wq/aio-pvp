@@ -5,7 +5,6 @@ import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.render.RenderTickCounter;
 import pl.kerf.project.Lang;
-import pl.kerf.project.config.Setting;
 import pl.kerf.project.gui.Ui;
 import pl.kerf.project.gui.theme.Draw;
 import pl.kerf.project.gui.theme.Theme;
@@ -22,17 +21,71 @@ public final class PartyVoteHud extends HudModule {
 	private static final int HEIGHT = 40;
 	private static final int BUTTON_W = 70;
 	private static final int BUTTON_H = 15;
-
-	public final Setting.Color background = this.add(new Setting.Color("background", "Kolor tła", 0xE0101420, true));
-	public final Setting.Color yesColor = this.add(new Setting.Color("yes_color", "Kolor przycisku Tak", 0xFF2E8B57, false));
-	public final Setting.Color noColor = this.add(new Setting.Color("no_color", "Kolor przycisku Nie", 0xFFB04040, false));
-	public final Setting.Num rounding = this.add(new Setting.Num("rounding", "Zaokrąglenie rogów", 4, 0, 8, 1, " px"));
+	/** Czas wejścia (spadek z górą i jedno odbicie) i wyjścia okienka w milisekundach. */
+	private static final long ENTER_MS = 700L;
+	private static final long LEAVE_MS = 320L;
 
 	/** Prostokąty przycisków na ekranie (Tak, Nie): x, y, szerokość, wysokość. */
 	private final float[][] buttons = new float[2][4];
+	private long enterAt;
+	private long leaveAt;
+	private boolean wasPending;
+	private String lastTitle;
+	private int lastSeconds = 59;
+	private float animY;
 
 	public PartyVoteHud() {
 		super("party_vote", "Party Vote", "Okienko głosowania w party (np. o koordynatach): przesuń je i zeskaluj w edytorze HUD.", true, 0.5F, 0.0F, 0.5F, 0.0F, 0.0F, 8.0F);
+	}
+
+	/** Tło okienka: własne (zaokrąglone) albo panel z gry (Vanilla GUI = oryginalna tekstura, Resourcepack GUI = z texturepacka); panel z gry skaluje się razem z elementem. */
+	private void panel(DrawContext context, int w) {
+		int style = Modules.PARTY.voteStyle.get();
+		if (style == 0) {
+			Draw.roundExact(context, 0, 0, w, HEIGHT, Modules.PARTY.voteRounding.i(), Modules.PARTY.voteBackground.argb());
+			Draw.outlineExact(context, 0, 0, w, HEIGHT, Modules.PARTY.voteRounding.i(), Theme.BORDER_STRONG);
+			return;
+		}
+
+		VanillaGui.effectPanel(context, 0, 0, w, HEIGHT, false, style == 2);
+	}
+
+	/** Przycisk Tak/Nie: własny kolorowy albo panel z gry z półprzezroczystym kolorem na wierzchu (zielony/czerwony). */
+	private void button(DrawContext context, int x, int y, int argb) {
+		int style = Modules.PARTY.voteStyle.get();
+		if (style == 0) {
+			Draw.roundExact(context, x, y, BUTTON_W, BUTTON_H, 3, argb);
+			return;
+		}
+
+		VanillaGui.effectPanel(context, x, y, BUTTON_W, BUTTON_H, true, style == 2);
+		context.fill(x + 2, y + 2, x + BUTTON_W - 2, y + BUTTON_H - 2, Theme.alpha(argb, 0x90));
+	}
+
+	/** Czy okienko jeszcze znika po udzielonej odpowiedzi (animacja wyjścia). */
+	private boolean leaving() {
+		return Modules.PARTY.voteAnimation.on() && this.leaveAt != 0L && this.lastTitle != null && System.currentTimeMillis() - this.leaveAt < LEAVE_MS;
+	}
+
+	/** Przesunięcie w pionie (px, ujemne = wyżej): wejście spada z góry, odbija się raz i staje; wyjście wjeżdża w górę. */
+	private float animationOffset(long now, boolean pending) {
+		float drop = HEIGHT + 20.0F;
+		if (pending) {
+			float t = Math.min(1.0F, (now - this.enterAt) / (float) ENTER_MS);
+			if (t < 0.6F) {
+				float f = t / 0.6F;
+				return -drop * (1.0F - f * f);
+			}
+
+			return -(float) Math.sin((t - 0.6F) / 0.4F * Math.PI) * 9.0F;
+		}
+
+		if (this.leaveAt != 0L) {
+			float t = Math.min(1.0F, (now - this.leaveAt) / (float) LEAVE_MS);
+			return -drop * t * t;
+		}
+
+		return 0.0F;
 	}
 
 	/** Głosowanie czekające na ciebie albo null; w edytorze zawsze pokazujemy przykład. */
@@ -42,7 +95,11 @@ public final class PartyVoteHud extends HudModule {
 			return vote.proposer + Lang.t(" chce włączyć koordynaty w party");
 		}
 
-		return editing ? "Leader" + Lang.t(" chce włączyć koordynaty w party") : null;
+		if (editing) {
+			return "Leader" + Lang.t(" chce włączyć koordynaty w party");
+		}
+
+		return this.leaving() ? this.lastTitle : null;
 	}
 
 	@Override
@@ -59,6 +116,23 @@ public final class PartyVoteHud extends HudModule {
 	@Override
 	protected void draw(DrawContext context, MinecraftClient client, RenderTickCounter tickCounter, boolean editing) {
 		String title = this.title(client, editing);
+		boolean pending = Modules.PARTY.pendingFor(client) != null;
+		long now = System.currentTimeMillis();
+		if (pending && !this.wasPending) {
+			this.enterAt = now;
+			this.leaveAt = 0L;
+		}
+
+		if (!pending && this.wasPending) {
+			this.leaveAt = now;
+		}
+
+		this.wasPending = pending;
+		if (pending && title != null) {
+			this.lastTitle = title;
+		}
+
+		this.animY = editing || !Modules.PARTY.voteAnimation.on() ? 0.0F : this.animationOffset(now, pending);
 		this.buttons[0][2] = 0;
 		this.buttons[1][2] = 0;
 		if (title == null) {
@@ -67,24 +141,30 @@ public final class PartyVoteHud extends HudModule {
 
 		TextRenderer font = client.textRenderer;
 		Party.Vote vote = Modules.PARTY.pendingFor(client);
-		int seconds = vote == null ? 59 : (int) Math.max(0, (vote.expires - System.currentTimeMillis()) / 1000L);
+		int seconds = vote == null ? this.lastSeconds : (int) Math.max(0, (vote.expires - System.currentTimeMillis()) / 1000L);
+		if (vote != null) {
+			this.lastSeconds = seconds;
+		}
+
 		int w = this.width(client, editing);
-		Draw.roundExact(context, 0, 0, w, HEIGHT, this.rounding.i(), this.background.argb());
-		Draw.outlineExact(context, 0, 0, w, HEIGHT, this.rounding.i(), Theme.BORDER_STRONG);
+		context.getMatrices().pushMatrix();
+		context.getMatrices().translate(0.0F, this.animY);
+		this.panel(context, w);
 		context.drawText(font, title, (w - font.getWidth(title)) / 2, 6, 0xFFFFFFFF, true);
 		int by = 19;
 		int yx = w / 2 - BUTTON_W - 4;
 		int nx = w / 2 + 4;
-		Draw.roundExact(context, yx, by, BUTTON_W, BUTTON_H, 3, this.yesColor.argb());
-		Draw.roundExact(context, nx, by, BUTTON_W, BUTTON_H, 3, this.noColor.argb());
+		this.button(context, yx, by, Modules.PARTY.voteYes.argb());
+		this.button(context, nx, by, Modules.PARTY.voteNo.argb());
 		String yes = "[" + Party.yesKey.getBoundKeyLocalizedText().getString() + "] " + Lang.t("Tak");
 		String no = "[" + Party.noKey.getBoundKeyLocalizedText().getString() + "] " + Lang.t("Nie");
 		context.drawText(font, yes, yx + (BUTTON_W - font.getWidth(yes)) / 2, by + 4, 0xFFFFFFFF, false);
 		context.drawText(font, no, nx + (BUTTON_W - font.getWidth(no)) / 2, by + 4, 0xFFFFFFFF, false);
 		String left = seconds + "s";
 		context.drawText(font, left, w - 4 - font.getWidth(left), HEIGHT - 10, 0xFFA0A4B0, false);
-		this.store(0, yx, by);
-		this.store(1, nx, by);
+		context.getMatrices().popMatrix();
+		this.store(0, yx, Math.round(by + this.animY));
+		this.store(1, nx, Math.round(by + this.animY));
 	}
 
 	private void store(int index, int x, int y) {

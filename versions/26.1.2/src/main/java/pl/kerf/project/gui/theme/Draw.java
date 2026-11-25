@@ -182,6 +182,27 @@ public final class Draw {
 		matrices.popMatrix();
 	}
 
+	/**
+	 * Tekst dopasowany do szerokości przez zmniejszenie (do 65 procent), a nie ucięcie; dopiero poniżej tego rozmiaru jest skracany wielokropkiem.
+	 * Dzięki temu opisy pod modułami i w modułach są czytelne przy każdej skali GUI.
+	 */
+	public static void textScaled(GuiGraphicsExtractor context, Font font, String text, int x, int y, int maxWidth, int color) {
+		String full = Lang.t(text);
+		int w = font.width(full);
+		if (w <= maxWidth) {
+			context.text(font, full, x, y, color, false);
+			return;
+		}
+
+		float scale = Math.max(0.65F, (float) maxWidth / w);
+		String shown = fit(font, text, Math.round(maxWidth / scale));
+		context.pose().pushMatrix();
+		context.pose().translate(x, y + (1.0F - scale) * 4.0F);
+		context.pose().scale(scale, scale);
+		context.text(font, shown, 0, 0, color, false);
+		context.pose().popMatrix();
+	}
+
 	/** Tekst dopasowany do szerokości, z wielokropkiem. */
 	public static String fit(Font font, String text, int width) {
 		text = Lang.t(text);

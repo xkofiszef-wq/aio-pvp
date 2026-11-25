@@ -261,6 +261,23 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			Modules.GUI_THEME.theme.set(0);
 		});
 		context.setScreen(() -> new SettingsScreen(null));
+		// Ulubione: gwiazdka na module, ulubiony stoi na poczatku listy, zapis w ustawieniach.
+		context.runOnClient(client -> {
+			Modules.GUI_THEME.toggleFavorite(Modules.HIT_COLOR);
+			if (!Modules.GUI_THEME.isFavorite(Modules.HIT_COLOR) || Modules.GUI_THEME.isFavorite(Modules.CROSSHAIR)) {
+				throw new AssertionError("Ulubione: Hit Color powinien byc ulubiony, a Crosshair nie");
+			}
+		});
+		context.setScreen(() -> new SettingsScreen(null));
+		context.waitTicks(5);
+		context.takeScreenshot("01g_menu_favorites");
+		context.runOnClient(client -> {
+			Modules.GUI_THEME.toggleFavorite(Modules.HIT_COLOR);
+			if (Modules.GUI_THEME.isFavorite(Modules.HIT_COLOR)) {
+				throw new AssertionError("Ulubione: ponowne klikniecie gwiazdki powinno zdjac ulubiony");
+			}
+		});
+		context.setScreen(() -> new SettingsScreen(null));
 		// Pasek przewijania bez kółka myszy: chwyć uchwyt u góry, przeciągnij na dół toru, lista ma się przewinąć do końca.
 		double[] bar = context.computeOnClient(client -> {
 			double[] b = ((SettingsScreen) client.currentScreen).cardScrollbarForTest();
@@ -518,6 +535,14 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			});
 			context.waitTicks(3);
 			context.takeScreenshot("06p_party_vote_popup");
+			// Okienko glosowania w stylu z gry (oryginalna tekstura i z texturepacka), skaluje sie razem z elementem.
+			context.runOnClient(client -> Modules.PARTY.voteStyle.set(1));
+			context.waitTicks(3);
+			context.takeScreenshot("06p2_vote_vanilla_gui");
+			context.runOnClient(client -> Modules.PARTY.voteStyle.set(2));
+			context.waitTicks(3);
+			context.takeScreenshot("06p3_vote_resourcepack_gui");
+			context.runOnClient(client -> Modules.PARTY.voteStyle.set(0));
 			context.runOnClient(client -> {
 				Modules.PARTY.answer(true);
 				if (Modules.PARTY.vote().myAnswer == null || !Modules.PARTY.vote().myAnswer) {
