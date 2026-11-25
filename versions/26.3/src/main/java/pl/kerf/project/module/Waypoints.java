@@ -40,7 +40,8 @@ public final class Waypoints extends Module {
 	private static final double ICON_WIDTH_PER_BLOCK = 0.15;
 
 	public final Setting.Color color = this.add(new Setting.Color("color", "Kolor punktów", 0xFF55FFFF, false));
-	public final Setting.Num labelSize = this.add(new Setting.Num("label_size", "Rozmiar napisu", 1.0, 0.5, 3.0, 0.1, "x"));
+	public final Setting.Num labelSize = this.add(new Setting.Num("label_size", "Rozmiar napisu", 1.0, 0.5, 5.0, 0.1, "x"));
+	public final Setting.Num beamWidth = this.add(new Setting.Num("beam_width", "Grubość wiązki", 0.0, 0.0, 1.5, 0.05, " bl"));
 	public final Setting.Num opacity = this.add(new Setting.Num("opacity", "Przezroczystość waypointów", 100.0, 10.0, 100.0, 5.0, "%"));
 	public final Setting.Bool alwaysNames = this.add(new Setting.Bool("always_names", "Zawsze pokazuj nazwy", false));
 	public final Setting.Bool deathWaypoint = this.add(new Setting.Bool("death_waypoint", "Waypoint po śmierci", false));
@@ -212,6 +213,19 @@ public final class Waypoints extends Module {
 		return 1;
 	}
 
+	/** Wiązka: cienka linia (grubość 0) albo półprzezroczysty słup o podanej szerokości, jak beacon w Markers; widać ją przez ściany. */
+	private void beam(Vec3 from, Vec3 to, int argb) {
+		float width = this.beamWidth.f();
+		if (width < 0.05F) {
+			Gizmos.line(from, to, argb, 3.0F).setAlwaysOnTop();
+			return;
+		}
+
+		double half = width / 2.0;
+		int fill = Math.min(argb >>> 24, 110) << 24 | argb & 0xFFFFFF;
+		Gizmos.cuboid(new net.minecraft.world.phys.AABB(from.x - half, from.y, from.z - half, to.x + half, to.y, to.z + half), GizmoStyle.strokeAndFill(argb, 1.5F, fill)).setAlwaysOnTop();
+	}
+
 	/**
 	 * Rysowane razem z podświetleniem bloku, w zakresie gizmo otwartym przez {@link pl.kerf.project.render.WorldOverlays}.
 	 * Zawsze widać wiązkę (i ikonę, jeśli punkt ją ma); nazwa z dystansem pojawia się, gdy patrzysz na wiązkę.
@@ -236,7 +250,7 @@ public final class Waypoints extends Module {
 			boolean hover = flat < 0.5 || lookFlat > 1.0E-4
 				&& Math.acos(Math.max(-1.0, Math.min(1.0, (dx * forward.x + dz * forward.z) / (flat * lookFlat)))) < Math.max(Math.toRadians(2.5), Math.atan(0.5 / flat));
 			if (!hasIcon && !hover && !this.alwaysNames.on()) {
-				Gizmos.line(base, beamTop, argb, 3.0F).setAlwaysOnTop();
+				this.beam(base, beamTop, argb);
 				continue;
 			}
 
@@ -257,7 +271,7 @@ public final class Waypoints extends Module {
 			double pad = 2.0 * unit;
 			boolean labelShown = hover || this.alwaysNames.on();
 			if (!hasIcon) {
-				Gizmos.line(base, beamTop, argb, 3.0F).setAlwaysOnTop();
+				this.beam(base, beamTop, argb);
 			} else {
 				// Wiązka przerywa się tam, gdzie wisi ikona (i napis pod nią), żeby nie przecinała rysunku.
 				// Rozmiary ikony i napisu policzone w odległości napisu przeliczamy na odległość samego punktu.
@@ -266,11 +280,11 @@ public final class Waypoints extends Module {
 				double low = anchor.y - ((labelShown ? 9.0 * unit + 3.0 * pad : pad)) * back;
 				double high = anchor.y + (3.0 * pad + iconW + 0.04 * shown) * back;
 				if (low > base.y) {
-					Gizmos.line(base, new Vec3(base.x, low, base.z), argb, 3.0F).setAlwaysOnTop();
+					this.beam(base, new Vec3(base.x, low, base.z), argb);
 				}
 
 				if (high < beamTop.y) {
-					Gizmos.line(new Vec3(base.x, high, base.z), beamTop, argb, 3.0F).setAlwaysOnTop();
+					this.beam(new Vec3(base.x, high, base.z), beamTop, argb);
 				}
 			}
 

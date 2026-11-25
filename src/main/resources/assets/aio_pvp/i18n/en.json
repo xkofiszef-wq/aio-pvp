@@ -532,5 +532,6 @@
   "Głowa znika bliżej niż": "Head fades out closer than",
   "Nick przy głowie": "Name next to head",
   "Dystans przy głowie": "Distance next to head",
-  "Zamień miejscami nick i dystans": "Swap name and distance"
+  "Zamień miejscami nick i dystans": "Swap name and distance",
+  "Grubość wiązki": "Beam thickness"
 }
