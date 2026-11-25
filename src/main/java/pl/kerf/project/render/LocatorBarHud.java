@@ -72,10 +72,10 @@ public final class LocatorBarHud {
 			PlayerListEntry player = source.left().map(uuid -> client.getNetworkHandler() == null ? null : client.getNetworkHandler().getPlayerListEntry(uuid)).orElse(null);
 			if (!settings.icons.on()) {
 				context.fill(x + 2, barY, x + 7, barY + 5, color);
-			} else if (settings.heads.on() && player != null) {
+			} else if (settings.heads.on() && source.left().isPresent()) {
 				// Obwódka w kolorze waypointa, w środku głowa (8x8) razem z warstwą kapelusza.
 				context.fill(x - 1, barY - 3, x + 10, barY + 8, color);
-				PlayerSkinDrawer.draw(context, player.getSkinTextures(), x, barY - 2, 9);
+				PlayerSkinDrawer.draw(context, player != null ? player.getSkinTextures() : net.minecraft.client.util.DefaultSkinHelper.getSkinTextures(source.left().get()), x, barY - 2, 9);
 			} else {
 				WaypointStyleAsset style = client.getWaypointStyleAssetManager().get(waypoint.getConfig().style);
 				float distance = MathHelper.sqrt((float) waypoint.squaredDistanceTo(entity));
@@ -100,7 +100,12 @@ public final class LocatorBarHud {
 			float yaw = MathHelper.wrapDegrees(client.gameRenderer.getCamera().getYaw());
 			int index = Math.floorMod(Math.round(yaw / 45.0F), 8);
 			String text = DIRECTIONS[index];
-			context.drawText(font, text, (context.getScaledWindowWidth() - font.getWidth(text)) / 2, barY - 2, 0xFFFFFFFF, shadow);
+			// Pasek ma 5 px wysokości, więc litery są mniejsze i mieszczą się w nim.
+			context.getMatrices().pushMatrix();
+			context.getMatrices().translate(context.getScaledWindowWidth() / 2.0F, barY + 2.5F);
+			context.getMatrices().scale(0.6F, 0.6F);
+			context.drawText(font, text, -font.getWidth(text) / 2, -4, 0xFFFFFFFF, shadow);
+			context.getMatrices().popMatrix();
 		}
 	}
 }
