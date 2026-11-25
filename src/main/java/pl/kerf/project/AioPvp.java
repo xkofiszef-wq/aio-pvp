@@ -159,8 +159,12 @@ public class AioPvp implements ClientModInitializer {
 			return;
 		}
 
-		Modules.MARKERS.render(context, client);
-		Modules.PARTY.renderHeads(context, client);
+		// Przy HUD Caching znaczniki i głowy rysują się osobno co klatkę (HudCache), nie w zapamiętanej teksturze.
+		if (!pl.kerf.project.render.HudCache.capturing) {
+			Modules.MARKERS.render(context, client);
+			Modules.PARTY.renderHeads(context, client);
+		}
+
 		for (HudModule module : Modules.HUD) {
 			if (module == Modules.PARTY_VOTE && !editing) {
 				// Okienko głosowania rysuje się na końcu, na wierzchu wszystkich elementów (patrz niżej i hook ekranu).

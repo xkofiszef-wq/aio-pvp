@@ -31,6 +31,8 @@
         "SpriteAtlasTextureMixin",
         "SectionBuilderMixin",
         "LocatorBarMixin",
+        "GameRendererHudMixin",
+        "GuiRendererMixin",
         "ExperienceBarMixin",
         "RenderDataMixin",
         "ChunkRenderDataMixin",

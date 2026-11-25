@@ -33,6 +33,10 @@ public final class Optimization extends Module {
 		.lockedBy(() -> loaded("sodium")));
 	private boolean animateWas;
 
+	/** HUD odświeża się najwyżej 20 razy na sekundę: rysuje się do osobnej tekstury, a w pozostałych klatkach tylko ją wyświetla. Znaczniki i głowy party dalej rysują się co klatkę. */
+	public final Setting.Bool hudCaching = this.add(new Setting.Bool("hud_caching", "HUD Caching", false)
+		.lockedBy(() -> loaded("exordium")));
+
 	/** Wołane co tick: po zmianie opcji "Animate Only Visible Textures" świat buduje się od nowa, żeby fragmenty miały zapisane tekstury. */
 	public void tick(net.minecraft.client.MinecraftClient client) {
 		boolean now = this.active(this.animateOnlyVisible);

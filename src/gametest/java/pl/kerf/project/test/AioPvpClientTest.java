@@ -655,6 +655,13 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			context.waitTicks(10);
 			context.takeScreenshot("06u_party_head");
 			context.runOnClient(client -> Modules.PARTY.leave());
+			// HUD Caching: HUD ma wygladac tak samo (zrzut), a gra nie moze sie wywrocic.
+			context.runOnClient(client -> Modules.OPTIMIZATION.hudCaching.set(true));
+			context.waitTicks(20);
+			context.takeScreenshot("06w_hud_cache_on");
+			context.runOnClient(client -> Modules.OPTIMIZATION.hudCaching.set(false));
+			context.waitTicks(5);
+			context.takeScreenshot("06w2_hud_cache_off");
 			// Locator Bar: waypoint przed graczem, kierunek na srodku, nick, w obu trybach (pasek lokalizacji i na pasku XP).
 			context.runOnClient(client -> {
 				var config = new net.minecraft.world.waypoint.Waypoint.Config();

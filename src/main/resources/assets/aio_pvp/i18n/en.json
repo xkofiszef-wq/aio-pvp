@@ -533,5 +533,6 @@
   "Nick przy głowie": "Name next to head",
   "Dystans przy głowie": "Distance next to head",
   "Zamień miejscami nick i dystans": "Swap name and distance",
-  "Grubość wiązki": "Beam thickness"
+  "Grubość wiązki": "Beam thickness",
+  "HUD Caching": "HUD Caching"
 }
