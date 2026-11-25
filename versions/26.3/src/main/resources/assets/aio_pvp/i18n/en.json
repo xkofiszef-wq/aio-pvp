@@ -529,5 +529,8 @@
   "Cień tekstu": "Text shadow",
   "Pasek lokalizacji: głowy graczy z obwódką w ich kolorze, nicki, kierunek świata. Opcja \"Na pasku XP\" rysuje ikony na pasku doświadczenia.": "Locator bar: player heads with an outline in their color, names and compass direction. The \"On the XP bar\" option draws the icons on the experience bar.",
   "Głowy członków na ekranie": "Member heads on screen",
-  "Głowa znika bliżej niż": "Head fades out closer than"
+  "Głowa znika bliżej niż": "Head fades out closer than",
+  "Nick przy głowie": "Name next to head",
+  "Dystans przy głowie": "Distance next to head",
+  "Zamień miejscami nick i dystans": "Swap name and distance"
 }

@@ -54,6 +54,9 @@ public final class Party extends Module {
 	/** Zapisuje w logu gry surowe wiadomości party (do szukania błędów na konkretnym serwerze). */
 	public final Setting.Bool memberHeads = this.add(new Setting.Bool("member_heads", "Głowy członków na ekranie", true));
 	public final Setting.Num headFade = this.add(new Setting.Num("head_fade", "Głowa znika bliżej niż", 10.0, 0.0, 50.0, 1.0, " bl"));
+	public final Setting.Mode headName = this.add(new Setting.Mode("head_name", "Nick przy głowie", 1, "Nigdy", "Po najechaniu", "Zawsze"));
+	public final Setting.Mode headDistance = this.add(new Setting.Mode("head_distance", "Dystans przy głowie", 2, "Nigdy", "Po najechaniu", "Zawsze"));
+	public final Setting.Bool swapLabels = this.add(new Setting.Bool("swap_labels", "Zamień miejscami nick i dystans", false));
 	public final Setting.Bool debug = this.add(new Setting.Bool("debug_log", "Log wiadomości party (diagnostyka)", false));
 
 	public enum Role {
@@ -782,6 +785,11 @@ public final class Party extends Module {
 	/** Jak mocno (0..1) kursor najeżdża na głowę danego członka; służy do płynnego powiększania. */
 	private final Map<String, Float> headHover = new HashMap<>();
 
+	/** Przezroczystość napisu (0..1) dla trybu "Nigdy" / "Po najechaniu" / "Zawsze". */
+	private static float labelVisibility(Setting.Mode mode, float hover) {
+		return mode.is(2) ? 1.0F : mode.is(1) ? Math.max(0.0F, Math.min(1.0F, (hover - 0.3F) / 0.5F)) : 0.0F;
+	}
+
 	/**
 	 * Głowy członków party rysowane w miejscu, w którym są w świecie (jak waypointy): zawsze tej samej wielkości, niezależnie od odległości.
 	 * Pod głową stoi odległość, po najechaniu głowa lekko rośnie i pojawia się nick. Bliżej niż "Głowa znika bliżej niż" głowa zanika.
@@ -840,10 +848,17 @@ public final class Party extends Module {
 			context.getMatrices().scale(scale, scale);
 			net.minecraft.client.gui.PlayerSkinDrawer.draw(context, skin, -7, -7, 14, alphaBits | 0xFFFFFF);
 			String distance = at[2] >= 1000.0 ? String.format(Locale.ROOT, "%.1fkm", at[2] / 1000.0) : Math.round(at[2]) + "m";
-			context.drawText(font, distance, -font.getWidth(distance) / 2, 9, alphaBits | 0xFFFFFF, true);
-			if (hover > 0.3F) {
-				int nickAlpha = Math.round(alpha * Math.min(1.0F, (hover - 0.3F) / 0.5F) * 255.0F) << 24;
-				context.drawText(font, name, -font.getWidth(name) / 2, -19, nickAlpha | 0xFFFFFF, true);
+			// Nick i dystans: każdy może być wyłączony, widoczny tylko po najechaniu albo zawsze; można je też zamienić miejscami.
+			int nameY = this.swapLabels.on() ? 9 : -19;
+			int distanceY = this.swapLabels.on() ? -19 : 9;
+			float nameAlpha = alpha * labelVisibility(this.headName, hover);
+			float distanceAlpha = alpha * labelVisibility(this.headDistance, hover);
+			if (nameAlpha >= 0.04F) {
+				context.drawText(font, name, -font.getWidth(name) / 2, nameY, Math.round(nameAlpha * 255.0F) << 24 | 0xFFFFFF, true);
+			}
+
+			if (distanceAlpha >= 0.04F) {
+				context.drawText(font, distance, -font.getWidth(distance) / 2, distanceY, Math.round(distanceAlpha * 255.0F) << 24 | 0xFFFFFF, true);
 			}
 
 			context.getMatrices().popMatrix();
