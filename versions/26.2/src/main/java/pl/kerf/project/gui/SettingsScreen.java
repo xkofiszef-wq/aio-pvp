@@ -1172,7 +1172,7 @@ public class SettingsScreen extends Screen {
 		frameButton(context, x, y, w, h, false, hovered ? 1.0F : 0.0F);
 		int textY = y + (h - 8) / 2;
 		PartyIcon.draw(context, x + 8, textY - 1);
-		Draw.text(context, font, "Party", x + 23, textY, hovered ? Theme.TEXT : Theme.TEXT_2);
+		Draw.text(context, font, "Party (beta)", x + 23, textY, hovered ? Theme.TEXT : Theme.TEXT_2);
 	}
 
 	/** Prawy panel: duży podgląd z podpisem na dole, pod nim krótkie informacje. */

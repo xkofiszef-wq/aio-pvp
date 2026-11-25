@@ -1,0 +1,56 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Minecraft ${{ matrix.minecraft }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - minecraft: "1.21.11"
+            dir: "."
+            java: "21"
+          - minecraft: "26.1.2"
+            dir: "versions/26.1.2"
+            java: "25"
+          - minecraft: "26.2"
+            dir: "versions/26.2"
+            java: "25"
+          - minecraft: "26.3"
+            dir: "versions/26.3"
+            java: "25"
+    defaults:
+      run:
+        working-directory: ${{ matrix.dir }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: gradle
+          cache-dependency-path: |
+            ${{ matrix.dir }}/*.gradle*
+            ${{ matrix.dir }}/gradle.properties
+            ${{ matrix.dir }}/gradle/wrapper/gradle-wrapper.properties
+
+      - name: Build
+        run: |
+          chmod +x gradlew
+          ./gradlew build --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aio-pvp-${{ matrix.minecraft }}
+          path: |
+            ${{ matrix.dir }}/build/libs/*.jar
+            !${{ matrix.dir }}/build/libs/*-sources.jar
+          if-no-files-found: error

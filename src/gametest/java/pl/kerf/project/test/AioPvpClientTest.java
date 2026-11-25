@@ -63,6 +63,175 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			Math.round(on), Math.round(sumOn / 3), Math.round(sumOff / 3));
 	}
 
+	/**
+	 * Pomiar FPS opcji Optimization (tylko z -Daio.bench=true): stała scena, każda opcja osobno i wszystkie razem, 3 rundy na przemian.
+	 * Czasy klatek pochodzą z logu wykresu F3 (zapisuje każdą klatkę). Wynik trafia do aio_bench.md w katalogu gry testowej.
+	 */
+	private static void bench(ClientGameTestContext context) {
+		// Opcje przed stworzeniem świata: serwer w grze bierze zasięg widzenia z opcji przy starcie i później go nie zmienia.
+		context.runOnClient(client -> {
+			client.options.getMaxFps().setValue(260);
+			client.options.getEnableVsync().setValue(false);
+			client.options.getInactivityFpsLimit().setValue(net.minecraft.client.option.InactivityFpsLimit.MINIMIZED);
+			client.options.getViewDistance().setValue(12);
+			// Okno testu ma domyślnie 854x480; pomiar w Full HD jest bliżej prawdziwej gry (faktyczny rozmiar trafia do wyniku).
+			client.getWindow().setWindowedSize(1920, 1080);
+		});
+		// Zwykły świat (nie płaski świat testowy) ze stałym seedem, żeby scena była za każdym razem ta sama.
+		try (TestSingleplayerContext singleplayer = context.worldBuilder().setUseConsistentSettings(false).adjustSettings(creator -> {
+			creator.setSeed("aio-pvp-bench");
+			creator.setCheatsEnabled(true);
+			creator.setGameMode(net.minecraft.client.gui.screen.world.WorldCreator.Mode.CREATIVE);
+		}).create()) {
+			// Sprawdzenie "wszystkie fragmenty pobrane" bierze pełny kwadrat zasięgu, a serwer przy 12 nie wysyła rogów, więc najpierw stały czas na pobranie.
+			context.waitTicks(200);
+			singleplayer.getClientWorld().waitForChunksRender(false, 2400);
+			benchScene(context, singleplayer);
+		}
+	}
+
+	private static void benchScene(ClientGameTestContext context, TestSingleplayerContext singleplayer) {
+		TestServerContext server = singleplayer.getServer();
+		for (String command : new String[] {
+			"gamerule advance_time false", "gamerule advance_weather false", "gamerule spawn_mobs false", "time set noon", "weather clear",
+			"gamemode creative @p",
+			// Ukryta jaskinia pod graczem: lawa i magma (animowane tekstury poza wzrokiem) i 120 mobów za blokami.
+			"execute at @p run fill ~-10 ~-26 ~-10 ~10 ~-14 ~10 air", "execute at @p run fill ~-10 ~-27 ~-10 ~10 ~-27 ~10 lava",
+			"execute at @p run fill ~-10 ~-26 ~-10 ~10 ~-26 ~10 magma_block"
+		}) {
+			server.runCommand(command);
+		}
+
+		for (int i = 0; i < 120; i++) {
+			server.runCommand(String.format(java.util.Locale.ROOT, "execute at @p run summon zombie ~%d ~-25 ~%d {NoAI:1b,PersistenceRequired:1b}", i % 11 * 2 - 10, i / 11 * 2 - 10));
+		}
+
+		for (int i = 0; i < 12; i++) {
+			server.runCommand(String.format(java.util.Locale.ROOT, "execute at @p run summon pig ^%d ^ ^8 {NoAI:1b,PersistenceRequired:1b}", i - 6));
+		}
+
+		context.runOnClient(client -> {
+			client.getToastManager().clear();
+			// Lot w kreatywnym trzyma gracza w miejscu (także w wodzie), więc widok jest taki sam w każdej rundzie.
+			client.player.getAbilities().flying = true;
+			client.player.setYaw(30.0F);
+			client.player.setPitch(5.0F);
+			// HUD jak u gracza PvP: elementy moda włączone (to one są w zapamiętanej teksturze przy HUD Caching).
+			for (Module module : Modules.HUD) {
+				if (module != Modules.MEDIA && module != Modules.PARTY_VOTE) {
+					module.setEnabled(true);
+				}
+			}
+
+			Modules.OPTIMIZATION.setEnabled(true);
+		});
+		context.waitTicks(60);
+		singleplayer.getClientWorld().waitForChunksRender(false, 2400);
+
+		String[] names = {"All options off", "Entity Culling", "Fog Occlusion", "Animate Only Visible Textures", "HUD Caching", "All options on"};
+		StringBuilder out = new StringBuilder();
+		String gpu = context.computeOnClient(client -> com.mojang.blaze3d.systems.RenderSystem.getDevice().getRenderer());
+		String mods = net.fabricmc.loader.api.FabricLoader.getInstance().getAllMods().stream().map(mod -> mod.getMetadata().getId())
+			.filter(id -> id.equals("sodium") || id.equals("lithium") || id.equals("ferritecore") || id.equals("immediatelyfast") || id.equals("iris"))
+			.sorted().collect(java.util.stream.Collectors.joining(", "));
+		int[] size = context.computeOnClient(client -> new int[] {client.getWindow().getFramebufferWidth(), client.getWindow().getFramebufferHeight()});
+		out.append("GPU: ").append(gpu).append("\nOther mods: ").append(mods.isEmpty() ? "none" : mods).append("\nWindow: ").append(size[0]).append('x').append(size[1])
+			.append(", render distance 12, VSync off, FPS limit off\n");
+		for (String scene : new String[] {"surface", "underwater"}) {
+			if (scene.equals("underwater")) {
+				server.runCommand("execute at @p run fill ~-12 ~-1 ~-12 ~12 ~6 ~12 water");
+				server.runCommand("execute at @p run tp @p ~ ~2 ~");
+				context.waitTicks(40);
+				singleplayer.getClientWorld().waitForChunksRender(false, 2400);
+			}
+
+			// Runda -1 to rozgrzewka (każda konfiguracja raz, bez zapisu). Potem 6 rund, a kolejność przesuwa się o jeden w każdej,
+			// więc każda opcja jest raz na każdym miejscu. Wynik to mediana rund: jedna zakłócona runda go nie przesuwa.
+			double[][] roundFps = new double[names.length][names.length];
+			double[][] roundLow = new double[names.length][names.length];
+			long[] frameCount = new long[names.length];
+			for (int round = -1; round < names.length; round++) {
+				for (int k = 0; k < names.length; k++) {
+					int c = (k + Math.max(round, 0)) % names.length;
+					int config = c;
+					context.runOnClient(client -> {
+						boolean all = config == 5;
+						Modules.OPTIMIZATION.entityCulling.set(all || config == 1);
+						Modules.OPTIMIZATION.fogOcclusion.set(all || config == 2);
+						Modules.OPTIMIZATION.animateOnlyVisible.set(all || config == 3);
+						Modules.OPTIMIZATION.hudCaching.set(all || config == 4);
+					});
+					// Zmiana "Animate Only Visible" przebudowuje świat (robi to Optimization.tick), więc czekamy na gotowe fragmenty.
+					context.waitTicks(10);
+					singleplayer.getClientWorld().waitForChunksRender(false, 2400);
+					context.runOnClient(client -> System.gc());
+					context.waitTicks(60);
+					if (round < 0) {
+						continue;
+					}
+
+					context.runOnClient(client -> frameLog(client).clear());
+					java.util.List<Long> measured = new java.util.ArrayList<>();
+					for (int tick = 0; tick < 120; tick++) {
+						context.waitTick();
+						measured.addAll(context.computeOnClient(client -> {
+							net.minecraft.util.profiler.MultiValueDebugSampleLogImpl log = frameLog(client);
+							java.util.List<Long> part = new java.util.ArrayList<>(log.getLength());
+							for (int i = 0; i < log.getLength(); i++) {
+								part.add(log.get(i));
+							}
+
+							log.clear();
+							return part;
+						}));
+					}
+
+					long[] sorted = measured.stream().mapToLong(Long::longValue).sorted().toArray();
+					long p99 = sorted[Math.min(sorted.length - 1, (int) Math.ceil(sorted.length * 0.99) - 1)];
+					roundFps[c][round] = sorted.length * 1e9 / java.util.Arrays.stream(sorted).sum();
+					roundLow[c][round] = 1e9 / p99;
+					frameCount[c] += sorted.length;
+				}
+			}
+
+			out.append("\n| ").append(scene).append(" | Average FPS | 1% low FPS | Rounds (min-max FPS) | Frames |\n|---|---|---|---|---|\n");
+			for (int c = 0; c < names.length; c++) {
+				out.append(String.format(java.util.Locale.ROOT, "| %s | %.0f | %.0f | %.0f-%.0f | %d |\n", names[c], median(roundFps[c]), median(roundLow[c]),
+					java.util.Arrays.stream(roundFps[c]).min().orElse(0), java.util.Arrays.stream(roundFps[c]).max().orElse(0), frameCount[c]));
+			}
+		}
+
+		context.runOnClient(client -> {
+			Modules.OPTIMIZATION.entityCulling.set(false);
+			Modules.OPTIMIZATION.fogOcclusion.set(false);
+			Modules.OPTIMIZATION.animateOnlyVisible.set(false);
+			Modules.OPTIMIZATION.hudCaching.set(false);
+		});
+		AioPvp.LOGGER.info("[bench]\n{}", out);
+		try {
+			java.nio.file.Files.writeString(java.nio.file.Path.of("aio_bench.md"), out.toString());
+		} catch (java.io.IOException e) {
+			throw new java.io.UncheckedIOException(e);
+		}
+	}
+
+	private static double median(double[] values) {
+		double[] sorted = values.clone();
+		java.util.Arrays.sort(sorted);
+		return sorted.length % 2 == 1 ? sorted[sorted.length / 2] : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2.0;
+	}
+
+	/** Log czasów klatek z wykresu F3 (DebugHud.frameNanosLog, bez publicznego gettera). */
+	private static net.minecraft.util.profiler.MultiValueDebugSampleLogImpl frameLog(net.minecraft.client.MinecraftClient client) {
+		try {
+			java.lang.reflect.Field field = net.minecraft.client.gui.hud.DebugHud.class.getDeclaredField("frameNanosLog");
+			field.setAccessible(true);
+			return (net.minecraft.util.profiler.MultiValueDebugSampleLogImpl) field.get(client.getDebugHud());
+		} catch (ReflectiveOperationException e) {
+			throw new AssertionError(e);
+		}
+	}
+
 	/** Dwa ciosy (z przerwą na pełne naładowanie) w encje spełniające warunek, w świecie klienta. */
 	private static void attackTwice(ClientGameTestContext context, java.util.function.Predicate<net.minecraft.entity.Entity> target) {
 		for (int hit = 0; hit < 2; hit++) {
@@ -127,6 +296,11 @@ public class AioPvpClientTest implements FabricClientGameTest {
 	public void runTest(ClientGameTestContext context) {
 		if (System.getenv("AIO_MAKE_SAVE") != null) {
 			makeSave(context);
+			return;
+		}
+
+		if (Boolean.getBoolean("aio.bench")) {
+			bench(context);
 			return;
 		}
 

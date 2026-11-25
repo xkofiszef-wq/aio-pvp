@@ -271,6 +271,7 @@ public class AioPvpClientTest implements FabricClientGameTest {
 					Modules.OPTIMIZATION.entityCulling.set(true);
 					Modules.OPTIMIZATION.fogOcclusion.set(true);
 					Modules.OPTIMIZATION.animateOnlyVisible.set(true);
+					Modules.OPTIMIZATION.hudCaching.set(true);
 				});
 				context.waitTicks(120);
 				context.takeScreenshot("smoke");
@@ -708,6 +709,20 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			});
 			context.waitTicks(10);
 			context.takeScreenshot("06u_party_head");
+			// HUD Caching w swiecie (bez otwartego ekranu): kilka klatek pod rzad, HUD ma byc caly w kazdej, a znaczniki i glowa party dalej widoczne.
+			context.runOnClient(client -> {
+				Modules.OPTIMIZATION.setEnabled(true);
+				Modules.OPTIMIZATION.hudCaching.set(true);
+			});
+			context.waitTicks(10);
+			context.takeScreenshot("06x_hud_cache_world_1");
+			context.waitTicks(1);
+			context.takeScreenshot("06x_hud_cache_world_2");
+			context.waitTicks(3);
+			context.takeScreenshot("06x_hud_cache_world_3");
+			context.runOnClient(client -> Modules.OPTIMIZATION.hudCaching.set(false));
+			context.waitTicks(3);
+			context.takeScreenshot("06x_hud_cache_off");
 			context.runOnClient(client -> Modules.PARTY.leave());
 			// Locator Bar: waypoint przed graczem, kierunek na srodku, nick, w obu trybach (pasek lokalizacji i na pasku XP).
 			context.runOnClient(client -> {

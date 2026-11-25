@@ -29,7 +29,7 @@ public final class Optimization extends Module {
 	 * Animacje tekstur wysyłają się na GPU tylko dla tych, które widać w widocznych fragmentach świata (szczególnie
 	 * ważne przy paczkach tekstur 128x i większych). Zmiana wymaga przebudowy świata, robi ją sam mod.
 	 */
-	public final Setting.Bool animateOnlyVisible = this.add(new Setting.Bool("animate_only_visible", "Animate Only Visible Textures", false)
+	public final Setting.Bool animateOnlyVisible = this.add(new Setting.Bool("animate_only_visible", "Animate Only Visible Textures (beta)", false)
 		.lockedBy(() -> loaded("sodium")));
 	private boolean animateWas;
 

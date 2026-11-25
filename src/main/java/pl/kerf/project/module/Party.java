@@ -150,7 +150,7 @@ public final class Party extends Module {
 	private int rejoinDelay;
 
 	public Party() {
-		super("party", "Party", "Party po stronie klienta: leader, inviter i członkowie, markery wspólne dla party i opcjonalne koordynaty (za zgodą wszystkich). Menu party otwierasz klawiszem (Sterowanie) albo przyciskiem tutaj. Okienko głosowania (Party Vote) ustawisz w Edytorze HUD, a jego wygląd i dźwięk poniżej.", Category.MISC, false);
+		super("party", "Party (beta)", "Party po stronie klienta: leader, inviter i członkowie, markery wspólne dla party i opcjonalne koordynaty (za zgodą wszystkich). Menu party otwierasz klawiszem (Sterowanie) albo przyciskiem tutaj. Okienko głosowania (Party Vote) ustawisz w Edytorze HUD, a jego wygląd i dźwięk poniżej.", Category.MISC, false);
 		this.preview = false;
 	}
 
@@ -327,6 +327,8 @@ public final class Party extends Module {
 		this.to(who, "kick");
 		this.roles.remove(who);
 		this.positions.remove(who);
+		this.previousPositions.remove(who);
+		this.shownPositions.remove(who);
 		this.broadcastState(null);
 		this.say(who + Lang.t(" został wyrzucony z party."));
 		return true;
@@ -354,6 +356,8 @@ public final class Party extends Module {
 		if (!enable) {
 			this.coords = false;
 			this.positions.clear();
+			this.previousPositions.clear();
+			this.shownPositions.clear();
 			this.broadcastState(null);
 			return true;
 		}
@@ -409,6 +413,8 @@ public final class Party extends Module {
 	private void clear() {
 		this.roles.clear();
 		this.positions.clear();
+		this.previousPositions.clear();
+		this.shownPositions.clear();
 		this.coords = false;
 		this.vote = null;
 		this.invitedByMe.clear();
@@ -650,6 +656,8 @@ public final class Party extends Module {
 				if (this.isLeader(client) && fromRole != null) {
 					this.roles.remove(from);
 					this.positions.remove(from);
+					this.previousPositions.remove(from);
+					this.shownPositions.remove(from);
 					this.broadcastState(null);
 					this.say(from + Lang.t(" opuścił party."));
 				}
@@ -682,6 +690,11 @@ public final class Party extends Module {
 			case "pos" -> {
 				if (fromRole != null && this.coords && p.length >= 5) {
 					try {
+						Position old = this.positions.get(from);
+						if (old != null) {
+							this.previousPositions.put(from, old);
+						}
+
 						this.positions.put(from, new Position(Double.parseDouble(p[1]), Double.parseDouble(p[2]), Double.parseDouble(p[3]), System.currentTimeMillis(), p[4]));
 						this.version++;
 					} catch (NumberFormatException ignored) {
@@ -866,6 +879,55 @@ public final class Party extends Module {
 	/** Jak mocno (0..1) kursor najeżdża na głowę danego członka; służy do płynnego powiększania. */
 	private final Map<String, Float> headHover = new HashMap<>();
 
+	/** Poprzednia pozycja z koordynat party (do wyliczenia prędkości) i pozycja, w której głowa jest teraz rysowana. */
+	private final Map<String, Position> previousPositions = new HashMap<>();
+	private final Map<String, double[]> shownPositions = new HashMap<>();
+
+	/**
+	 * Pozycja głowy dalekiego członka: z dwóch ostatnich wiadomości liczymy prędkość i przesuwamy głowę dalej (najwyżej o 1,5 odstępu
+	 * między wiadomościami), a rysowana pozycja płynnie dochodzi do wyliczonej, zamiast przeskakiwać przy każdej nowej wiadomości.
+	 */
+	private Vec3d smoothedPosition(String name, Position last) {
+		double x = last.x();
+		double y = last.y();
+		double z = last.z();
+		Position prev = this.previousPositions.get(name);
+		if (prev != null && prev.dim().equals(last.dim())) {
+			double dt = (last.time() - prev.time()) / 1000.0;
+			if (dt > 0.2 && dt < 60.0) {
+				double vx = (last.x() - prev.x()) / dt;
+				double vy = (last.y() - prev.y()) / dt;
+				double vz = (last.z() - prev.z()) / dt;
+				double speed = Math.sqrt(vx * vx + vy * vy + vz * vz);
+				if (speed > 40.0) {
+					vx *= 40.0 / speed;
+					vy *= 40.0 / speed;
+					vz *= 40.0 / speed;
+				}
+
+				double ahead = Math.min((System.currentTimeMillis() - last.time()) / 1000.0, dt * 1.5);
+				x += vx * ahead;
+				y += vy * ahead;
+				z += vz * ahead;
+			}
+		}
+
+		double[] shown = this.shownPositions.get(name);
+		if (shown == null || (shown[0] - x) * (shown[0] - x) + (shown[2] - z) * (shown[2] - z) > 128.0 * 128.0) {
+			shown = new double[] {x, y, z, System.currentTimeMillis()};
+			this.shownPositions.put(name, shown);
+		} else {
+			long now = System.currentTimeMillis();
+			double k = 1.0 - Math.exp((shown[3] - now) / 150.0);
+			shown[0] += (x - shown[0]) * k;
+			shown[1] += (y - shown[1]) * k;
+			shown[2] += (z - shown[2]) * k;
+			shown[3] = now;
+		}
+
+		return new Vec3d(shown[0], shown[1] + 2.3, shown[2]);
+	}
+
 	/** Przezroczystość napisu (0..1) dla trybu "Nigdy" / "Po najechaniu" / "Zawsze". */
 	private static float labelVisibility(Setting.Mode mode, float hover) {
 		return mode.is(2) ? 1.0F : mode.is(1) ? Math.max(0.0F, Math.min(1.0F, (hover - 0.3F) / 0.5F)) : 0.0F;
@@ -894,13 +956,15 @@ public final class Party extends Module {
 				}
 			}
 
-			if (pos == null) {
+			if (pos != null) {
+				this.shownPositions.remove(name);
+			} else {
 				Position shared = this.positions.get(name);
 				if (!this.coords || shared == null || !shared.dim().equals(dim)) {
 					continue;
 				}
 
-				pos = new Vec3d(shared.x(), shared.y() + 2.3, shared.z());
+				pos = this.smoothedPosition(name, shared);
 			}
 
 			double[] at = Markers.project(context, client, pos);

@@ -63,6 +63,7 @@ public final class ConfigManager {
 	 */
 	private static void migrate(JsonObject root) {
 		migrateShield(root);
+		migratePartyVote(root);
 		if (!root.has("custom_crosshair") || !root.get("custom_crosshair").isJsonObject()) {
 			return;
 		}
@@ -89,6 +90,28 @@ public final class ConfigManager {
 	 * Starsze wersje miały trzy moduły tarczy: "shield" (pozycja), "shield_anim_fix" i "shield_delay".
 	 * Teraz to jeden moduł "shield": stare przełączniki stają się jego opcjami, a sam moduł jest włączony.
 	 */
+	/** Wygląd okienka głosowania przeniesiony z modułu "party_vote" do "party" (1.0.47): stare kolory i zaokrąglenie przechodzą, jeśli w party ich jeszcze nie ma. */
+	private static void migratePartyVote(JsonObject root) {
+		if (!root.has("party_vote") || !root.get("party_vote").isJsonObject()) {
+			return;
+		}
+
+		JsonObject vote = root.getAsJsonObject("party_vote");
+		JsonObject party = root.has("party") && root.get("party").isJsonObject() ? root.getAsJsonObject("party") : new JsonObject();
+		String[][] keys = {{"background", "vote_background"}, {"yes_color", "vote_yes_color"}, {"no_color", "vote_no_color"}, {"rounding", "vote_rounding"}};
+		boolean changed = false;
+		for (String[] key : keys) {
+			if (vote.has(key[0]) && !party.has(key[1])) {
+				party.add(key[1], vote.get(key[0]));
+				changed = true;
+			}
+		}
+
+		if (changed) {
+			root.add("party", party);
+		}
+	}
+
 	private static void migrateShield(JsonObject root) {
 		if (!root.has("shield_anim_fix") && !root.has("shield_delay")) {
 			return;
