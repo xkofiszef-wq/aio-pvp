@@ -54,8 +54,9 @@ public final class Party extends Module {
 	/** Zapisuje w logu gry surowe wiadomości party (do szukania błędów na konkretnym serwerze). */
 	public final Setting.Bool memberHeads = this.add(new Setting.Bool("member_heads", "Głowy członków na ekranie", true));
 	public final Setting.Num headFade = this.add(new Setting.Num("head_fade", "Głowa znika bliżej niż", 10.0, 0.0, 50.0, 1.0, " bl"));
+	public final Setting.Num headSize = this.add(new Setting.Num("head_size", "Rozmiar głowy", 11.0, 6.0, 20.0, 1.0, " px"));
 	public final Setting.Mode headName = this.add(new Setting.Mode("head_name", "Nick przy głowie", 1, "Nigdy", "Po najechaniu", "Zawsze"));
-	public final Setting.Mode headDistance = this.add(new Setting.Mode("head_distance", "Dystans przy głowie", 2, "Nigdy", "Po najechaniu", "Zawsze"));
+	public final Setting.Mode headDistance = this.add(new Setting.Mode("head_distance", "Dystans przy głowie", 1, "Nigdy", "Po najechaniu", "Zawsze"));
 	public final Setting.Bool swapLabels = this.add(new Setting.Bool("swap_labels", "Zamień miejscami nick i dystans", false));
 	public final Setting.Bool debug = this.add(new Setting.Bool("debug_log", "Log wiadomości party (diagnostyka)", false));
 
@@ -423,6 +424,9 @@ public final class Party extends Module {
 		this.invites.clear();
 		this.outbox.clear();
 		this.rejoinDelay = 0;
+		this.whisperFallback = -1;
+		this.whisperTries = 0;
+		this.lastSentLine = null;
 		this.rejoinNames.addAll(keep);
 	}
 
@@ -494,8 +498,20 @@ public final class Party extends Module {
 			return true;
 		}
 
+		// Błąd komendy z serwera ("Unknown or incomplete command ... <--[HERE]"): zawiera naszą wiadomość, ale to nie zaproszenie od nikogo.
+		if (text.contains("<--[HERE]")) {
+			this.commandFailed();
+			return true;
+		}
+
 		String from = sender != null ? sender : this.guessSender(client, text.substring(0, at));
 		String me = this.me(client);
+		// Serwery z własnym formatem wiadomości prywatnych (np. "kozlie napisał do Ciebie:") nie dają nadawcy w sposób, który znamy:
+		// bierzemy go z pola "~Nick" na końcu wiadomości moda.
+		if (from == null) {
+			from = originOf(text.substring(at + TOKEN.length()));
+		}
+
 		if (from == null || from.equalsIgnoreCase(me)) {
 			return true;
 		}
@@ -508,12 +524,15 @@ public final class Party extends Module {
 			}
 		}
 
-		String[] raw = text.substring(at + TOKEN.length()).strip().split(" ");
+		String[] raw = text.substring(at + TOKEN.length()).strip().split("\\s+");
 		String[] p = raw;
 		String origin = null;
-		if (raw.length > 1 && raw[raw.length - 1].startsWith("~")) {
-			origin = raw[raw.length - 1].substring(1);
-			p = java.util.Arrays.copyOf(raw, raw.length - 1);
+		for (int i = raw.length - 1; i >= 1; i--) {
+			if (raw[i].startsWith("~") && this.validName(raw[i].substring(1))) {
+				origin = raw[i].substring(1);
+				p = java.util.Arrays.copyOf(raw, i);
+				break;
+			}
 		}
 
 		if (this.debug.on()) {
@@ -670,6 +689,59 @@ public final class Party extends Module {
 		}
 
 		return true;
+	}
+
+	/** Komendy wiadomości prywatnych, które próbujemy po kolei, gdy serwer nie zna ustawionej (np. "Unknown or incomplete command"). */
+	private static final String[] WHISPER_FALLBACKS = {"msg", "tell", "w", "m", "whisper", "t"};
+	private int whisperFallback = -1;
+	private int whisperTries;
+	private String lastSentLine;
+	private String lastSentCommand;
+
+	/** Nick z pola "~Nick" w tekście wiadomości moda albo null. */
+	private static String originOf(String tail) {
+		String[] words = tail.strip().split("\\s+");
+		for (int i = words.length - 1; i >= 1; i--) {
+			if (words[i].startsWith("~") && words[i].substring(1).matches("[A-Za-z0-9_]{1,16}")) {
+				return words[i].substring(1);
+			}
+		}
+
+		return null;
+	}
+
+	/** Komenda do wysyłania wiadomości: zapasowa po błędzie serwera, inaczej z ustawień. */
+	private String whisperCommand() {
+		if (this.whisperFallback >= 0) {
+			return WHISPER_FALLBACKS[this.whisperFallback];
+		}
+
+		return this.whisper.get().isBlank() ? "msg" : this.whisper.get().strip();
+	}
+
+	/** Serwer odrzucił komendę wiadomości prywatnej: próbujemy następnej z listy i wysyłamy ostatnią wiadomość jeszcze raz. */
+	private void commandFailed() {
+		if (this.lastSentLine == null) {
+			return;
+		}
+
+		if (this.whisperTries >= WHISPER_FALLBACKS.length) {
+			this.say(Lang.t("Ten serwer nie przyjął żadnej komendy wiadomości prywatnych. Ustaw ją ręcznie w ustawieniach Party."));
+			this.lastSentLine = null;
+			return;
+		}
+
+		String failed = this.lastSentCommand;
+		int next = this.whisperFallback;
+		do {
+			next = (next + 1) % WHISPER_FALLBACKS.length;
+			this.whisperTries++;
+		} while (WHISPER_FALLBACKS[next].equals(failed) && this.whisperTries <= WHISPER_FALLBACKS.length);
+
+		this.whisperFallback = next;
+		this.say(Lang.t("Serwer nie zna komendy /") + failed + Lang.t(". Próbuję /") + WHISPER_FALLBACKS[next] + ".");
+		this.outbox.addFirst(this.lastSentLine);
+		this.lastSentLine = null;
 	}
 
 	/** Numer protokołu z pola wiadomości (puste albo zepsute = 1). */
@@ -844,15 +916,23 @@ public final class Party extends Module {
 			int alphaBits = Math.round(alpha * 255.0F) << 24;
 			context.getMatrices().pushMatrix();
 			context.getMatrices().translate((float) at[0], (float) at[1]);
+			int size = this.headSize.i();
+			int half = size / 2;
 			float scale = 1.0F + 0.3F * hover;
 			context.getMatrices().scale(scale, scale);
-			net.minecraft.client.gui.PlayerSkinDrawer.draw(context, skin, -7, -7, 14, alphaBits | 0xFFFFFF);
+			net.minecraft.client.gui.PlayerSkinDrawer.draw(context, skin, -half, -half, size, alphaBits | 0xFFFFFF);
 			String distance = at[2] >= 1000.0 ? String.format(Locale.ROOT, "%.1fkm", at[2] / 1000.0) : Math.round(at[2]) + "m";
 			// Nick i dystans: każdy może być wyłączony, widoczny tylko po najechaniu albo zawsze; można je też zamienić miejscami.
-			int nameY = this.swapLabels.on() ? 9 : -19;
-			int distanceY = this.swapLabels.on() ? -19 : 9;
+			// Napisy są drobniejsze (skala 0,75) i stoją tuż przy głowie.
+			float textScale = 0.75F;
+			int above = Math.round((-half - 3 - 9 * textScale) / textScale);
+			int below = Math.round((half + 3) / textScale);
+			int nameY = this.swapLabels.on() ? below : above;
+			int distanceY = this.swapLabels.on() ? above : below;
 			float nameAlpha = alpha * labelVisibility(this.headName, hover);
 			float distanceAlpha = alpha * labelVisibility(this.headDistance, hover);
+			context.getMatrices().pushMatrix();
+			context.getMatrices().scale(textScale, textScale);
 			if (nameAlpha >= 0.04F) {
 				context.drawText(font, name, -font.getWidth(name) / 2, nameY, Math.round(nameAlpha * 255.0F) << 24 | 0xFFFFFF, true);
 			}
@@ -860,6 +940,8 @@ public final class Party extends Module {
 			if (distanceAlpha >= 0.04F) {
 				context.drawText(font, distance, -font.getWidth(distance) / 2, distanceY, Math.round(distanceAlpha * 255.0F) << 24 | 0xFFFFFF, true);
 			}
+
+			context.getMatrices().popMatrix();
 
 			context.getMatrices().popMatrix();
 		}
@@ -923,8 +1005,11 @@ public final class Party extends Module {
 		if (this.sendCooldown > 0) {
 			this.sendCooldown--;
 		} else if (!this.outbox.isEmpty()) {
-			String command = this.whisper.get().isBlank() ? "msg" : this.whisper.get().strip();
-			client.player.networkHandler.sendChatCommand(command + " " + this.outbox.poll());
+			String command = this.whisperCommand();
+			String line = this.outbox.poll();
+			this.lastSentLine = line;
+			this.lastSentCommand = command;
+			client.player.networkHandler.sendChatCommand(command + " " + line);
 			this.sendCooldown = SEND_GAP_TICKS;
 		}
 	}

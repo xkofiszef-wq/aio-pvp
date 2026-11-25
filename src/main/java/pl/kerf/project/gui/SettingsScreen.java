@@ -38,7 +38,7 @@ public class SettingsScreen extends Screen {
 	private static final int GAP = 6;
 	private static final int ROW = 20;
 	private static final int CARD_H = 46;
-	private static final int TILE_H = 70;
+	private static final int TILE_H = 84;
 	private static final int CARD_GAP = 6;
 	private static final int SEARCH_H = 20;
 
@@ -264,6 +264,10 @@ public class SettingsScreen extends Screen {
 	// --- geometria kafelków ---
 
 	private int columns() {
+		if (Modules.GUI_THEME.cardStyle.is(1)) {
+			return this.contentW - 16 - 2 * CARD_GAP >= 330 ? 3 : this.contentW - 16 - CARD_GAP >= 200 ? 2 : 1;
+		}
+
 		// Dwie kolumny jak w Shine, gdy karta ma min. 140 px (inaczej opisy ucinają się po 2 słowach).
 		return this.contentW - 16 - CARD_GAP >= 280 ? 2 : 1;
 	}
@@ -1010,57 +1014,49 @@ public class SettingsScreen extends Screen {
 
 	private int tileMx;
 	private int tileMy;
+	/** Szerokość pola z małym przełącznikiem po prawej stronie paska kafelka (klik tu włącza/wyłącza, reszta kafelka otwiera ustawienia). */
+	private static final int TILE_SWITCH_W = 30;
+	private static final int TILE_BAR_H = 22;
 
-	/** Czesc kafelka pod kursorem: 0 = poza przyciskami, 1 = Ustawienia, 2 = Wlacz/Wylacz. Oba przyciski sa rowne i symetryczne. */
+	/** Część kafelka pod kursorem: 2 = przełącznik na pasku, 0 = reszta (otwiera ustawienia). */
 	private int tileButton(int index, double mx, double my) {
 		int x = this.cardX(index);
 		int y = this.cardY(index);
 		int w = this.cardW();
-		int bw = (w - 24) / 2;
-		int by = y + TILE_H - 26;
-		if (my < by || my >= by + 18) {
-			return 0;
-		}
-
-		if (mx >= x + 8 && mx < x + 8 + bw) {
-			return 1;
-		}
-
-		return mx >= x + w - 8 - bw && mx < x + w - 8 ? 2 : 0;
+		int by = y + TILE_H - TILE_BAR_H;
+		return my >= by && my < y + TILE_H && mx >= x + w - TILE_SWITCH_W && mx < x + w ? 2 : 0;
 	}
 
-	/** Kafelek modulu: ikona, nazwa i opis, pod spodem dwa rowne przyciski (Ustawienia i Wlacz/Wylacz). */
+	/**
+	 * Kafelek w stylu OneConfig: szary prostokąt z dużą ikoną, a na dole pasek w kolorze akcentu z nazwą i małym przełącznikiem.
+	 * Wyłączony moduł ma szary pasek. Opis pokazuje się po najechaniu.
+	 */
 	private void renderTile(DrawContext context, Module module, int x, int y, int w, boolean hovered) {
 		TextRenderer font = this.textRenderer;
 		float hover = this.cardHover.computeIfAbsent(module, m -> new Anim(0.0F, 16.0F)).to(hovered);
-		boolean on = module.on();
-		Draw.round(context, x, y, w, TILE_H, 2, Theme.mix(Theme.CARD, Theme.CARD_HOVER, hover));
-		Draw.outline(context, x, y, w, TILE_H, 2, on ? Theme.alpha(Theme.ACCENT, 0xB0) : Theme.mix(Theme.BORDER, Theme.BORDER_STRONG, hover));
-		Draw.round(context, x + 8, y + 8, 22, 22, 2, Theme.INSET);
-		context.drawItem(Previews.icon(module), x + 11, y + 11);
-		Draw.text(context, font, Draw.fit(font, module.name, w - 46), x + 38, y + 10, on ? Theme.TEXT : Theme.TEXT_2);
-		String description = Draw.fit(font, module.description, w - 46);
-		Draw.text(context, font, description, x + 38, y + 21, Theme.TEXT_3);
-		if (hovered && !description.equals(module.description) && this.rightW == 0) {
-			Tip.offer(module.description);
-		}
-
-		int bw = (w - 24) / 2;
-		int by = y + TILE_H - 26;
-		int hot = hovered ? this.tileButton(this.visible.indexOf(module), this.tileMx, this.tileMy) : 0;
-		Draw.round(context, x + 8, by, bw, 18, 2, hot == 1 ? Theme.SURFACE_HOVER : Theme.INSET);
-		Draw.outline(context, x + 8, by, bw, 18, 2, hot == 1 ? Theme.BORDER_ACTIVE : Theme.BORDER_STRONG);
-		String settings = Lang.t("Ustawienia");
-		Draw.text(context, font, settings, x + 8 + (bw - font.getWidth(settings)) / 2, by + 5, Theme.TEXT_2);
-		int rx = x + w - 8 - bw;
-		String state = Lang.t(on ? "Włączony" : "Wyłączony");
-		if (on) {
-			Draw.round(context, rx, by, bw, 18, 2, hot == 2 ? Theme.mix(Theme.ACCENT, 0xFFFFFFFF, 0.15F) : Theme.ACCENT);
-			Draw.text(context, font, state, rx + (bw - font.getWidth(state)) / 2, by + 5, 0xFF16080A);
-		} else {
-			Draw.round(context, rx, by, bw, 18, 2, hot == 2 ? Theme.SURFACE_HOVER : Theme.INSET);
-			Draw.outline(context, rx, by, bw, 18, 2, hot == 2 ? Theme.BORDER_ACTIVE : Theme.BORDER_STRONG);
-			Draw.text(context, font, state, rx + (bw - font.getWidth(state)) / 2, by + 5, Theme.TEXT_3);
+		float on = this.cardSwitch.computeIfAbsent(module, m -> new Anim(m.on() ? 1.0F : 0.0F, 16.0F)).to(module.on());
+		int bar = TILE_BAR_H;
+		Draw.round(context, x, y, w, TILE_H, 4, Theme.mix(Theme.CARD, Theme.CARD_HOVER, hover));
+		// Pasek na dole: zaokrąglone tylko dolne rogi (prostokąt przykrywa górne).
+		int barColor = Theme.mix(Theme.mix(Theme.SURFACE_3, Theme.CARD_HOVER, 0.5F), Theme.ACCENT, on);
+		Draw.round(context, x, y + TILE_H - bar, w, bar, 4, barColor);
+		context.fill(x, y + TILE_H - bar, x + w, y + TILE_H - bar + 6, barColor);
+		Draw.outline(context, x, y, w, TILE_H, 4, Theme.mix(Theme.BORDER, Theme.BORDER_ACTIVE, hover));
+		// Duża ikona (2x) w prawej części górnego pola.
+		context.getMatrices().pushMatrix();
+		context.getMatrices().translate(x + w - 44, y + 8);
+		context.getMatrices().scale(2.0F, 2.0F);
+		context.drawItem(Previews.icon(module), 0, 0);
+		context.getMatrices().popMatrix();
+		Draw.text(context, font, Draw.fit(font, module.name, w - 20 - TILE_SWITCH_W), x + 10, y + TILE_H - bar + 7, 0xFFFFFFFF);
+		// Mały przełącznik na pasku: ciemny tor, żeby było go widać na kolorowym tle; kółko po prawej = włączony.
+		int sx = x + w - 28;
+		int sy = y + TILE_H - bar + 6;
+		Draw.round(context, sx, sy, 20, 10, 5, Theme.alpha(0xFF000000, 0x70));
+		Draw.round(context, sx + 1 + Math.round(10 * on), sy + 1, 8, 8, 4, Theme.mix(0xFF9AA0AC, 0xFFFFFFFF, on));
+		String description = module.description;
+		if (hovered && this.rightW == 0) {
+			Tip.offer(description);
 		}
 	}
 

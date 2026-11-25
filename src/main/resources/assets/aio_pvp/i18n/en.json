@@ -542,5 +542,9 @@
   "Wyłączony": "Disabled",
   "Włączony": "Enabled",
   "Przezroczystość menu": "Menu transparency",
-  "Szron": "Frost"
+  "Szron": "Frost",
+  "Rozmiar głowy": "Head size",
+  "Serwer nie zna komendy /": "The server does not know the command /",
+  ". Próbuję /": ". Trying /",
+  "Ten serwer nie przyjął żadnej komendy wiadomości prywatnych. Ustaw ją ręcznie w ustawieniach Party.": "This server did not accept any private message command. Set it manually in the Party settings."
 }

@@ -189,6 +189,21 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			Modules.GUI_THEME.sync();
 		});
 		context.setScreen(() -> new SettingsScreen(null));
+		// Caly uklad menu z kafelkami (uklad pływajacy), motyw Szron.
+		context.runOnClient(client -> {
+			Modules.GUI_THEME.layout.set(1);
+			Modules.GUI_THEME.cardStyle.set(1);
+			Modules.GUI_THEME.theme.set(8);
+		});
+		context.setScreen(() -> new SettingsScreen(null));
+		context.waitTicks(10);
+		context.takeScreenshot("01f_menu_floating_tiles");
+		context.runOnClient(client -> {
+			Modules.GUI_THEME.layout.set(0);
+			Modules.GUI_THEME.cardStyle.set(0);
+			Modules.GUI_THEME.theme.set(0);
+		});
+		context.setScreen(() -> new SettingsScreen(null));
 		// Pasek przewijania bez kółka myszy: chwyć uchwyt u góry, przeciągnij na dół toru, lista ma się przewinąć do końca.
 		double[] bar = context.computeOnClient(client -> {
 			double[] b = ((SettingsScreen) client.screen).cardScrollbarForTest();
@@ -626,6 +641,22 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			});
 			context.waitTicks(3);
 			context.takeScreenshot("06r_party_chat_messages");
+		// Formaty wiadomosci prywatnych z prawdziwych serwerow (strefa.gg): nadawca tylko w polu ~Nick, dopiski serwera po wiadomosci.
+		context.runOnClient(client -> {
+			var party = Modules.PARTY;
+			party.setEnabled(true);
+			party.receive(client, "\n WIADOMOŚĆ PRYWATNA\n kozlie napisał do Ciebie:\n [aio]inv 1 1.0.45+1.21.11 AIO PvP mod: party invite (install the AIO PvP mod to accept) ~kozlie\n [ ✉ KLIKNIJ ] albo /r <wiadomosc>\n", null);
+			if (!party.pendingInvites().containsKey("kozlie")) {
+				throw new AssertionError("Party: zaproszenie od kozlie (format strefa.gg) powinno byc rozpoznane po polu ~Nick");
+			}
+
+			// Blad komendy z serwera nie moze byc uznany za zaproszenie.
+			int count = party.pendingInvites().size();
+			party.receive(client, "Unknown or incomplete command. See below for error\n/msg kozlie [aio]inv 1 1.0.45+1.21.11 AIO PvP mod: party invite (install the AIO PvP mod to accept) ~Kerfuss_<--[HERE]", null);
+			if (party.pendingInvites().size() != count) {
+				throw new AssertionError("Party: blad komendy z serwera nie jest zaproszeniem");
+			}
+		});
 			context.runOnClient(client -> {
 				Modules.FPS.rounding.set(0.0);
 				Modules.FPS.brackets.set(false);
