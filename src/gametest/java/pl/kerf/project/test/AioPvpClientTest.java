@@ -96,23 +96,6 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			creator.setGameMode(net.minecraft.client.gui.screen.world.WorldCreator.Mode.CREATIVE);
 		}).create()) {
 			singleplayer.getClientWorld().waitForChunksRender();
-			// Tryb "smoke" (-Daio.smoke=true): tylko start gry z innymi modami, wszystkie moduly wlaczone, krotki zrzut.
-			if (Boolean.getBoolean("aio.smoke")) {
-				context.runOnClient(client -> {
-					for (Module module : Modules.ALL) {
-						module.setEnabled(true);
-					}
-
-					Modules.OPTIMIZATION.entityCulling.set(true);
-					Modules.OPTIMIZATION.fogOcclusion.set(true);
-					Modules.OPTIMIZATION.animateOnlyVisible.set(true);
-					Modules.OPTIMIZATION.hudCaching.set(true);
-				});
-				context.waitTicks(120);
-				context.takeScreenshot("smoke");
-				return;
-			}
-
 			TestServerContext server = singleplayer.getServer();
 			String[] commands = {
 				"gamerule advance_time false", "gamerule advance_weather false", "time set noon", "weather clear",
@@ -318,6 +301,23 @@ public class AioPvpClientTest implements FabricClientGameTest {
 
 		try (TestSingleplayerContext singleplayer = context.worldBuilder().create()) {
 			singleplayer.getClientWorld().waitForChunksRender();
+			// Tryb "smoke" (-Daio.smoke=true): tylko start gry z innymi modami, wszystkie moduly wlaczone, krotki zrzut.
+			if (Boolean.getBoolean("aio.smoke")) {
+				context.runOnClient(client -> {
+					for (Module module : Modules.ALL) {
+						module.setEnabled(true);
+					}
+
+					Modules.OPTIMIZATION.entityCulling.set(true);
+					Modules.OPTIMIZATION.fogOcclusion.set(true);
+					Modules.OPTIMIZATION.animateOnlyVisible.set(true);
+					Modules.OPTIMIZATION.hudCaching.set(true);
+				});
+				context.waitTicks(120);
+				context.takeScreenshot("smoke");
+				return;
+			}
+
 			TestServerContext server = singleplayer.getServer();
 			server.runCommand("gamemode survival @p");
 			server.runCommand("time set noon");
@@ -768,6 +768,19 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			});
 			context.waitTicks(10);
 			context.takeScreenshot("06u_party_head");
+			// HUD Caching w swiecie (bez otwartego ekranu): kilka klatek pod rzad, HUD ma byc caly w kazdej.
+			context.runOnClient(client -> {
+				Modules.OPTIMIZATION.setEnabled(true);
+				Modules.OPTIMIZATION.hudCaching.set(true);
+			});
+			context.waitTicks(10);
+			context.takeScreenshot("06x_hud_cache_world_1");
+			context.waitTicks(1);
+			context.takeScreenshot("06x_hud_cache_world_2");
+			context.waitTicks(3);
+			context.takeScreenshot("06x_hud_cache_world_3");
+			context.runOnClient(client -> Modules.OPTIMIZATION.hudCaching.set(false));
+			context.waitTicks(3);
 			context.runOnClient(client -> Modules.PARTY.leave());
 			// HUD Caching: HUD ma wygladac tak samo (zrzut), a gra nie moze sie wywrocic.
 			context.runOnClient(client -> Modules.OPTIMIZATION.hudCaching.set(true));
