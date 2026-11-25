@@ -1052,7 +1052,7 @@ public class SettingsScreen extends Screen {
 		}
 
 		Draw.toggle(context, x + w - 28, y + 26, on);
-		this.drawCardStar(context, module, x + w - 17, y + 4);
+		this.drawCardStar(context, module, x + w - 15, y + 4);
 	}
 
 	private int tileMx;
@@ -1101,7 +1101,7 @@ public class SettingsScreen extends Screen {
 		if (hovered && this.rightW == 0) {
 			Tip.offer(description);
 		}
-		this.drawCardStar(context, module, x + w - 17, y + 4);
+		this.drawCardStar(context, module, x + w - 15, y + 4);
 	}
 
 	// --- sortowanie i ulubione ---
@@ -1156,7 +1156,7 @@ public class SettingsScreen extends Screen {
 
 	private boolean onCardStar(Module module, double mx, double my) {
 		int i = this.visible.indexOf(module);
-		return inside(mx, my, this.cardX(i) + this.cardW() - 20, this.cardY(i) + 2, 16, 16);
+		return inside(mx, my, this.cardX(i) + this.cardW() - 17, this.cardY(i) + 2, 15, 14);
 	}
 
 	private void drawCardStar(GuiGraphicsExtractor context, Module module, int x, int y) {

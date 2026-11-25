@@ -3,30 +3,84 @@ package pl.kerf.project.gui;
 import net.minecraft.client.gui.DrawContext;
 
 /**
- * Gwiazdka "ulubione" z pikseli (11x11, symetryczna w poziomie): pełna (wypełnienie + ciemniejszy obrys) dla ulubionych,
- * sam obrys dla pozostałych.
+ * Gwiazdka "ulubione" według projektu użytkownika: obrys 22x21 komórek (lewa połowa z rysunku, prawa to jej lustrzane odbicie,
+ * więc jest dokładnie symetryczna). Komórka ma pół piksela GUI, więc gwiazdka ma 11 px szerokości. Ulubiona jest wypełniona
+ * złotem i ma ciemniejszy obrys, pozostałe mają sam szary obrys.
  */
 final class StarIcon {
+	/** Szerokość gwiazdki w pikselach GUI (komórka = 0,5 px). */
 	static final int SIZE = 11;
-	private static final String[] ROWS = {
-		".....X.....",
-		"....XXX....",
-		"....XXX....",
-		"XXXXXXXXXXX",
-		".XXXXXXXXX.",
-		"..XXXXXXX..",
-		"..XXXXXXX..",
-		".XXXXXXXXX.",
-		".XXX...XXX.",
-		"XXX.....XXX",
-		"XX.......XX"
+	private static final int COLS = 22;
+	private static final int ROWS = 21;
+	/** Lewa połowa obrysu (kolumny 0-10), prawa jest odbiciem. */
+	private static final String[] LEFT = {
+		"..........X",
+		".........X.",
+		"........X..",
+		"........X..",
+		".......X...",
+		".......X...",
+		"......X....",
+		".XXXXX.....",
+		"X..........",
+		"X..........",
+		".X.........",
+		"..X........",
+		"...X.......",
+		"....X......",
+		"....X......",
+		"...X.......",
+		"...X......X",
+		"..X......X.",
+		"..X.....X..",
+		"..X....X...",
+		"..XXXXX...."
 	};
+	private static final boolean[][] OUTLINE = new boolean[ROWS][COLS];
+	private static final boolean[][] INSIDE = new boolean[ROWS][COLS];
 
-	private StarIcon() {
+	static {
+		for (int r = 0; r < ROWS; r++) {
+			for (int c = 0; c < COLS / 2; c++) {
+				boolean on = LEFT[r].charAt(c) == 'X';
+				OUTLINE[r][c] = on;
+				OUTLINE[r][COLS - 1 - c] = on;
+			}
+		}
+
+		// Wnętrze = komórki nieosiągalne z brzegu bez przekraczania obrysu.
+		boolean[][] outside = new boolean[ROWS][COLS];
+		java.util.ArrayDeque<int[]> queue = new java.util.ArrayDeque<>();
+		for (int r = 0; r < ROWS; r++) {
+			for (int c = 0; c < COLS; c++) {
+				if ((r == 0 || c == 0 || r == ROWS - 1 || c == COLS - 1) && !OUTLINE[r][c]) {
+					outside[r][c] = true;
+					queue.add(new int[] {r, c});
+				}
+			}
+		}
+
+		int[][] steps = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+		while (!queue.isEmpty()) {
+			int[] cell = queue.poll();
+			for (int[] step : steps) {
+				int r = cell[0] + step[0];
+				int c = cell[1] + step[1];
+				if (r >= 0 && r < ROWS && c >= 0 && c < COLS && !OUTLINE[r][c] && !outside[r][c]) {
+					outside[r][c] = true;
+					queue.add(new int[] {r, c});
+				}
+			}
+		}
+
+		for (int r = 0; r < ROWS; r++) {
+			for (int c = 0; c < COLS; c++) {
+				INSIDE[r][c] = !OUTLINE[r][c] && !outside[r][c];
+			}
+		}
 	}
 
-	private static boolean on(int row, int col) {
-		return row >= 0 && row < ROWS.length && col >= 0 && col < ROWS[row].length() && ROWS[row].charAt(col) == 'X';
+	private StarIcon() {
 	}
 
 	/** Ciemniejszy odcień koloru (obrys wypełnionej gwiazdki). */
@@ -38,19 +92,20 @@ final class StarIcon {
 	}
 
 	static void draw(DrawContext context, int x, int y, boolean filled, int color) {
-		for (int row = 0; row < ROWS.length; row++) {
-			for (int col = 0; col < ROWS[row].length(); col++) {
-				if (!on(row, col)) {
-					continue;
-				}
-
-				boolean edge = !on(row - 1, col) || !on(row + 1, col) || !on(row, col - 1) || !on(row, col + 1);
-				if (edge) {
-					context.fill(x + col, y + row, x + col + 1, y + row + 1, filled ? darker(color) : color);
-				} else if (filled) {
-					context.fill(x + col, y + row, x + col + 1, y + row + 1, color);
+		context.getMatrices().pushMatrix();
+		context.getMatrices().translate(x, y);
+		context.getMatrices().scale(0.5F, 0.5F);
+		int edge = filled ? darker(color) : color;
+		for (int r = 0; r < ROWS; r++) {
+			for (int c = 0; c < COLS; c++) {
+				if (OUTLINE[r][c]) {
+					context.fill(c, r, c + 1, r + 1, edge);
+				} else if (filled && INSIDE[r][c]) {
+					context.fill(c, r, c + 1, r + 1, color);
 				}
 			}
 		}
+
+		context.getMatrices().popMatrix();
 	}
 }
