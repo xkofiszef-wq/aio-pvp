@@ -83,6 +83,7 @@ public final class Modules {
 	public static final MediaHud MEDIA = new MediaHud();
 	public static final HudTweaker HUD_TWEAKER = new HudTweaker();
 	public static final Saturation SATURATION = new Saturation();
+	public static final LocatorBarSettings LOCATOR_BAR = new LocatorBarSettings();
 
 	// Combat
 	public static final Crosshair CROSSHAIR = new Crosshair();
@@ -140,7 +141,7 @@ public final class Modules {
 
 	public static final List<Module> ALL = List.of(
 		ARMOR_HUD, ITEM_PREVIEW, POTION_STATUS, KEY_OVERLAY, ELYTRA_PITCH, BOW_PITCH,
-		COORDINATES, FPS, PING, CPS, DAY, CLOCK, SPRINT_STATUS, LAG_DETECTOR, COMPASS, MEDIA, PARTY_VOTE, HUD_TWEAKER, SATURATION,
+		COORDINATES, FPS, PING, CPS, DAY, CLOCK, SPRINT_STATUS, LAG_DETECTOR, COMPASS, MEDIA, PARTY_VOTE, HUD_TWEAKER, SATURATION, LOCATOR_BAR,
 		CROSSHAIR, HITBOXES, HIT_COLOR, HEALTH, FIGHT_REPORT, INSTANT_HIT, DAMAGE_CALC, COOLDOWN_FIX,
 		LOW_FIRE, NO_POTION_PARTICLES, NO_EXPLOSION_PARTICLES, FULLBRIGHT, BLOCK_OUTLINE, NAMETAGS, OWN_NAME, NO_CAMERA_SHAKE, CLEAR_VIEW, FREELOOK,
 		VIEW_MODEL, SHIELD, TOTEM, BOAT_VIEW, FAST_XP, INVISIBLE_HAND, OLD_ANIMATIONS,
@@ -516,6 +517,20 @@ public final class Modules {
 
 		Saturation() {
 			super("saturation", "Saturation", "Złota obwódka na pasku głodu pokazuje saturację; z jedzeniem w ręce mruga, ile ono doda.", Category.HUD, false);
+		}
+	}
+
+	/** Pasek lokalizacji (waypointy graczy): głowy z obwódką w kolorze waypointa, nicki, kierunek świata i cień tekstu. */
+	public static final class LocatorBarSettings extends Module {
+		public final Setting.Bool heads = this.add(new Setting.Bool("heads", "Głowy graczy", true));
+		public final Setting.Bool direction = this.add(new Setting.Bool("direction", "Pokaż kierunek", false));
+		public final Setting.Bool xpBar = this.add(new Setting.Bool("xp_bar", "Na pasku XP", false));
+		public final Setting.Mode names = this.add(new Setting.Mode("names", "Pokaż nick gracza", 0, "Nigdy", "Po najechaniu", "Zawsze"));
+		public final Setting.Bool icons = this.add(new Setting.Bool("icons", "Pokaż ikony", true));
+		public final Setting.Bool textShadow = this.add(new Setting.Bool("text_shadow", "Cień tekstu", true));
+
+		LocatorBarSettings() {
+			super("locator_bar", "Locator Bar", "Pasek lokalizacji: głowy graczy z obwódką w ich kolorze, nicki, kierunek świata. Opcja \"Na pasku XP\" rysuje ikony na pasku doświadczenia.", Category.HUD, false);
 		}
 	}
 

@@ -30,6 +30,8 @@
         "SpriteContentsMixin",
         "SpriteAtlasTextureMixin",
         "SectionBuilderMixin",
+        "LocatorBarMixin",
+        "ExperienceBarMixin",
         "RenderDataMixin",
         "ChunkRenderDataMixin",
         "ChunkRenderingDataPreparerMixin",

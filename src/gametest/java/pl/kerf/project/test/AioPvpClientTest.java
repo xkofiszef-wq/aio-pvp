@@ -632,6 +632,26 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			context.waitTicks(5);
 			context.takeScreenshot("06s2_marker_fov30");
 			context.runOnClient(client -> client.options.getFov().setValue(70));
+			// Locator Bar: waypoint przed graczem, kierunek na srodku, nick, w obu trybach (pasek lokalizacji i na pasku XP).
+			context.runOnClient(client -> {
+				var config = new net.minecraft.world.waypoint.Waypoint.Config();
+				config.color = java.util.Optional.of(0x55FF55);
+				float yaw = client.player.getYaw();
+				client.player.networkHandler.getWaypointHandler().onTrack(
+					net.minecraft.world.waypoint.TrackedWaypoint.ofAzimuth(java.util.UUID.nameUUIDFromBytes("aio-test".getBytes()), config, (float) Math.toRadians(yaw + 20.0F)));
+				Modules.LOCATOR_BAR.setEnabled(true);
+				Modules.LOCATOR_BAR.direction.set(true);
+				Modules.LOCATOR_BAR.names.set(2);
+			});
+			context.waitTicks(5);
+			context.takeScreenshot("06t_locator_bar");
+			context.runOnClient(client -> Modules.LOCATOR_BAR.xpBar.set(true));
+			context.waitTicks(5);
+			context.takeScreenshot("06t2_locator_on_xp");
+			context.runOnClient(client -> {
+				Modules.LOCATOR_BAR.xpBar.set(false);
+				Modules.LOCATOR_BAR.setEnabled(false);
+			});
 			// Beacon na markerze: slup swiatla o grubosci hitboxa gracza, widoczny z bliska i z daleka.
 			context.runOnClient(client -> {
 				Modules.MARKERS.beacon.set(true);

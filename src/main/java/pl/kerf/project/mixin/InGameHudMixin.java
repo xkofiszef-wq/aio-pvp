@@ -33,6 +33,12 @@ public class InGameHudMixin {
 	@Final
 	private MinecraftClient client;
 
+	/** Locator Bar "Na pasku XP": zamiast paska lokalizacji zostaje pasek doświadczenia (ikony rysuje ExperienceBarMixin). */
+	@WrapOperation(method = "getCurrentBarType", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/world/ClientWaypointHandler;hasWaypoint()Z"))
+	private boolean aio$xpInsteadOfLocator(net.minecraft.client.world.ClientWaypointHandler handler, Operation<Boolean> original) {
+		return original.call(handler) && !(Modules.LOCATOR_BAR.on() && Modules.LOCATOR_BAR.xpBar.on() && this.client.interactionManager.hasExperienceBar());
+	}
+
 	/** Clear View: usuwa nakładkę lunety z ekranu (pierwsza osoba). */
 	@WrapWithCondition(method = "renderMiscOverlays", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/hud/InGameHud;renderSpyglassOverlay(Lnet/minecraft/client/gui/DrawContext;F)V"))
 	private boolean aio$noSpyglassOverlay(InGameHud self, DrawContext context, float scale) {

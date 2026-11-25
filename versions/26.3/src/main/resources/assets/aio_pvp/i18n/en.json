@@ -520,5 +520,12 @@
   "Offline (poza serwerem)": "Offline (not on the server)",
   " wrócił na serwer.": " is back on the server.",
   " wyszedł z serwera.": " left the server.",
-  "Wróciłeś na serwer: sprawdzam, czy twoje party nadal istnieje.": "You are back on the server: checking whether your party still exists."
+  "Wróciłeś na serwer: sprawdzam, czy twoje party nadal istnieje.": "You are back on the server: checking whether your party still exists.",
+  "Głowy graczy": "Player heads",
+  "Pokaż kierunek": "Show direction",
+  "Na pasku XP": "On the XP bar",
+  "Pokaż nick gracza": "Show player name",
+  "Pokaż ikony": "Show icons",
+  "Cień tekstu": "Text shadow",
+  "Pasek lokalizacji: głowy graczy z obwódką w ich kolorze, nicki, kierunek świata. Opcja \"Na pasku XP\" rysuje ikony na pasku doświadczenia.": "Locator bar: player heads with an outline in their color, names and compass direction. The \"On the XP bar\" option draws the icons on the experience bar."
 }

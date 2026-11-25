@@ -34,6 +34,8 @@
         "SpriteContentsMixin",
         "AnimationStateMixin",
         "SectionCompilerMixin",
+        "LocatorBarMixin",
+        "ExperienceBarMixin",
         "ResultsMixin",
         "CompiledSectionMeshMixin"
     ],
