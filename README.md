@@ -12,7 +12,34 @@ Client side only. It works on any server and in singleplayer.
 - Java 21
 - Mod Menu (optional, adds a config button to the mod list)
 
-Works with Sodium and ImmediatelyFast (tested with Sodium 0.8.14, ImmediatelyFast 1.14.3 and Fabric API 0.141.6). Both make the game noticeably smoother, especially on busy servers.
+Works with Sodium, Iris, ImmediatelyFast and many other popular mods. See [Compatibility](#compatibility) for the tested list and the known notes.
+
+## Compatibility
+
+Tested on Minecraft 1.21.11 with Fabric Loader 0.20.1 and Fabric API 0.141.6. In each test the game started with the listed mods and with every AIO PvP module turned on. There were no crashes and no mixin errors.
+
+| Group | Mods |
+|---|---|
+| Performance | Sodium 0.8.14, Sodium Extra, Reese's Sodium Options, Iris 1.10.8, Lithium, FerriteCore, ImmediatelyFast 1.14.3, Entity Culling, More Culling, Cull Leaves, Exordium, Dynamic FPS, C2ME |
+| HUD and interface | Zoomify, AppleSkin, BetterF3, Mouse Tweaks, Xaero's Minimap, Xaero's World Map, Jade, Inventory Profiles Next, Shulker Box Tooltip, Controlling, Continuity, Mod Menu |
+| PvP and visuals | Freelook, Perspektive, Gamma Utils, Full Brightness Toggle, Hit Color, Hit Color Plus, Combat Hitbox, Nametag Tweaks, Health Indicators, Dynamic Crosshair, Crosshair Indicator, Toggle Toggle Sprint, Auto Sprint Fix, Old Combat, Not Enough Animations, Particle Rain, Subtle Effects, Debugify |
+
+### Known incompatibilities
+
+- **Ok Zoomer** (16.0.0-beta.3 for 1.21.11) does not start on Minecraft 1.21.11 at all: it needs Java 25, while 1.21.11 runs on Java 21. This happens with or without AIO PvP.
+
+No other mod in the list above is incompatible with AIO PvP.
+
+### Notes
+
+- **Same feature twice.** Mods that do what an AIO PvP module does (hit color, fullbright, freelook, zoom, nametags, crosshair, toggle sprint) load fine together with AIO PvP, but if both are turned on at the same time they may overwrite each other. Turn the feature on in one of them only.
+- **Options locked by other mods.** When another installed mod already does the job, the matching AIO PvP option turns itself off and shows why in the menu:
+  - Sodium: Fog Occlusion, No Error Context and Animate Only Visible Textures.
+  - Exordium: HUD Caching.
+  - Entity Culling (the mod): the Entity Culling option.
+- **Sodium and chunk options.** Sodium replaces the vanilla chunk renderer, so the AIO PvP chunk options (Fog Occlusion, Animate Only Visible Textures) have no effect with it. Sodium has its own versions of these.
+- **Replay Mod** was not tested.
+- The test checks that the game starts and runs with the mods. It does not check every feature of every mod. If you find a problem with a specific mod, please open an issue with the game log.
 
 ## Installation
 
