@@ -128,6 +128,8 @@ public class GameRendererHudMixin {
 			HudCache.capturing = true;
 			try {
 				original.call(hud, cacheContext, tickCounter);
+				// Vanilla odkłada napisy na po GUI, a od Fabric API 0.141 razem z nimi idą elementy HUD z addLast (też nasz), więc rysujemy je do tekstury teraz.
+				hud.renderDeferredSubtitles();
 			} finally {
 				HudCache.capturing = false;
 		//?}

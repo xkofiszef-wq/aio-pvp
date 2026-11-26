@@ -16,7 +16,9 @@ Works with Sodium, Iris, ImmediatelyFast and many other popular mods. See [Compa
 
 ## Compatibility
 
-Tested on Minecraft 1.21.11 with Fabric Loader 0.20.1 and Fabric API 0.141.6. In each test the game started with the listed mods and with every AIO PvP module turned on. There were no crashes and no mixin errors.
+Tested on all four versions with Fabric Loader 0.20.1: Minecraft 1.21.11 (Fabric API 0.141.6), 26.1.2 (0.155.3), 26.2 (0.161.0) and 26.3 (0.166.2). In each test the game started with the listed mods and with every AIO PvP module turned on. No crash or mixin error came from AIO PvP.
+
+Not every mod has a 26.x version yet. Hit Color Plus and Old Combat have none, Exordium and Health Indicators have none for 26.2 and 26.3, and Nametag Tweaks and Crosshair Indicator have none for 26.3.
 
 | Group | Mods |
 |---|---|
@@ -26,7 +28,11 @@ Tested on Minecraft 1.21.11 with Fabric Loader 0.20.1 and Fabric API 0.141.6. In
 
 ### Known incompatibilities
 
-- **Ok Zoomer** (16.0.0-beta.3 for 1.21.11) does not start on Minecraft 1.21.11 at all: it needs Java 25, while 1.21.11 runs on Java 21. This happens with or without AIO PvP.
+These problems come from the other mod, not from AIO PvP:
+
+- **Ok Zoomer** (16.0.0-beta.3 for 1.21.11) crashes the game on start when Minecraft 1.21.11 runs on Java 21. Its mixin config asks for Java 25, so it only starts on Java 25. The 26.x versions of Ok Zoomer work.
+- **Perspektive** 1.4.8 crashes on start on Minecraft 26.2 (`NoSuchFieldError` in its own code). It works on 26.3.
+- **Iris** 1.11.7 does not load next to Sodium 0.9.3 on Minecraft 26.3: Sodium itself blocks Iris 1.12.0 and older. Until Iris releases a version that works with it, use Iris with an older Sodium.
 
 No other mod in the list above is incompatible with AIO PvP.
 
@@ -38,7 +44,7 @@ No other mod in the list above is incompatible with AIO PvP.
   - Exordium: HUD Caching.
   - Entity Culling (the mod): the Entity Culling option.
 - **Sodium and chunk options.** Sodium replaces the vanilla chunk renderer, so the AIO PvP chunk options (Fog Occlusion, Animate Only Visible Textures) have no effect with it. Sodium has its own versions of these.
-- **Replay Mod** was not tested.
+- **Replay Mod** works on all four versions. While it records, its "RECORDING" label sits over the top-left corner of the screen, so move AIO PvP elements away from there if they overlap.
 - The test checks that the game starts and runs with the mods. It does not check every feature of every mod. If you find a problem with a specific mod, please open an issue with the game log.
 
 ## Installation
