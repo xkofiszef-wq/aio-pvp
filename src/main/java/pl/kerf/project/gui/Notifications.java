@@ -3,9 +3,9 @@ package pl.kerf.project.gui;
 import pl.kerf.project.Lang;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
 import pl.kerf.project.gui.theme.Anim;
 import pl.kerf.project.gui.theme.Draw;
 import pl.kerf.project.gui.theme.Theme;
@@ -37,7 +37,7 @@ public final class Notifications {
 		}
 	}
 
-	public static void render(DrawContext context) {
+	public static void render(GuiGraphics context) {
 		long now = System.currentTimeMillis();
 		List<Entry> entries;
 		synchronized (ENTRIES) {
@@ -49,10 +49,10 @@ public final class Notifications {
 			entries = new ArrayList<>(ENTRIES);
 		}
 
-		TextRenderer font = MinecraftClient.getInstance().textRenderer;
-		int right = context.getScaledWindowWidth() - 6;
+		Font font = Minecraft.getInstance().font;
+		int right = context.guiWidth() - 6;
 		int y = 6;
-		context.createNewRootLayer();
+		context.nextStratum();
 		for (int i = entries.size() - 1; i >= 0; i--) {
 			Entry entry = entries.get(i);
 			long age = now - entry.created;

@@ -13,15 +13,29 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+//? if <26.1.2 {
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
+//?} else {
+/*import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
+*///?}
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.text.Text;
+//? if <26.1.2 {
+import net.minecraft.client.KeyMapping;
+//?}
+import net.minecraft.client.Minecraft;
+//? if >=26.1.2 {
+/*import net.minecraft.world.phys.Vec3;
+*///?}
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.multiplayer.PlayerInfo;
+//? if >=26.1.2 {
+/*import net.minecraft.client.KeyMapping;
+*///?}
+import net.minecraft.network.chat.Component;
+//? if <26.1.2 {
+import net.minecraft.world.phys.Vec3;
+//?}
 import pl.kerf.project.Lang;
 import pl.kerf.project.config.Setting;
 import pl.kerf.project.gui.PartyScreen;
@@ -38,9 +52,9 @@ import pl.kerf.project.gui.theme.Theme;
  * przyjmują go tylko od swojego leadera. Koordynaty członków włącza głosowanie: wszyscy muszą się zgodzić.
  */
 public final class Party extends Module {
-	public static KeyBinding menuKey;
-	public static KeyBinding yesKey;
-	public static KeyBinding noKey;
+	public static KeyMapping menuKey;
+	public static KeyMapping yesKey;
+	public static KeyMapping noKey;
 	/** Znacznik rozpoznawczy w wiadomościach moda; odbiorca z modem ukrywa każdą wiadomość z tym tekstem. */
 	private static final String TOKEN = "[aio]";
 	private static final long INVITE_VALID_MS = 60_000L;
@@ -168,16 +182,16 @@ public final class Party extends Module {
 		return new LinkedHashMap<>(this.roles);
 	}
 
-	public Role myRole(MinecraftClient client) {
+	public Role myRole(Minecraft client) {
 		return this.roles.get(this.me(client));
 	}
 
-	public boolean isLeader(MinecraftClient client) {
+	public boolean isLeader(Minecraft client) {
 		return this.myRole(client) == Role.LEADER;
 	}
 
 	/** Zapraszać może leader i inviter; ktoś spoza party też (tworzy w ten sposób własne party jako leader). */
-	public boolean canInvite(MinecraftClient client) {
+	public boolean canInvite(Minecraft client) {
 		Role role = this.myRole(client);
 		return role == null || role != Role.MEMBER;
 	}
@@ -201,7 +215,7 @@ public final class Party extends Module {
 	}
 
 	/** Pozostałe osoby z party (bez ciebie). */
-	public Set<String> others(MinecraftClient client) {
+	public Set<String> others(Minecraft client) {
 		// Bez ciebie i bez dubli, bez względu na wielkość liter w nickach (inaczej jedna osoba dostawałaby tę samą wiadomość dwa razy).
 		java.util.Map<String, String> unique = new java.util.LinkedHashMap<>();
 		for (String name : this.roles.keySet()) {
@@ -219,7 +233,7 @@ public final class Party extends Module {
 		return !this.offline.contains(name.toLowerCase(java.util.Locale.ROOT));
 	}
 
-	private String me(MinecraftClient client) {
+	private String me(Minecraft client) {
 		return client.player.getName().getString();
 	}
 
@@ -230,11 +244,16 @@ public final class Party extends Module {
 	// ---------- akcje ----------
 
 	public void register(CommandDispatcher<FabricClientCommandSource> dispatcher) {
+		//? if <26.1.2 {
 		var name = ClientCommandManager.argument("name", StringArgumentType.word())
+		//?} else {
+		/*var name = ClientCommands.argument("name", StringArgumentType.word())
+		*///?}
 			.suggests((context, builder) -> {
-				context.getSource().getPlayerNames().forEach(builder::suggest);
+				context.getSource().getOnlinePlayerNames().forEach(builder::suggest);
 				return builder.buildFuture();
 			});
+		//? if <26.1.2 {
 		dispatcher.register(ClientCommandManager.literal("mparty")
 			.then(ClientCommandManager.literal("invite").then(name.executes(c -> this.invite(StringArgumentType.getString(c, "name")) ? 1 : 0)))
 			.then(ClientCommandManager.literal("accept").executes(c -> this.accept(null) ? 1 : 0)
@@ -243,15 +262,33 @@ public final class Party extends Module {
 			.then(ClientCommandManager.literal("leave").executes(c -> this.leave() ? 1 : 0))
 			.then(ClientCommandManager.literal("list").executes(c -> this.list()))
 			.then(ClientCommandManager.literal("menu").executes(c -> {
+		//?} else {
+		/*dispatcher.register(ClientCommands.literal("mparty")
+			.then(ClientCommands.literal("invite").then(name.executes(c -> this.invite(StringArgumentType.getString(c, "name")) ? 1 : 0)))
+			.then(ClientCommands.literal("accept").executes(c -> this.accept(null) ? 1 : 0)
+				.then(ClientCommands.argument("from", StringArgumentType.word()).executes(c -> this.accept(StringArgumentType.getString(c, "from")) ? 1 : 0)))
+			.then(ClientCommands.literal("kick").then(ClientCommands.argument("who", StringArgumentType.word()).executes(c -> this.kick(StringArgumentType.getString(c, "who")) ? 1 : 0)))
+			.then(ClientCommands.literal("leave").executes(c -> this.leave() ? 1 : 0))
+			.then(ClientCommands.literal("list").executes(c -> this.list()))
+			.then(ClientCommands.literal("menu").executes(c -> {
+		*///?}
 				// Czat po komendzie zamyka swój ekran, więc menu otwieramy dopiero w następnym kroku pętli klienta.
-				MinecraftClient client = MinecraftClient.getInstance();
-				client.send(() -> client.setScreen(new PartyScreen(null)));
+				Minecraft client = Minecraft.getInstance();
+				//? if <26.1.2 {
+				client.schedule(() -> client.setScreen(new PartyScreen(null)));
+				//?}
+				//? if >=26.2 {
+				/*client.execute(() -> client.gui.setScreen(new PartyScreen(null)));
+				*///?}
+				//? if =26.1.2 {
+				/*client.execute(() -> client.setScreen(new PartyScreen(null)));
+				*///?}
 				return 1;
 			})));
 	}
 
 	public boolean invite(String target) {
-		MinecraftClient client = MinecraftClient.getInstance();
+		Minecraft client = Minecraft.getInstance();
 		if (!this.ready(client) || target.equalsIgnoreCase(this.me(client)) || !this.canInvite(client)) {
 			if (this.on() && client.player != null && !this.canInvite(client)) {
 				this.say(Lang.t("Zapraszać może tylko leader i inviter."));
@@ -269,7 +306,7 @@ public final class Party extends Module {
 	}
 
 	public boolean accept(String from) {
-		MinecraftClient client = MinecraftClient.getInstance();
+		Minecraft client = Minecraft.getInstance();
 		if (!this.ready(client)) {
 			return false;
 		}
@@ -293,7 +330,7 @@ public final class Party extends Module {
 	}
 
 	public boolean leave() {
-		MinecraftClient client = MinecraftClient.getInstance();
+		Minecraft client = Minecraft.getInstance();
 		if (!this.ready(client) || !this.inParty()) {
 			return false;
 		}
@@ -319,7 +356,7 @@ public final class Party extends Module {
 	}
 
 	public boolean kick(String who) {
-		MinecraftClient client = MinecraftClient.getInstance();
+		Minecraft client = Minecraft.getInstance();
 		if (!this.ready(client) || !this.isLeader(client) || !this.roles.containsKey(who) || who.equals(this.me(client))) {
 			return false;
 		}
@@ -336,7 +373,7 @@ public final class Party extends Module {
 
 	/** Leader nadaje albo zabiera rangę Inviter (klik w głowę gracza w menu party). */
 	public boolean toggleInviter(String who) {
-		MinecraftClient client = MinecraftClient.getInstance();
+		Minecraft client = Minecraft.getInstance();
 		if (!this.ready(client) || !this.isLeader(client) || !this.roles.containsKey(who) || this.roles.get(who) == Role.LEADER) {
 			return false;
 		}
@@ -348,7 +385,7 @@ public final class Party extends Module {
 
 	/** Leader: włączenie koordynat wymaga głosowania wszystkich, wyłączenie działa od razu. */
 	public boolean setCoords(boolean enable) {
-		MinecraftClient client = MinecraftClient.getInstance();
+		Minecraft client = Minecraft.getInstance();
 		if (!this.ready(client) || !this.isLeader(client)) {
 			return false;
 		}
@@ -386,7 +423,7 @@ public final class Party extends Module {
 
 	/** Twoja odpowiedź w trwającym głosowaniu. */
 	public boolean answer(boolean yes) {
-		MinecraftClient client = MinecraftClient.getInstance();
+		Minecraft client = Minecraft.getInstance();
 		if (client.player == null || this.vote == null || this.vote.myAnswer != null || this.vote.proposer.equals(this.me(client))) {
 			return false;
 		}
@@ -398,7 +435,7 @@ public final class Party extends Module {
 	}
 
 	private int list() {
-		MinecraftClient client = MinecraftClient.getInstance();
+		Minecraft client = Minecraft.getInstance();
 		if (!this.inParty()) {
 			this.say(Lang.t("Nie jesteś w party."));
 			return 1;
@@ -450,14 +487,14 @@ public final class Party extends Module {
 		if (name != null) {
 			// Na końcu stoi nick nadawcy ("~Nick"): odbiorca po nim rozpozna echo własnej wiadomości, które serwer odsyła klikającemu,
 			// i nie przypisze go odbiorcy. Starsze wersje moda ignorują to dodatkowe pole.
-			MinecraftClient client = MinecraftClient.getInstance();
+			Minecraft client = Minecraft.getInstance();
 			this.outbox.add(name + " " + TOKEN + payload + (client.player == null ? "" : " ~" + this.me(client)));
 		}
 	}
 
 	/** Wiadomość do wszystkich innych członków party (np. marker). */
 	public void broadcast(String payload) {
-		MinecraftClient client = MinecraftClient.getInstance();
+		Minecraft client = Minecraft.getInstance();
 		if (!this.on() || client.player == null) {
 			return;
 		}
@@ -469,7 +506,7 @@ public final class Party extends Module {
 
 	/** Leader wysyła pełny opis party wszystkim członkom (i ewentualnie osobie, która właśnie odeszła, żeby też się zaktualizowała). */
 	private void broadcastState(String extraRecipient) {
-		MinecraftClient client = MinecraftClient.getInstance();
+		Minecraft client = Minecraft.getInstance();
 		for (String name : this.others(client)) {
 			this.to(name, this.stateText());
 		}
@@ -484,16 +521,24 @@ public final class Party extends Module {
 	}
 
 	private void say(String message) {
-		MinecraftClient.getInstance().inGameHud.getChatHud().addMessage(Text.literal("[AIO PvP] ").formatted(net.minecraft.util.Formatting.AQUA).append(Text.literal(message)));
+		//? if <26.1.2 {
+		Minecraft.getInstance().gui.getChat().addMessage(Component.literal("[AIO PvP] ").withStyle(net.minecraft.ChatFormatting.AQUA).append(Component.literal(message)));
+		//?}
+		//? if >=26.2 {
+		/*Minecraft.getInstance().gui.hud.getChat().addClientSystemMessage(Component.literal("[AIO PvP] ").withStyle(net.minecraft.ChatFormatting.AQUA).append(Component.literal(message)));
+		*///?}
+		//? if =26.1.2 {
+		/*Minecraft.getInstance().gui.getChat().addClientSystemMessage(Component.literal("[AIO PvP] ").withStyle(net.minecraft.ChatFormatting.AQUA).append(Component.literal(message)));
+		*///?}
 	}
 
-	private boolean ready(MinecraftClient client) {
+	private boolean ready(Minecraft client) {
 		if (!this.on()) {
 			this.say(Lang.t("Włącz moduł Party w menu moda."));
 			return false;
 		}
 
-		return client.player != null && client.world != null;
+		return client.player != null && client.level != null;
 	}
 
 	// ---------- odbiór ----------
@@ -502,7 +547,7 @@ public final class Party extends Module {
 	 * Obsługa wiadomości z czatu. Zwraca true, gdy wiadomość należy do moda i ma zniknąć z czatu
 	 * (dotyczy też naszego własnego echa "You whisper to ...").
 	 */
-	public boolean receive(MinecraftClient client, String text, String sender) {
+	public boolean receive(Minecraft client, String text, String sender) {
 		int at = text.indexOf(TOKEN);
 		if (at < 0) {
 			return false;
@@ -581,7 +626,7 @@ public final class Party extends Module {
 			if (p[0].equals("inv")) {
 				final String replyTo = from;
 				String command = this.whisper.get().isBlank() ? "msg" : this.whisper.get().strip();
-				client.execute(() -> client.player.networkHandler.sendChatCommand(command + " " + replyTo + " " + TOKEN + "ack " + PROTOCOL + " " + MOD_VERSION + " off ~" + me));
+				client.execute(() -> client.player.connection.sendCommand(command + " " + replyTo + " " + TOKEN + "ack " + PROTOCOL + " " + MOD_VERSION + " off ~" + me));
 			}
 
 			return true;
@@ -793,7 +838,7 @@ public final class Party extends Module {
 	}
 
 	/** Opis party od leadera (albo pierwszy opis od osoby, której zaproszenie przyjęliśmy). */
-	private void applyState(MinecraftClient client, String from, String[] p) {
+	private void applyState(Minecraft client, String from, String[] p) {
 		boolean fromLeader = from.equals(this.leader());
 		boolean firstState = this.roles.isEmpty() && (this.pendingJoin.contains(from)
 			|| this.rejoinNames.stream().anyMatch(name -> name.equalsIgnoreCase(from)) && System.currentTimeMillis() - this.rejoinAt < REJOIN_MS);
@@ -829,7 +874,7 @@ public final class Party extends Module {
 	}
 
 	/** Leader liczy głosy: jedno "nie" kończy głosowanie porażką, komplet "tak" sukcesem. */
-	private void tally(MinecraftClient client) {
+	private void tally(Minecraft client) {
 		Set<String> others = this.others(client);
 		boolean anyNo = this.vote.answers.containsValue(false);
 		boolean allYes = this.vote.answers.keySet().containsAll(others) && !anyNo;
@@ -839,7 +884,7 @@ public final class Party extends Module {
 	}
 
 	private void finishVote(boolean ok) {
-		MinecraftClient client = MinecraftClient.getInstance();
+		Minecraft client = Minecraft.getInstance();
 		int id = this.vote.id;
 		this.vote = null;
 		if (ok) {
@@ -855,14 +900,14 @@ public final class Party extends Module {
 	}
 
 	/** Nadawca z tekstu wiadomości prywatnej, gdy serwer nie podał go osobno: pierwszy gracz z listy, którego nick tam stoi. */
-	private String guessSender(MinecraftClient client, String prefix) {
-		if (client.getNetworkHandler() == null) {
+	private String guessSender(Minecraft client, String prefix) {
+		if (client.getConnection() == null) {
 			return null;
 		}
 
 		String best = null;
 		int bestAt = Integer.MAX_VALUE;
-		for (PlayerListEntry entry : client.getNetworkHandler().getPlayerList()) {
+		for (PlayerInfo entry : client.getConnection().getOnlinePlayers()) {
 			String name = entry.getProfile().name();
 			int index = prefix.indexOf(name);
 			if (index >= 0 && index < bestAt) {
@@ -887,7 +932,7 @@ public final class Party extends Module {
 	 * Pozycja głowy dalekiego członka: z dwóch ostatnich wiadomości liczymy prędkość i przesuwamy głowę dalej (najwyżej o 1,5 odstępu
 	 * między wiadomościami), a rysowana pozycja płynnie dochodzi do wyliczonej, zamiast przeskakiwać przy każdej nowej wiadomości.
 	 */
-	private Vec3d smoothedPosition(String name, Position last) {
+	private Vec3 smoothedPosition(String name, Position last) {
 		double x = last.x();
 		double y = last.y();
 		double z = last.z();
@@ -925,7 +970,7 @@ public final class Party extends Module {
 			shown[3] = now;
 		}
 
-		return new Vec3d(shown[0], shown[1] + 2.3, shown[2]);
+		return new Vec3(shown[0], shown[1] + 2.3, shown[2]);
 	}
 
 	/** Przezroczystość napisu (0..1) dla trybu "Nigdy" / "Po najechaniu" / "Zawsze". */
@@ -938,20 +983,20 @@ public final class Party extends Module {
 	 * Pod głową stoi odległość, po najechaniu głowa lekko rośnie i pojawia się nick. Bliżej niż "Głowa znika bliżej niż" głowa zanika.
 	 * Pozycja pochodzi z postaci, gdy jest załadowana, a dalej z koordynat party (wymagają włączenia koordynat przez głosowanie).
 	 */
-	public void renderHeads(DrawContext context, MinecraftClient client) {
-		if (!this.on() || !this.memberHeads.on() || !this.inParty() || client.player == null || client.world == null) {
+	public void renderHeads(GuiGraphics context, Minecraft client) {
+		if (!this.on() || !this.memberHeads.on() || !this.inParty() || client.player == null || client.level == null) {
 			return;
 		}
 
-		String dim = client.world.getRegistryKey().getValue().getPath();
-		float tickProgress = client.getRenderTickCounter().getTickProgress(false);
+		String dim = client.level.dimension().identifier().getPath();
+		float tickProgress = client.getDeltaTracker().getGameTimeDeltaPartialTick(false);
 		float fade = this.headFade.f();
-		TextRenderer font = client.textRenderer;
+		Font font = client.font;
 		for (String name : this.others(client)) {
-			Vec3d pos = null;
-			for (net.minecraft.entity.player.PlayerEntity player : client.world.getPlayers()) {
+			Vec3 pos = null;
+			for (net.minecraft.world.entity.player.Player player : client.level.players()) {
 				if (player.getName().getString().equalsIgnoreCase(name)) {
-					pos = player.getLerpedPos(tickProgress).add(0.0, player.getHeight() + 0.5, 0.0);
+					pos = player.getPosition(tickProgress).add(0.0, player.getBbHeight() + 0.5, 0.0);
 					break;
 				}
 			}
@@ -978,22 +1023,26 @@ public final class Party extends Module {
 				continue;
 			}
 
-			double aimX = at[0] - context.getScaledWindowWidth() / 2.0;
-			double aimY = at[1] - context.getScaledWindowHeight() / 2.0;
+			double aimX = at[0] - context.guiWidth() / 2.0;
+			double aimY = at[1] - context.guiHeight() / 2.0;
 			float target = aimX * aimX + aimY * aimY < 14.0 * 14.0 ? 1.0F : 0.0F;
 			float hover = this.headHover.getOrDefault(name, 0.0F);
 			hover += (target - hover) * 0.3F;
 			this.headHover.put(name, hover);
-			PlayerListEntry entry = client.getNetworkHandler() == null ? null : client.getNetworkHandler().getPlayerListEntry(name);
-			var skin = entry != null ? entry.getSkinTextures() : net.minecraft.client.util.DefaultSkinHelper.getSkinTextures(net.minecraft.util.Uuids.getOfflinePlayerUuid(name));
+			PlayerInfo entry = client.getConnection() == null ? null : client.getConnection().getPlayerInfo(name);
+			var skin = entry != null ? entry.getSkin() : net.minecraft.client.resources.DefaultPlayerSkin.get(net.minecraft.core.UUIDUtil.createOfflinePlayerUUID(name));
 			int alphaBits = Math.round(alpha * 255.0F) << 24;
-			context.getMatrices().pushMatrix();
-			context.getMatrices().translate((float) at[0], (float) at[1]);
+			context.pose().pushMatrix();
+			context.pose().translate((float) at[0], (float) at[1]);
 			int size = this.headSize.i();
 			int half = size / 2;
 			float scale = 1.0F + 0.3F * hover;
-			context.getMatrices().scale(scale, scale);
-			net.minecraft.client.gui.PlayerSkinDrawer.draw(context, skin, -half, -half, size, alphaBits | 0xFFFFFF);
+			context.pose().scale(scale, scale);
+			//? if <26.1.2 {
+			net.minecraft.client.gui.components.PlayerFaceRenderer.draw(context, skin, -half, -half, size, alphaBits | 0xFFFFFF);
+			//?} else {
+			/*net.minecraft.client.gui.components.PlayerFaceExtractor.extractRenderState(context, skin, -half, -half, size, alphaBits | 0xFFFFFF);
+			*///?}
 			String distance = at[2] >= 1000.0 ? String.format(Locale.ROOT, "%.1fkm", at[2] / 1000.0) : Math.round(at[2]) + "m";
 			// Nick i dystans: każdy może być wyłączony, widoczny tylko po najechaniu albo zawsze; można je też zamienić miejscami.
 			// Napisy są drobniejsze (skala 0,75) i stoją tuż przy głowie.
@@ -1004,30 +1053,30 @@ public final class Party extends Module {
 			int distanceY = this.swapLabels.on() ? above : below;
 			float nameAlpha = alpha * labelVisibility(this.headName, hover);
 			float distanceAlpha = alpha * labelVisibility(this.headDistance, hover);
-			context.getMatrices().pushMatrix();
-			context.getMatrices().scale(textScale, textScale);
+			context.pose().pushMatrix();
+			context.pose().scale(textScale, textScale);
 			if (nameAlpha >= 0.04F) {
-				context.drawText(font, name, -font.getWidth(name) / 2, nameY, Math.round(nameAlpha * 255.0F) << 24 | 0xFFFFFF, true);
+				context.drawString(font, name, -font.width(name) / 2, nameY, Math.round(nameAlpha * 255.0F) << 24 | 0xFFFFFF, true);
 			}
 
 			if (distanceAlpha >= 0.04F) {
-				context.drawText(font, distance, -font.getWidth(distance) / 2, distanceY, Math.round(distanceAlpha * 255.0F) << 24 | 0xFFFFFF, true);
+				context.drawString(font, distance, -font.width(distance) / 2, distanceY, Math.round(distanceAlpha * 255.0F) << 24 | 0xFFFFFF, true);
 			}
 
-			context.getMatrices().popMatrix();
+			context.pose().popMatrix();
 
-			context.getMatrices().popMatrix();
+			context.pose().popMatrix();
 		}
 	}
 
 	/** Dźwięk początku głosowania: dwa krótkie tony jak odbiór doświadczenia albo handel z villagerem. */
 	private int voteSoundTicks;
 
-	private void playVoteSound(MinecraftClient client, float pitch) {
-		client.getSoundManager().play(net.minecraft.client.sound.PositionedSoundInstance.ui(net.minecraft.sound.SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP, pitch, 1.0F));
+	private void playVoteSound(Minecraft client, float pitch) {
+		client.getSoundManager().play(net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(net.minecraft.sounds.SoundEvents.EXPERIENCE_ORB_PICKUP, pitch, 1.0F));
 	}
 
-	private void startVoteSound(MinecraftClient client) {
+	private void startVoteSound(Minecraft client) {
 		if (this.voteSound.on()) {
 			this.playVoteSound(client, 0.9F);
 			this.voteSoundTicks = 5;
@@ -1037,27 +1086,32 @@ public final class Party extends Module {
 	// ---------- co tick ----------
 
 	/** Kolejka wiadomości, wysyłanie pozycji, wygasanie głosowania i klawisze; wołane co tick. */
-	public void tick(MinecraftClient client) {
-		if (client.world == null || client.player == null) {
+	public void tick(Minecraft client) {
+		if (client.level == null || client.player == null) {
 			this.resetAll();
 			return;
 		}
 
-		while (menuKey != null && menuKey.wasPressed()) {
-			if (this.on() && client.currentScreen == null) {
+		while (menuKey != null && menuKey.consumeClick()) {
+			//? if <26.2 {
+			if (this.on() && client.screen == null) {
 				client.setScreen(new PartyScreen(null));
+			//?} else {
+			/*if (this.on() && client.gui.screen() == null) {
+				client.gui.setScreen(new PartyScreen(null));
+			*///?}
 			}
 		}
 
 		// Klawisze głosowania działają tylko, gdy czeka na ciebie głosowanie (poza tym Y i N nic nie robią).
 		boolean pending = this.on() && this.vote != null && this.vote.myAnswer == null && !this.vote.proposer.equals(this.me(client));
-		while (yesKey != null && yesKey.wasPressed()) {
+		while (yesKey != null && yesKey.consumeClick()) {
 			if (pending) {
 				this.answer(true);
 			}
 		}
 
-		while (noKey != null && noKey.wasPressed()) {
+		while (noKey != null && noKey.consumeClick()) {
 			if (pending) {
 				this.answer(false);
 			}
@@ -1100,15 +1154,15 @@ public final class Party extends Module {
 			String line = this.outbox.poll();
 			this.lastSentLine = line;
 			this.lastSentCommand = command;
-			client.player.networkHandler.sendChatCommand(command + " " + line);
+			client.player.connection.sendCommand(command + " " + line);
 			this.sendCooldown = SEND_GAP_TICKS;
 		}
 	}
 
-	private static Set<String> onlineNames(MinecraftClient client) {
+	private static Set<String> onlineNames(Minecraft client) {
 		Set<String> online = new HashSet<>();
-		if (client.getNetworkHandler() != null) {
-			for (PlayerListEntry entry : client.getNetworkHandler().getPlayerList()) {
+		if (client.getConnection() != null) {
+			for (PlayerInfo entry : client.getConnection().getOnlinePlayers()) {
 				online.add(entry.getProfile().name().toLowerCase(java.util.Locale.ROOT));
 			}
 		}
@@ -1117,7 +1171,7 @@ public final class Party extends Module {
 	}
 
 	/** Co sekundę sprawdza listę graczy serwera: kto z party z niej zniknął, jest offline (nie dostaje wiadomości i nie blokuje głosowania). */
-	private void presence(MinecraftClient client) {
+	private void presence(Minecraft client) {
 		if (!this.inParty() || ++this.presenceTimer < 20) {
 			return;
 		}
@@ -1149,7 +1203,7 @@ public final class Party extends Module {
 	}
 
 	/** Po powrocie na serwer (kilka sekund po wejściu, gdy lista graczy jest już pełna) pyta członków party, czy party jeszcze istnieje. */
-	private void rejoin(MinecraftClient client) {
+	private void rejoin(Minecraft client) {
 		if (this.rejoinNames.isEmpty() || this.inParty()) {
 			return;
 		}
@@ -1179,12 +1233,12 @@ public final class Party extends Module {
 	}
 
 	/** Gdy koordynaty są włączone: co kilka sekund (i tylko po zmianie miejsca o kilka bloków) wysyła twoją pozycję reszcie party. */
-	private void sharePosition(MinecraftClient client, long now) {
+	private void sharePosition(Minecraft client, long now) {
 		if (!this.coords || !this.inParty() || this.others(client).isEmpty() || now - this.lastPositionSent < this.positionInterval.i() * 1000L) {
 			return;
 		}
 
-		Position here = new Position(client.player.getX(), client.player.getY(), client.player.getZ(), now, client.world.getRegistryKey().getValue().getPath());
+		Position here = new Position(client.player.getX(), client.player.getY(), client.player.getZ(), now, client.level.dimension().identifier().getPath());
 		Position last = this.lastPositionSentAt;
 		boolean moved = last == null || !last.dim().equals(here.dim())
 			|| (here.x() - last.x()) * (here.x() - last.x()) + (here.y() - last.y()) * (here.y() - last.y()) + (here.z() - last.z()) * (here.z() - last.z()) >= POSITION_MIN_MOVE_SQ;
@@ -1200,14 +1254,14 @@ public final class Party extends Module {
 	// ---------- okienko głosowania ----------
 
 	/** Głosowanie, które czeka na twoją odpowiedź (null = brak). */
-	public Vote pendingFor(MinecraftClient client) {
+	public Vote pendingFor(Minecraft client) {
 		return this.on() && client.player != null && this.vote != null && this.vote.myAnswer == null && !this.vote.proposer.equals(this.me(client)) ? this.vote : null;
 	}
 
 	/** Okienko "leader chce włączyć koordynaty" (element HUD "Party Vote", który przesuwa się w edytorze HUD); rysuje się na wierzchu. */
-	public void renderPopup(DrawContext context, MinecraftClient client) {
+	public void renderPopup(GuiGraphics context, Minecraft client) {
 		if (Modules.PARTY_VOTE.on() && this.pendingFor(client) != null) {
-			Modules.PARTY_VOTE.render(context, client, client.getRenderTickCounter(), false);
+			Modules.PARTY_VOTE.render(context, client, client.getDeltaTracker(), false);
 		}
 	}
 

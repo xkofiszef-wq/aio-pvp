@@ -1,12 +1,12 @@
 package pl.kerf.project.mixin;
 
-import net.minecraft.client.render.OverlayTexture;
-import net.minecraft.client.texture.NativeImageBackedTexture;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.client.renderer.texture.OverlayTexture;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
 @Mixin(OverlayTexture.class)
 public interface OverlayTextureAccessor {
 	@Accessor("texture")
-	NativeImageBackedTexture aio$getTexture();
+	DynamicTexture aio$getTexture();
 }

@@ -7,13 +7,13 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.item.Items;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.Items;
 import pl.kerf.project.config.Setting;
 import pl.kerf.project.config.PixelGrid;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.text.Text;
 import pl.kerf.project.hud.ArmorHud;
 import pl.kerf.project.hud.CompassHud;
 import pl.kerf.project.hud.CoordinatesHud;
@@ -39,43 +39,47 @@ public final class Modules {
 	public static final PotionStatusHud POTION_STATUS = new PotionStatusHud();
 	public static final KeyOverlayHud KEY_OVERLAY = new KeyOverlayHud();
 	public static final PitchHud ELYTRA_PITCH = new PitchHud(
-		"elytra_pitch", "Elytra Pitch", "Kąt lotu podczas używania elytry.", 14.0F, player -> player.isGliding()
+		"elytra_pitch", "Elytra Pitch", "Kąt lotu podczas używania elytry.", 14.0F, player -> player.isFallFlying()
 	);
 	public static final PitchHud BOW_PITCH = new PitchHud(
 		"bow_pitch", "Bow Pitch", "Kąt celowania podczas naciągania łuku lub kuszy.", 26.0F,
-		player -> player.isUsingItem() && (player.getActiveItem().isOf(Items.BOW) || player.getActiveItem().isOf(Items.CROSSBOW))
+		player -> player.isUsingItem() && (player.getUseItem().is(Items.BOW) || player.getUseItem().is(Items.CROSSBOW))
 	);
 	public static final CoordinatesHud COORDINATES = new CoordinatesHud();
 	public static final InfoHud FPS = new InfoHud(
 		"fps", "FPS", "Klatki na sekundę.", 0.0F, 0.0F, 0.0F, 0.0F, 4.0F, 22.0F,
-		(client, editing) -> Text.literal("FPS: " + client.getCurrentFps())
+		(client, editing) -> Component.literal("FPS: " + client.getFps())
 	);
 	public static final InfoHud PING = new InfoHud(
 		"ping", "Ping", "Opóźnienie do serwera.", 0.0F, 0.0F, 0.0F, 0.0F, 4.0F, 40.0F,
 		(client, editing) -> {
-			PlayerListEntry entry = client.player.networkHandler.getPlayerListEntry(client.player.getUuid());
-			return Text.literal("Ping: " + (entry == null ? 0 : entry.getLatency()) + " ms");
+			PlayerInfo entry = client.player.connection.getPlayerInfo(client.player.getUUID());
+			return Component.literal("Ping: " + (entry == null ? 0 : entry.getLatency()) + " ms");
 		}
 	);
 	public static final InfoHud CPS = new InfoHud(
 		"cps", "CPS", "Kliknięcia na sekundę (lewy | prawy).", 0.0F, 0.0F, 0.0F, 0.0F, 4.0F, 58.0F,
-		(client, editing) -> Text.literal("CPS: " + CpsTracker.left() + " | " + CpsTracker.right())
+		(client, editing) -> Component.literal("CPS: " + CpsTracker.left() + " | " + CpsTracker.right())
 	);
 	public static final InfoHud DAY = new InfoHud(
 		"day", "Day", "Numer dnia w świecie.", 0.0F, 0.0F, 0.0F, 0.0F, 4.0F, 76.0F,
-		(client, editing) -> Text.literal(Lang.t("Dzień: ") + client.world.getTimeOfDay() / 24000L)
+		//? if <26.1.2 {
+		(client, editing) -> Component.literal(Lang.t("Dzień: ") + client.level.getDayTime() / 24000L)
+		//?} else {
+		/*(client, editing) -> Component.literal(Lang.t("Dzień: ") + client.level.getDefaultClockTime() / 24000L)
+		*///?}
 	);
 	public static final InfoHud CLOCK = new InfoHud(
 		"clock", "Clock", "Aktualna godzina (zegar komputera).", 0.0F, 0.0F, 0.0F, 0.0F, 4.0F, 94.0F,
-		(client, editing) -> Text.literal(LocalTime.now().format(Modules.CLOCK_12H.is(1) ? CLOCK_FORMAT_12 : CLOCK_FORMAT))
+		(client, editing) -> Component.literal(LocalTime.now().format(Modules.CLOCK_12H.is(1) ? CLOCK_FORMAT_12 : CLOCK_FORMAT))
 	);
 	public static final Setting.Mode CLOCK_12H = CLOCK.add(new Setting.Mode("format", "Format godziny", 0, "24h", "12h (AM/PM)"));
 	/** Stan sprintu/skradania jak w klientach PvP; znika, gdy nic nie jest aktywne (w edytorze pokazuje przykład). */
 	public static final InfoHud SPRINT_STATUS = new InfoHud(
 		"sprint_status", "Sprint/Sneak Status", "Napis [Sprint (Toggled)] / [Sneak], przydatne z Toggle Sprint.", 0.5F, 0.0F, 0.5F, 0.0F, 0.0F, 46.0F,
 		(client, editing) -> {
-			Text status = sprintStatus(client);
-			return status == null && editing ? Text.literal(Lang.t("[Sprint (Toggled)]")) : status;
+			Component status = sprintStatus(client);
+			return status == null && editing ? Component.literal(Lang.t("[Sprint (Toggled)]")) : status;
 		}
 	);
 	public static final LagDetectorHud LAG_DETECTOR = new LagDetectorHud();
@@ -166,21 +170,21 @@ public final class Modules {
 	 * Skradanie ma pierwszeństwo (nie da się sprintować skradając się). "Toggled" = włączony Toggle Sprint/Sneak
 	 * i przełączony klawisz; inaczej stan samej postaci (klawisz trzymany albo podwójne W). null = nic aktywnego.
 	 */
-	private static Text sprintStatus(net.minecraft.client.MinecraftClient client) {
-		net.minecraft.client.option.GameOptions options = client.options;
-		if (options.getSneakToggled().getValue() && options.sneakKey.isPressed()) {
-			return Text.literal(Lang.t("[Sneak (Toggled)]"));
+	private static Component sprintStatus(net.minecraft.client.Minecraft client) {
+		net.minecraft.client.Options options = client.options;
+		if (options.toggleCrouch().get() && options.keyShift.isDown()) {
+			return Component.literal(Lang.t("[Sneak (Toggled)]"));
 		}
 
-		if (client.player.isSneaking()) {
-			return Text.literal(Lang.t("[Sneak (Key held)]"));
+		if (client.player.isShiftKeyDown()) {
+			return Component.literal(Lang.t("[Sneak (Key held)]"));
 		}
 
-		if (options.getSprintToggled().getValue() && options.sprintKey.isPressed()) {
-			return Text.literal(Lang.t("[Sprint (Toggled)]"));
+		if (options.toggleSprint().get() && options.keySprint.isDown()) {
+			return Component.literal(Lang.t("[Sprint (Toggled)]"));
 		}
 
-		return client.player.isSprinting() ? Text.literal(Lang.t("[Sprint (Vanilla)]")) : null;
+		return client.player.isSprinting() ? Component.literal(Lang.t("[Sprint (Vanilla)]")) : null;
 	}
 
 	/** Przesunięcie i skala jednego elementu vanilla HUD-u. */

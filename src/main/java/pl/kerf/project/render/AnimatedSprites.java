@@ -3,10 +3,10 @@ package pl.kerf.project.render;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.WeakHashMap;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.chunk.ChunkBuilder;
-import net.minecraft.client.render.chunk.ChunkRenderData;
-import net.minecraft.client.texture.SpriteContents;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.chunk.CompiledSectionMesh;
+import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
+import net.minecraft.client.renderer.texture.SpriteContents;
 import pl.kerf.project.module.Modules;
 
 /**
@@ -15,7 +15,7 @@ import pl.kerf.project.module.Modules;
  * (zbiór zapamiętany przy budowie fragmentu), i pomijamy wysyłkę pozostałych; po wejściu w pole widzenia dostają najnowszą klatkę.
  */
 public final class AnimatedSprites {
-	private static final WeakHashMap<SpriteContents.Animator, SpriteContents> OWNERS = new WeakHashMap<>();
+	private static final WeakHashMap<SpriteContents.AnimationState, SpriteContents> OWNERS = new WeakHashMap<>();
 	/** Widoczny zbiór liczymy raz na kilka milisekund, a nie przy każdej animowanej teksturze. */
 	private static final long CACHE_NANOS = 20_000_000L;
 	private static long computedAt;
@@ -26,9 +26,17 @@ public final class AnimatedSprites {
 	private AnimatedSprites() {
 	}
 
-	public static void register(SpriteContents.Animator animator, SpriteContents owner) {
+	//? if <26.1.2 {
+	public static void register(SpriteContents.AnimationState animator, SpriteContents owner) {
+	//?} else {
+	/*public static void register(SpriteContents.AnimationState state, SpriteContents owner) {
+	*///?}
 		synchronized (OWNERS) {
+			//? if <26.1.2 {
 			OWNERS.put(animator, owner);
+			//?} else {
+			/*OWNERS.put(state, owner);
+			*///?}
 		}
 	}
 
@@ -37,19 +45,27 @@ public final class AnimatedSprites {
 	 * nakładki (woda, ogień) i portale.
 	 */
 	private static boolean always(SpriteContents contents) {
-		String path = contents.getId().getPath();
+		String path = contents.name().getPath();
 		return path.contains("water") || path.contains("lava") || path.contains("fire") || path.contains("overlay") || path.contains("portal");
 	}
 
 	/** Czy dla tej animacji pomijamy wysyłkę klatki na GPU (nikt jej teraz nie widzi). */
-	public static boolean hidden(SpriteContents.Animator animator) {
+	//? if <26.1.2 {
+	public static boolean hidden(SpriteContents.AnimationState animator) {
+	//?} else {
+	/*public static boolean hidden(SpriteContents.AnimationState state) {
+	*///?}
 		if (!Modules.OPTIMIZATION.active(Modules.OPTIMIZATION.animateOnlyVisible)) {
 			return false;
 		}
 
 		SpriteContents owner;
 		synchronized (OWNERS) {
+			//? if <26.1.2 {
 			owner = OWNERS.get(animator);
+			//?} else {
+			/*owner = OWNERS.get(state);
+			*///?}
 		}
 
 		if (owner == null || always(owner)) {
@@ -73,16 +89,28 @@ public final class AnimatedSprites {
 		}
 
 		computedAt = now;
-		MinecraftClient client = MinecraftClient.getInstance();
-		if (client.worldRenderer == null || client.world == null) {
+		Minecraft client = Minecraft.getInstance();
+		if (client.levelRenderer == null || client.level == null) {
 			return visible = null;
 		}
 
 		Set<SpriteContents> set = new HashSet<>();
 		int sections = 0;
-		for (ChunkBuilder.BuiltChunk chunk : client.worldRenderer.getBuiltChunks()) {
-			if (chunk.getCurrentRenderData() instanceof ChunkRenderData data) {
+		//? if <26.1.2 {
+		for (SectionRenderDispatcher.RenderSection chunk : client.levelRenderer.getVisibleSections()) {
+			if (chunk.getSectionMesh() instanceof CompiledSectionMesh data) {
 				Set<SpriteContents> sprites = ((SpritesHolder) data).aio$sprites();
+		//?}
+		//? if >=26.2 {
+		/*for (SectionRenderDispatcher.RenderSection section : client.levelRenderer.visibleSections()) {
+		*///?}
+		//? if =26.1.2 {
+		/*for (SectionRenderDispatcher.RenderSection section : client.levelRenderer.getVisibleSections()) {
+		*///?}
+			//? if >=26.1.2 {
+			/*if (section.getSectionMesh() instanceof CompiledSectionMesh mesh) {
+				Set<SpriteContents> sprites = ((SpritesHolder) mesh).aio$sprites();
+			*///?}
 				if (sprites == null) {
 					return visible = null;
 				}
@@ -104,7 +132,7 @@ public final class AnimatedSprites {
 		}
 
 		Set<String> paths = new HashSet<>();
-		set.forEach(contents -> paths.add(contents.getId().getPath()));
+		set.forEach(contents -> paths.add(contents.name().getPath()));
 		return paths;
 	}
 

@@ -2,11 +2,11 @@ package pl.kerf.project.gui.theme;
 
 import pl.kerf.project.Lang;
 import java.util.List;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.text.OrderedText;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.FormattedCharSequence;
 
 /**
  * Podpowiedzi w stylu interfejsu. Element pod kursorem zgłasza tekst w czasie rysowania ({@link #offer}),
@@ -27,7 +27,7 @@ public final class Tip {
 		offered = text;
 	}
 
-	public static void render(DrawContext context, int mouseX, int mouseY) {
+	public static void render(GuiGraphics context, int mouseX, int mouseY) {
 		String text = offered;
 		offered = null;
 		long now = System.currentTimeMillis();
@@ -42,26 +42,26 @@ public final class Tip {
 		}
 
 		float alpha = FADE.to(1.0F);
-		TextRenderer font = MinecraftClient.getInstance().textRenderer;
-		List<OrderedText> lines = font.wrapLines(Text.literal(current), 180);
+		Font font = Minecraft.getInstance().font;
+		List<FormattedCharSequence> lines = font.split(Component.literal(current), 180);
 		int w = 0;
-		for (OrderedText line : lines) {
-			w = Math.max(w, font.getWidth(line));
+		for (FormattedCharSequence line : lines) {
+			w = Math.max(w, font.width(line));
 		}
 
 		w += 12;
 		int h = lines.size() * 10 + 8;
-		int sw = context.getScaledWindowWidth();
-		int sh = context.getScaledWindowHeight();
+		int sw = context.guiWidth();
+		int sh = context.guiHeight();
 		int x = Math.min(mouseX + 10, sw - w - 4);
 		int y = Math.min(mouseY + 12, sh - h - 4);
-		context.createNewRootLayer();
+		context.nextStratum();
 		Draw.shadow(context, x, y, w, h, 3, 3);
 		Draw.round(context, x, y, w, h, 3, Theme.alpha(0xFF101216, Math.round(250 * alpha)));
 		Draw.outline(context, x, y, w, h, 3, Theme.alpha(Theme.BORDER_STRONG, Math.round(255 * alpha)));
 		int ty = y + 5;
-		for (OrderedText line : lines) {
-			context.drawText(font, line, x + 6, ty, Theme.alpha(Theme.TEXT_2, Math.round(255 * alpha)), false);
+		for (FormattedCharSequence line : lines) {
+			context.drawString(font, line, x + 6, ty, Theme.alpha(Theme.TEXT_2, Math.round(255 * alpha)), false);
 			ty += 10;
 		}
 	}

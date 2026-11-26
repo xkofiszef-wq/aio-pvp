@@ -1,6 +1,6 @@
 package pl.kerf.project.gui;
 
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.GuiGraphics;
 
 /** Konfetti z pikseli (ikona przycisku "Party" w pasku bocznym): rozrzucone kolorowe kwadraciki 2x2 w polu 12x11. */
 final class PartyIcon {
@@ -14,7 +14,7 @@ final class PartyIcon {
 	private PartyIcon() {
 	}
 
-	static void draw(DrawContext context, int x, int y) {
+	static void draw(GuiGraphics context, int x, int y) {
 		for (int[] piece : CONFETTI) {
 			context.fill(x + piece[0], y + piece[1], x + piece[0] + 2, y + piece[1] + 2, piece[2]);
 		}

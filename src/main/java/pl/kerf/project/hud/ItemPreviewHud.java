@@ -2,15 +2,15 @@ package pl.kerf.project.hud;
 
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.render.RenderTickCounter;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import pl.kerf.project.config.Setting;
 import pl.kerf.project.module.HudModule;
 
@@ -42,32 +42,32 @@ public final class ItemPreviewHud extends HudModule {
 		this.tracked.clear();
 		for (String part : source.split(",")) {
 			Identifier id = Identifier.tryParse(part.trim().toLowerCase(java.util.Locale.ROOT));
-			if (id == null || !Registries.ITEM.containsId(id)) {
+			if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
 				continue;
 			}
 
-			Item item = Registries.ITEM.get(id);
+			Item item = BuiltInRegistries.ITEM.getValue(id);
 			if (item != Items.AIR) {
 				this.tracked.add(new ItemStack(item));
 			}
 		}
 	}
 
-	private void update(MinecraftClient client, boolean editing) {
+	private void update(Minecraft client, boolean editing) {
 		this.parse();
 		this.visible.clear();
 		this.counts.clear();
 		// Jedno przejście po ekwipunku na klatkę, puste sloty od razu pomijane.
 		int[] totals = new int[this.tracked.size()];
-		PlayerInventory inventory = client.player.getInventory();
-		for (int slot = 0; slot < inventory.size(); slot++) {
-			ItemStack stack = inventory.getStack(slot);
+		Inventory inventory = client.player.getInventory();
+		for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
+			ItemStack stack = inventory.getItem(slot);
 			if (stack.isEmpty()) {
 				continue;
 			}
 
 			for (int i = 0; i < totals.length; i++) {
-				if (stack.isOf(this.tracked.get(i).getItem())) {
+				if (stack.is(this.tracked.get(i).getItem())) {
 					totals[i] += stack.getCount();
 				}
 			}
@@ -99,18 +99,18 @@ public final class ItemPreviewHud extends HudModule {
 	}
 
 	@Override
-	public int width(MinecraftClient client, boolean editing) {
+	public int width(Minecraft client, boolean editing) {
 		this.update(client, editing);
 		return this.layout.is(0) ? this.length() : this.visible.isEmpty() ? 0 : 16;
 	}
 
 	@Override
-	public int height(MinecraftClient client, boolean editing) {
+	public int height(Minecraft client, boolean editing) {
 		return this.layout.is(0) ? this.visible.isEmpty() ? 0 : 16 : this.length();
 	}
 
 	@Override
-	protected void draw(DrawContext context, MinecraftClient client, RenderTickCounter tickCounter, boolean editing) {
+	protected void draw(GuiGraphics context, Minecraft client, DeltaTracker tickCounter, boolean editing) {
 		boolean horizontal = this.layout.is(0);
 		if (this.vanilla()) {
 			VanillaGui.slots(context, 0, 0, this.visible.size(), horizontal, this.style.is(2));
@@ -120,9 +120,17 @@ public final class ItemPreviewHud extends HudModule {
 			int x = horizontal ? i * this.pitch() : 0;
 			int y = horizontal ? 0 : i * this.pitch();
 			ItemStack stack = this.visible.get(i);
-			context.drawItem(stack, x, y);
+			//? if <26.1.2 {
+			context.renderItem(stack, x, y);
+			//?} else {
+			/*context.item(stack, x, y);
+			*///?}
 			// Własny tekst licznika: vanilla ukrywa "1" i nie pokaże sumy większej niż stack.
-			context.drawStackOverlay(client.textRenderer, stack, x, y, String.valueOf(this.counts.get(i)));
+			//? if <26.1.2 {
+			context.renderItemDecorations(client.font, stack, x, y, String.valueOf(this.counts.get(i)));
+			//?} else {
+			/*context.itemDecorations(client.font, stack, x, y, String.valueOf(this.counts.get(i)));
+			*///?}
 		}
 	}
 }

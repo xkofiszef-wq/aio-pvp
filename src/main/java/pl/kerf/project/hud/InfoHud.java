@@ -1,10 +1,10 @@
 package pl.kerf.project.hud;
 
 import java.util.function.BiFunction;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.render.RenderTickCounter;
-import net.minecraft.text.Text;
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.network.chat.Component;
 import pl.kerf.project.config.Setting;
 import pl.kerf.project.module.HudModule;
 
@@ -18,21 +18,21 @@ public class InfoHud extends HudModule {
 	public final Setting.Bool shadow = this.add(new Setting.Bool("shadow", "Cień tekstu", true));
 	public final Setting.Num rounding = this.add(new Setting.Num("rounding", "Zaokrąglenie rogów", 0, 0, 8, 1, " px"));
 	public final Setting.Bool brackets = this.add(new Setting.Bool("brackets", "Nawiasy [ ]", false));
-	private final BiFunction<MinecraftClient, Boolean, Text> text;
+	private final BiFunction<Minecraft, Boolean, Component> text;
 	/** Tekst i jego szerokość z bieżącej klatki: width() liczy raz, height() i draw() tylko czytają. */
-	private Text current;
+	private Component current;
 	private int currentW;
 	/** Tekst liczony raz na tick: FPS, ping, CPS czy zegar i tak nie zmieniają się częściej. */
 	private int updatedAge = -1;
 	private boolean updatedEditing;
 
-	public InfoHud(String id, String name, String description, float ax, float ay, float px, float py, float ox, float oy, BiFunction<MinecraftClient, Boolean, Text> text) {
+	public InfoHud(String id, String name, String description, float ax, float ay, float px, float py, float ox, float oy, BiFunction<Minecraft, Boolean, Component> text) {
 		super(id, name, description, false, ax, ay, px, py, ox, oy);
 		this.text = text;
 	}
 
 	/** Tło elementu: prostokąt albo, przy ustawionym zaokrągleniu, prostokąt z zaokrąglonymi rogami. */
-	protected final void fillBackground(DrawContext context, int w, int h) {
+	protected final void fillBackground(GuiGraphics context, int w, int h) {
 		if (this.rounding.i() > 0) {
 			pl.kerf.project.gui.theme.Draw.roundExact(context, 0, 0, w, h, this.rounding.i(), this.backgroundColor.argb());
 		} else {
@@ -41,32 +41,32 @@ public class InfoHud extends HudModule {
 	}
 
 	/** Treść; null = nic do pokazania (wtedy element znika). */
-	protected Text text(MinecraftClient client, boolean editing) {
+	protected Component text(Minecraft client, boolean editing) {
 		return this.text.apply(client, editing);
 	}
 
 	/** Wywoływane jako pierwsze w każdej klatce (render i podgląd zaczynają od width). */
 	@Override
-	public int width(MinecraftClient client, boolean editing) {
-		if (client.player.age != this.updatedAge || editing != this.updatedEditing) {
-			this.updatedAge = client.player.age;
+	public int width(Minecraft client, boolean editing) {
+		if (client.player.tickCount != this.updatedAge || editing != this.updatedEditing) {
+			this.updatedAge = client.player.tickCount;
 			this.updatedEditing = editing;
-			Text raw = this.text(client, editing);
-			this.current = raw != null && this.brackets.on() ? Text.literal("[").append(raw).append("]") : raw;
-			this.currentW = this.current == null ? 0 : client.textRenderer.getWidth(this.current);
+			Component raw = this.text(client, editing);
+			this.current = raw != null && this.brackets.on() ? Component.literal("[").append(raw).append("]") : raw;
+			this.currentW = this.current == null ? 0 : client.font.width(this.current);
 		}
 
 		return this.current == null ? 0 : this.currentW + 2 * PAD_X;
 	}
 
 	@Override
-	public int height(MinecraftClient client, boolean editing) {
+	public int height(Minecraft client, boolean editing) {
 		return this.current == null ? 0 : 8 + 2 * PAD_Y;
 	}
 
 	@Override
-	protected void draw(DrawContext context, MinecraftClient client, RenderTickCounter tickCounter, boolean editing) {
-		Text text = this.current;
+	protected void draw(GuiGraphics context, Minecraft client, DeltaTracker tickCounter, boolean editing) {
+		Component text = this.current;
 		if (text == null) {
 			return;
 		}
@@ -75,6 +75,6 @@ public class InfoHud extends HudModule {
 			this.fillBackground(context, this.currentW + 2 * PAD_X, 8 + 2 * PAD_Y);
 		}
 
-		context.drawText(client.textRenderer, text, PAD_X, PAD_Y, 0xFFFFFFFF, this.shadow.on());
+		context.drawString(client.font, text, PAD_X, PAD_Y, 0xFFFFFFFF, this.shadow.on());
 	}
 }

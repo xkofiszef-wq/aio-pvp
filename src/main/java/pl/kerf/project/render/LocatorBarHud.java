@@ -2,23 +2,27 @@ package pl.kerf.project.render;
 
 import com.mojang.datafixers.util.Either;
 import java.util.UUID;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.PlayerSkinDrawer;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.client.render.RenderTickCounter;
-import net.minecraft.client.resource.waypoint.WaypointStyleAsset;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.ColorHelper;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.world.World;
-import net.minecraft.world.tick.TickManager;
-import net.minecraft.world.waypoint.EntityTickProgress;
-import net.minecraft.world.waypoint.TrackedWaypoint;
-import net.minecraft.world.waypoint.Waypoint;
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+//? if <26.1.2 {
+import net.minecraft.client.gui.components.PlayerFaceRenderer;
+//?} else {
+/*import net.minecraft.client.gui.components.PlayerFaceExtractor;
+*///?}
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.resources.WaypointStyle;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.ARGB;
+import net.minecraft.util.Mth;
+import net.minecraft.world.TickRateManager;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.waypoints.PartialTickSupplier;
+import net.minecraft.world.waypoints.TrackedWaypoint;
+import net.minecraft.world.waypoints.Waypoint;
 import pl.kerf.project.module.Modules;
 
 /**
@@ -26,8 +30,8 @@ import pl.kerf.project.module.Modules;
  * głowy graczy z obwódką w kolorze waypointa, nicki, kierunek świata na środku paska i cień tekstu.
  */
 public final class LocatorBarHud {
-	private static final Identifier ARROW_UP = Identifier.ofVanilla("hud/locator_bar_arrow_up");
-	private static final Identifier ARROW_DOWN = Identifier.ofVanilla("hud/locator_bar_arrow_down");
+	private static final Identifier ARROW_UP = Identifier.withDefaultNamespace("hud/locator_bar_arrow_up");
+	private static final Identifier ARROW_DOWN = Identifier.withDefaultNamespace("hud/locator_bar_arrow_down");
 	private static final String[] DIRECTIONS = {"S", "SW", "W", "NW", "N", "NE", "E", "SE"};
 
 	private LocatorBarHud() {
@@ -35,77 +39,144 @@ public final class LocatorBarHud {
 
 	/** Kolor waypointa tak jak w vanilli: ustawiony w konfiguracji albo wyliczony z nadawcy. */
 	private static int color(TrackedWaypoint waypoint) {
-		Waypoint.Config config = waypoint.getConfig();
-		return config.color.orElseGet(() -> waypoint.getSource().map(
-			uuid -> ColorHelper.withBrightness(ColorHelper.withAlpha(255, uuid.hashCode()), 0.9F),
-			name -> ColorHelper.withBrightness(ColorHelper.withAlpha(255, name.hashCode()), 0.9F)
+		//? if <26.1.2 {
+		Waypoint.Icon config = waypoint.icon();
+		return config.color.orElseGet(() -> waypoint.id().map(
+		//?} else {
+		/*Waypoint.Icon icon = waypoint.icon();
+		return icon.color.orElseGet(() -> waypoint.id().map(
+		*///?}
+			uuid -> ARGB.setBrightness(ARGB.color(255, uuid.hashCode()), 0.9F),
+			name -> ARGB.setBrightness(ARGB.color(255, name.hashCode()), 0.9F)
 		)) | 0xFF000000;
 	}
 
-	public static void draw(DrawContext context, RenderTickCounter tickCounter, MinecraftClient client) {
+	//? if <26.1.2 {
+	public static void draw(GuiGraphics context, DeltaTracker tickCounter, Minecraft client) {
+	//?} else {
+	/*public static void draw(GuiGraphics graphics, DeltaTracker deltaTracker, Minecraft client) {
+	*///?}
 		Entity entity = client.getCameraEntity();
 		if (entity == null || client.player == null) {
 			return;
 		}
 
 		Modules.LocatorBarSettings settings = Modules.LOCATOR_BAR;
-		TextRenderer font = client.textRenderer;
-		int barY = context.getScaledWindowHeight() - 24 - 5;
-		int left = MathHelper.ceil((context.getScaledWindowWidth() - 9) / 2.0F);
-		World world = entity.getEntityWorld();
-		TickManager tickManager = world.getTickManager();
-		EntityTickProgress progress = e -> tickCounter.getTickProgress(!tickManager.shouldSkipTick(e));
+		Font font = client.font;
+		//? if <26.1.2 {
+		int barY = context.guiHeight() - 24 - 5;
+		int left = Mth.ceil((context.guiWidth() - 9) / 2.0F);
+		Level world = entity.level();
+		TickRateManager tickManager = world.tickRateManager();
+		PartialTickSupplier progress = e -> tickCounter.getGameTimeDeltaPartialTick(!tickManager.isEntityFrozen(e));
+		//?} else {
+		/*int barY = graphics.guiHeight() - 24 - 5;
+		int left = Mth.ceil((graphics.guiWidth() - 9) / 2.0F);
+		Level level = entity.level();
+		TickRateManager tickRateManager = level.tickRateManager();
+		PartialTickSupplier progress = e -> deltaTracker.getGameTimeDeltaPartialTick(!tickRateManager.isEntityFrozen(e));
+		*///?}
 		boolean shadow = settings.textShadow.on();
-		client.player.networkHandler.getWaypointHandler().forEachWaypoint(entity, waypoint -> {
-			Either<UUID, String> source = waypoint.getSource();
-			if (source.left().map(uuid -> uuid.equals(entity.getUuid())).orElse(false)) {
+		client.player.connection.getWaypointManager().forEachWaypoint(entity, waypoint -> {
+			Either<UUID, String> source = waypoint.id();
+			if (source.left().map(uuid -> uuid.equals(entity.getUUID())).orElse(false)) {
 				return;
 			}
 
-			double relative = waypoint.getRelativeYaw(world, client.gameRenderer.getCamera(), progress);
+			//? if <26.1.2 {
+			double relative = waypoint.yawAngleToCamera(world, client.gameRenderer.getMainCamera(), progress);
+			//?}
+			//? if >=26.2 {
+			/*double relative = waypoint.yawAngleToCamera(level, client.gameRenderer.mainCamera(), progress);
+			*///?}
+			//? if =26.1.2 {
+			/*double relative = waypoint.yawAngleToCamera(level, client.gameRenderer.getMainCamera(), progress);
+			*///?}
 			if (relative <= -60.0 || relative > 60.0) {
 				return;
 			}
 
-			int x = left + MathHelper.floor(relative * 173.0 / 2.0 / 60.0);
+			int x = left + Mth.floor(relative * 173.0 / 2.0 / 60.0);
 			int color = color(waypoint);
-			PlayerListEntry player = source.left().map(uuid -> client.getNetworkHandler() == null ? null : client.getNetworkHandler().getPlayerListEntry(uuid)).orElse(null);
+			PlayerInfo player = source.left().map(uuid -> client.getConnection() == null ? null : client.getConnection().getPlayerInfo(uuid)).orElse(null);
 			if (!settings.icons.on()) {
+				//? if <26.1.2 {
 				context.fill(x + 2, barY, x + 7, barY + 5, color);
+				//?} else {
+				/*graphics.fill(x + 2, barY, x + 7, barY + 5, color);
+				*///?}
 			} else if (settings.heads.on() && source.left().isPresent()) {
+				//? if <26.1.2 {
 				// Obwódka w kolorze waypointa, w środku głowa (8x8) razem z warstwą kapelusza.
 				context.fill(x - 1, barY - 3, x + 10, barY + 8, color);
-				PlayerSkinDrawer.draw(context, player != null ? player.getSkinTextures() : net.minecraft.client.util.DefaultSkinHelper.getSkinTextures(source.left().get()), x, barY - 2, 9);
+				PlayerFaceRenderer.draw(context, player != null ? player.getSkin() : net.minecraft.client.resources.DefaultPlayerSkin.get(source.left().get()), x, barY - 2, 9);
+				//?} else {
+				/*// Obwódka w kolorze waypointa, w środku głowa razem z warstwą kapelusza.
+				graphics.fill(x - 1, barY - 3, x + 10, barY + 8, color);
+				PlayerFaceExtractor.extractRenderState(graphics, player != null ? player.getSkin() : net.minecraft.world.entity.player.PlayerSkin.class.cast(net.minecraft.client.resources.DefaultPlayerSkin.get(source.left().get())), x, barY - 2, 9);
+				*///?}
 			} else {
-				WaypointStyleAsset style = client.getWaypointStyleAssetManager().get(waypoint.getConfig().style);
-				float distance = MathHelper.sqrt((float) waypoint.squaredDistanceTo(entity));
-				context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, style.getSpriteForDistance(distance), x, barY - 2, 9, 9, color);
+				//? if <26.2 {
+				WaypointStyle style = client.getWaypointStyles().get(waypoint.icon().style);
+				//?} else {
+				/*WaypointStyle style = client.gui.hud.getWaypointStyles().get(waypoint.icon().style);
+				*///?}
+				float distance = Mth.sqrt((float) waypoint.distanceSquared(entity));
+				//? if <26.1.2 {
+				context.blitSprite(RenderPipelines.GUI_TEXTURED, style.sprite(distance), x, barY - 2, 9, 9, color);
+				//?} else {
+				/*graphics.blitSprite(RenderPipelines.GUI_TEXTURED, style.sprite(distance), x, barY - 2, 9, 9, color);
+				*///?}
 			}
 
-			TrackedWaypoint.Pitch pitch = waypoint.getPitch(world, client.gameRenderer, progress);
-			if (pitch != TrackedWaypoint.Pitch.NONE) {
-				boolean down = pitch == TrackedWaypoint.Pitch.DOWN;
-				context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, down ? ARROW_DOWN : ARROW_UP, x + 1, barY + (down ? 6 : -6), 7, 5);
+			//? if <26.1.2 {
+			TrackedWaypoint.PitchDirection pitch = waypoint.pitchDirectionToCamera(world, client.gameRenderer, progress);
+			//?} else {
+			/*TrackedWaypoint.PitchDirection pitch = waypoint.pitchDirectionToCamera(level, client.gameRenderer, progress);
+			*///?}
+			if (pitch != TrackedWaypoint.PitchDirection.NONE) {
+				boolean down = pitch == TrackedWaypoint.PitchDirection.DOWN;
+				//? if <26.1.2 {
+				context.blitSprite(RenderPipelines.GUI_TEXTURED, down ? ARROW_DOWN : ARROW_UP, x + 1, barY + (down ? 6 : -6), 7, 5);
+				//?} else {
+				/*graphics.blitSprite(RenderPipelines.GUI_TEXTURED, down ? ARROW_DOWN : ARROW_UP, x + 1, barY + (down ? 6 : -6), 7, 5);
+				*///?}
 			}
 
 			boolean hover = Math.abs(relative) < 4.0;
 			if (settings.names.is(2) || settings.names.is(1) && hover) {
 				String name = source.map(uuid -> player == null ? null : player.getProfile().name(), text -> text);
 				if (name != null && !name.isBlank()) {
-					context.drawText(font, name, x + 5 - font.getWidth(name) / 2, barY - 13, 0xFFFFFFFF, shadow);
+					//? if <26.1.2 {
+					context.drawString(font, name, x + 5 - font.width(name) / 2, barY - 13, 0xFFFFFFFF, shadow);
+					//?} else {
+					/*graphics.text(font, name, x + 5 - font.width(name) / 2, barY - 13, 0xFFFFFFFF, shadow);
+					*///?}
 				}
 			}
 		});
 		if (settings.direction.on()) {
-			float yaw = MathHelper.wrapDegrees(client.gameRenderer.getCamera().getYaw());
+			//? if <26.2 {
+			float yaw = Mth.wrapDegrees(client.gameRenderer.getMainCamera().yRot());
+			//?} else {
+			/*float yaw = Mth.wrapDegrees(client.gameRenderer.mainCamera().yRot());
+			*///?}
 			int index = Math.floorMod(Math.round(yaw / 45.0F), 8);
 			String text = DIRECTIONS[index];
 			// Pasek ma 5 px wysokości, więc litery są mniejsze i mieszczą się w nim.
-			context.getMatrices().pushMatrix();
-			context.getMatrices().translate(context.getScaledWindowWidth() / 2.0F, barY + 2.5F);
-			context.getMatrices().scale(0.6F, 0.6F);
-			context.drawText(font, text, -font.getWidth(text) / 2, -4, 0xFFFFFFFF, shadow);
-			context.getMatrices().popMatrix();
+			//? if <26.1.2 {
+			context.pose().pushMatrix();
+			context.pose().translate(context.guiWidth() / 2.0F, barY + 2.5F);
+			context.pose().scale(0.6F, 0.6F);
+			context.drawString(font, text, -font.width(text) / 2, -4, 0xFFFFFFFF, shadow);
+			context.pose().popMatrix();
+			//?} else {
+			/*graphics.pose().pushMatrix();
+			graphics.pose().translate(graphics.guiWidth() / 2.0F, barY + 2.5F);
+			graphics.pose().scale(0.6F, 0.6F);
+			graphics.text(font, text, -font.width(text) / 2, -4, 0xFFFFFFFF, shadow);
+			graphics.pose().popMatrix();
+			*///?}
 		}
 	}
 }

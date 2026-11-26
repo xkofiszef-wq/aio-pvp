@@ -1,21 +1,21 @@
 package pl.kerf.project.render;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.block.ShapeContext;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.Perspective;
-import net.minecraft.client.render.DrawStyle;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.mob.Monster;
-import net.minecraft.entity.PlayerLikeEntity;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.world.debug.gizmo.GizmoDrawing;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.gizmos.GizmoStyle;
+import net.minecraft.gizmos.Gizmos;
+import net.minecraft.world.entity.Avatar;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.monster.Enemy;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import pl.kerf.project.module.Modules;
 import pl.kerf.project.module.Modules.BlockOutline;
 
@@ -31,12 +31,16 @@ public final class WorldOverlays {
 	}
 
 	/** Wywoływane raz na klatkę, zanim renderer świata zbierze gizmo. */
-	public static void submit(MinecraftClient client) {
-		if (client.world == null || client.player == null || !(Modules.BLOCK_OUTLINE.on() || Modules.WAYPOINTS.on() || Modules.MARKERS.on() && Modules.MARKERS.beacon.on())) {
+	public static void submit(Minecraft client) {
+		if (client.level == null || client.player == null || !(Modules.BLOCK_OUTLINE.on() || Modules.WAYPOINTS.on() || Modules.MARKERS.on() && Modules.MARKERS.beacon.on())) {
 			return;
 		}
 
-		try (GizmoDrawing.CollectorScope scope = client.worldRenderer.startDrawingGizmos()) {
+		//? if <26.2 {
+		try (Gizmos.TemporaryCollection scope = client.levelRenderer.collectPerFrameGizmos()) {
+		//?} else {
+		/*try (Gizmos.TemporaryCollection scope = client.levelRenderer.collectPerFrameRenderThreadGizmos()) {
+		*///?}
 			if (Modules.BLOCK_OUTLINE.on()) {
 				submitBlockOutline(client);
 			}
@@ -55,37 +59,41 @@ public final class WorldOverlays {
 	 * Hitboxy w miejsce vanillowych z F3+B. Wywoływane z renderera debug, więc pokazują się tylko wtedy,
 	 * gdy gracz włączył hitboxy skrótem F3+B.
 	 */
-	public static void drawHitboxes(MinecraftClient client, float tickProgress) {
-		if (client.world == null) {
+	public static void drawHitboxes(Minecraft client, float tickProgress) {
+		if (client.level == null) {
 			return;
 		}
 
 		// Własny zakres na ten sam kolektor renderera świata: działa też w klatkach renderowanych poza główną pętlą.
-		try (GizmoDrawing.CollectorScope scope = client.worldRenderer.startDrawingGizmos()) {
+		//? if <26.2 {
+		try (Gizmos.TemporaryCollection scope = client.levelRenderer.collectPerFrameGizmos()) {
+		//?} else {
+		/*try (Gizmos.TemporaryCollection scope = client.levelRenderer.collectPerFrameRenderThreadGizmos()) {
+		*///?}
 			submitHitboxes(client, tickProgress);
 		}
 	}
 
-	private static void submitHitboxes(MinecraftClient client, float tickProgress) {
+	private static void submitHitboxes(Minecraft client, float tickProgress) {
 		Modules.Hitboxes module = Modules.HITBOXES;
 		float width = module.width.f();
-		Entity target = client.targetedEntity;
-		for (Entity entity : client.world.getEntities()) {
+		Entity target = client.crosshairPickEntity;
+		for (Entity entity : client.level.entitiesForRendering()) {
 			if (entity.isInvisible()) {
 				continue;
 			}
 
-			if (entity == client.getCameraEntity() && client.options.getPerspective() == Perspective.FIRST_PERSON) {
+			if (entity == client.getCameraEntity() && client.options.getCameraType() == CameraType.FIRST_PERSON) {
 				continue;
 			}
 
 			// Grupa encji decyduje, czy hitbox w ogóle jest rysowany; cel celownika dostaje tylko inny kolor.
 			boolean enabled;
 			int color;
-			if (entity instanceof PlayerLikeEntity) {
+			if (entity instanceof Avatar) {
 				enabled = module.players.on();
 				color = module.playerColor.argb();
-			} else if (entity instanceof Monster) {
+			} else if (entity instanceof Enemy) {
 				enabled = module.hostile.on();
 				color = module.hostileColor.argb();
 			} else if (entity instanceof LivingEntity) {
@@ -105,31 +113,35 @@ public final class WorldOverlays {
 			}
 
 			// Hitbox w pozycji interpolowanej, żeby nie "skakał" między tickami.
-			Vec3d offset = entity.getLerpedPos(tickProgress).subtract(entity.getEntityPos());
-			Box box = entity.getBoundingBox().offset(offset);
-			GizmoDrawing.box(box, DrawStyle.stroked(color, width));
+			Vec3 offset = entity.getPosition(tickProgress).subtract(entity.position());
+			AABB box = entity.getBoundingBox().move(offset);
+			Gizmos.cuboid(box, GizmoStyle.stroke(color, width));
 			if (module.eyes.on() && entity instanceof LivingEntity) {
-				double eye = box.minY + entity.getStandingEyeHeight();
-				GizmoDrawing.box(new Box(box.minX, eye - 0.01, box.minZ, box.maxX, eye + 0.01, box.maxZ), DrawStyle.stroked(0xFFFF0000));
-				Vec3d eyePos = entity.getLerpedPos(tickProgress).add(0.0, entity.getStandingEyeHeight(), 0.0);
-				GizmoDrawing.arrow(eyePos, eyePos.add(entity.getRotationVec(tickProgress).multiply(2.0)), 0xFF0000FF);
+				double eye = box.minY + entity.getEyeHeight();
+				Gizmos.cuboid(new AABB(box.minX, eye - 0.01, box.minZ, box.maxX, eye + 0.01, box.maxZ), GizmoStyle.stroke(0xFFFF0000));
+				Vec3 eyePos = entity.getPosition(tickProgress).add(0.0, entity.getEyeHeight(), 0.0);
+				Gizmos.arrow(eyePos, eyePos.add(entity.getViewVector(tickProgress).scale(2.0)), 0xFF0000FF);
 			}
 		}
 	}
 
-	private static void submitBlockOutline(MinecraftClient client) {
-		if (client.options.hudHidden || !(client.crosshairTarget instanceof BlockHitResult hit) || hit.getType() == HitResult.Type.MISS) {
+	private static void submitBlockOutline(Minecraft client) {
+		//? if <26.2 {
+		if (client.options.hideGui || !(client.hitResult instanceof BlockHitResult hit) || hit.getType() == HitResult.Type.MISS) {
+		//?} else {
+		/*if (client.gui.hud.isHidden() || !(client.hitResult instanceof BlockHitResult hit) || hit.getType() == HitResult.Type.MISS) {
+		*///?}
 			return;
 		}
 
 		BlockPos pos = hit.getBlockPos();
-		BlockState state = client.world.getBlockState(pos);
-		if (state.isAir() || !client.world.getWorldBorder().contains(pos)) {
+		BlockState state = client.level.getBlockState(pos);
+		if (state.isAir() || !client.level.getWorldBorder().isWithinBounds(pos)) {
 			return;
 		}
 
 		Entity camera = client.getCameraEntity();
-		VoxelShape shape = state.getOutlineShape(client.world, pos, camera == null ? ShapeContext.absent() : ShapeContext.of(camera));
+		VoxelShape shape = state.getShape(client.level, pos, camera == null ? CollisionContext.empty() : CollisionContext.of(camera));
 		if (shape.isEmpty()) {
 			return;
 		}
@@ -143,19 +155,19 @@ public final class WorldOverlays {
 		double y = pos.getY();
 		double z = pos.getZ();
 		if (module.mode.is(BlockOutline.MODE_FACE)) {
-			Box box = shape.getBoundingBox().offset(pos).expand(EPSILON);
-			DrawStyle style = fill ? DrawStyle.filledAndStroked(color, width, fillColor) : DrawStyle.stroked(color, width);
-			GizmoDrawing.face(new Vec3d(box.minX, box.minY, box.minZ), new Vec3d(box.maxX, box.maxY, box.maxZ), hit.getSide(), style);
+			AABB box = shape.bounds().move(pos).inflate(EPSILON);
+			GizmoStyle style = fill ? GizmoStyle.strokeAndFill(color, width, fillColor) : GizmoStyle.stroke(color, width);
+			Gizmos.rect(new Vec3(box.minX, box.minY, box.minZ), new Vec3(box.maxX, box.maxY, box.maxZ), hit.getDirection(), style);
 			return;
 		}
 
 		// Krawędzie kształtu, tak jak vanilla: schody czy płotki nie dostają wewnętrznych linii.
-		shape.forEachEdge((minX, minY, minZ, maxX, maxY, maxZ) -> GizmoDrawing.line(
-			new Vec3d(x + minX, y + minY, z + minZ), new Vec3d(x + maxX, y + maxY, z + maxZ), color, width
+		shape.forAllEdges((minX, minY, minZ, maxX, maxY, maxZ) -> Gizmos.line(
+			new Vec3(x + minX, y + minY, z + minZ), new Vec3(x + maxX, y + maxY, z + maxZ), color, width
 		));
 		if (fill) {
-			shape.forEachBox((minX, minY, minZ, maxX, maxY, maxZ) -> GizmoDrawing.box(
-				new Box(x + minX, y + minY, z + minZ, x + maxX, y + maxY, z + maxZ).expand(EPSILON), DrawStyle.filled(fillColor)
+			shape.forAllBoxes((minX, minY, minZ, maxX, maxY, maxZ) -> Gizmos.cuboid(
+				new AABB(x + minX, y + minY, z + minZ, x + maxX, y + maxY, z + maxZ).inflate(EPSILON), GizmoStyle.fill(fillColor)
 			));
 		}
 	}

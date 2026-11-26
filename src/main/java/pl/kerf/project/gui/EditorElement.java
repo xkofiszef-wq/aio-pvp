@@ -1,12 +1,12 @@
 package pl.kerf.project.gui;
 
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.resources.Identifier;
 import pl.kerf.project.Lang;
 import pl.kerf.project.gui.theme.Theme;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.util.Identifier;
 import pl.kerf.project.module.HudModule;
 import pl.kerf.project.module.Modules;
 
@@ -48,7 +48,7 @@ abstract class EditorElement {
 	abstract void reset();
 
 	/** Przykładowy wygląd w edytorze (tylko elementy vanilla, elementy moda rysuje HUD). */
-	void drawSample(DrawContext context, TextRenderer font) {
+	void drawSample(GuiGraphics context, Font font) {
 	}
 
 	/** Element HUD-u moda. */
@@ -111,9 +111,9 @@ abstract class EditorElement {
 
 		@Override
 		void setTopLeft(float x, float y) {
-			MinecraftClient client = MinecraftClient.getInstance();
-			int sw = client.getWindow().getScaledWidth();
-			int sh = client.getWindow().getScaledHeight();
+			Minecraft client = Minecraft.getInstance();
+			int sw = client.getWindow().getGuiScaledWidth();
+			int sh = client.getWindow().getGuiScaledHeight();
 			this.module.moveTo(x + this.margin(), y + this.margin(), sw, sh);
 		}
 
@@ -148,11 +148,11 @@ abstract class EditorElement {
 		}
 
 		static int screenW() {
-			return MinecraftClient.getInstance().getWindow().getScaledWidth();
+			return Minecraft.getInstance().getWindow().getGuiScaledWidth();
 		}
 
 		static int screenH() {
-			return MinecraftClient.getInstance().getWindow().getScaledHeight();
+			return Minecraft.getInstance().getWindow().getGuiScaledHeight();
 		}
 
 		/** Naturalny punkt zaczepienia elementu w vanilla (środek title, prawa krawędź scoreboardu...). */
@@ -161,10 +161,10 @@ abstract class EditorElement {
 		abstract float anchorY();
 
 		/** Prostokąt przykładowej zawartości względem kotwicy, przed skalowaniem. */
-		abstract float[] local(TextRenderer font);
+		abstract float[] local(Font font);
 
 		/** Rysuje przykładową zawartość w lokalnych współrzędnych. */
-		abstract void drawLocal(DrawContext context, TextRenderer font);
+		abstract void drawLocal(GuiGraphics context, Font font);
 
 		/** Wyłączony HUD Tweaker = element na miejscu z vanilla; ramka w edytorze musi to uwzględniać. */
 		private static boolean tweaking() {
@@ -180,7 +180,7 @@ abstract class EditorElement {
 		}
 
 		private float[] local() {
-			return this.local(MinecraftClient.getInstance().textRenderer);
+			return this.local(Minecraft.getInstance().font);
 		}
 
 		@Override
@@ -252,13 +252,13 @@ abstract class EditorElement {
 		}
 
 		@Override
-		void drawSample(DrawContext context, TextRenderer font) {
+		void drawSample(GuiGraphics context, Font font) {
 			float s = this.scale();
-			context.getMatrices().pushMatrix();
-			context.getMatrices().translate(this.anchorX() + this.offsetX(), this.anchorY() + this.offsetY());
-			context.getMatrices().scale(s, s);
+			context.pose().pushMatrix();
+			context.pose().translate(this.anchorX() + this.offsetX(), this.anchorY() + this.offsetY());
+			context.pose().scale(s, s);
 			this.drawLocal(context, font);
-			context.getMatrices().popMatrix();
+			context.pose().popMatrix();
 		}
 	}
 
@@ -278,21 +278,21 @@ abstract class EditorElement {
 		}
 
 		@Override
-		float[] local(TextRenderer font) {
-			float w = Math.max(font.getWidth("Title") * 4, font.getWidth("Subtitle") * 2) + 8;
+		float[] local(Font font) {
+			float w = Math.max(font.width("Title") * 4, font.width("Subtitle") * 2) + 8;
 			return new float[] {-w / 2.0F, -42.0F, w, 70.0F};
 		}
 
 		@Override
-		void drawLocal(DrawContext context, TextRenderer font) {
-			context.getMatrices().pushMatrix();
-			context.getMatrices().scale(4.0F, 4.0F);
-			context.drawText(font, "Title", -font.getWidth("Title") / 2, -10, 0xC0FFFFFF, true);
-			context.getMatrices().popMatrix();
-			context.getMatrices().pushMatrix();
-			context.getMatrices().scale(2.0F, 2.0F);
-			context.drawText(font, "Subtitle", -font.getWidth("Subtitle") / 2, 5, 0xC0FFFFFF, true);
-			context.getMatrices().popMatrix();
+		void drawLocal(GuiGraphics context, Font font) {
+			context.pose().pushMatrix();
+			context.pose().scale(4.0F, 4.0F);
+			context.drawString(font, "Title", -font.width("Title") / 2, -10, 0xC0FFFFFF, true);
+			context.pose().popMatrix();
+			context.pose().pushMatrix();
+			context.pose().scale(2.0F, 2.0F);
+			context.drawString(font, "Subtitle", -font.width("Subtitle") / 2, 5, 0xC0FFFFFF, true);
+			context.pose().popMatrix();
 		}
 	}
 
@@ -314,16 +314,16 @@ abstract class EditorElement {
 		}
 
 		@Override
-		float[] local(TextRenderer font) {
-			float w = font.getWidth(Lang.t(TEXT)) + 4;
+		float[] local(Font font) {
+			float w = font.width(Lang.t(TEXT)) + 4;
 			return new float[] {-w / 2.0F, -6.0F, w, 13.0F};
 		}
 
 		@Override
-		void drawLocal(DrawContext context, TextRenderer font) {
-			int w = font.getWidth(Lang.t(TEXT));
+		void drawLocal(GuiGraphics context, Font font) {
+			int w = font.width(Lang.t(TEXT));
 			context.fill(-w / 2 - 2, -6, w / 2 + 2, 7, 0x60000000);
-			context.drawText(font, Lang.t(TEXT), -w / 2, -4, 0xFFFFFFFF, true);
+			context.drawString(font, Lang.t(TEXT), -w / 2, -4, 0xFFFFFFFF, true);
 		}
 	}
 
@@ -345,17 +345,17 @@ abstract class EditorElement {
 			return screenH() / 2.0F;
 		}
 
-		private static int width(TextRenderer font) {
-			int w = font.getWidth(TITLE);
+		private static int width(Font font) {
+			int w = font.width(TITLE);
 			for (String[] line : LINES) {
-				w = Math.max(w, font.getWidth(Lang.t(line[0])) + font.getWidth(": ") + font.getWidth(line[1]));
+				w = Math.max(w, font.width(Lang.t(line[0])) + font.width(": ") + font.width(line[1]));
 			}
 
 			return w;
 		}
 
 		@Override
-		float[] local(TextRenderer font) {
+		float[] local(Font font) {
 			// Ten sam układ co InGameHud: dół = środek ekranu + 1/3 wysokości wierszy.
 			int rows = LINES.length;
 			int bottom = rows * 9 / 3;
@@ -365,7 +365,7 @@ abstract class EditorElement {
 		}
 
 		@Override
-		void drawLocal(DrawContext context, TextRenderer font) {
+		void drawLocal(GuiGraphics context, Font font) {
 			int rows = LINES.length;
 			int bottom = rows * 9 / 3;
 			int u = bottom - rows * 9;
@@ -373,18 +373,18 @@ abstract class EditorElement {
 			int left = -w - 3;
 			context.fill(left - 2, u - 10, -1, u - 1, 0x66000000);
 			context.fill(left - 2, u - 1, -1, bottom, 0x4D000000);
-			context.drawText(font, TITLE, left + w / 2 - font.getWidth(TITLE) / 2, u - 9, 0xFFFFFFFF, false);
+			context.drawString(font, TITLE, left + w / 2 - font.width(TITLE) / 2, u - 9, 0xFFFFFFFF, false);
 			for (int i = 0; i < rows; i++) {
 				int y = u + i * 9;
-				context.drawText(font, Lang.t(LINES[i][0]), left, y, 0xFFFFFFFF, false);
-				context.drawText(font, LINES[i][1], -1 - font.getWidth(LINES[i][1]), y, 0xFFFF5555, false);
+				context.drawString(font, Lang.t(LINES[i][0]), left, y, 0xFFFFFFFF, false);
+				context.drawString(font, LINES[i][1], -1 - font.width(LINES[i][1]), y, 0xFFFF5555, false);
 			}
 		}
 	}
 
 	static final class Bossbar extends Vanilla {
-		private static final Identifier BACKGROUND = Identifier.ofVanilla("boss_bar/pink_background");
-		private static final Identifier PROGRESS = Identifier.ofVanilla("boss_bar/pink_progress");
+		private static final Identifier BACKGROUND = Identifier.withDefaultNamespace("boss_bar/pink_background");
+		private static final Identifier PROGRESS = Identifier.withDefaultNamespace("boss_bar/pink_progress");
 
 		Bossbar() {
 			super("Bossbar", Modules.HUD_TWEAKER.bossbar);
@@ -401,15 +401,15 @@ abstract class EditorElement {
 		}
 
 		@Override
-		float[] local(TextRenderer font) {
+		float[] local(Font font) {
 			return new float[] {-91.0F, 2.0F, 182.0F, 15.0F};
 		}
 
 		@Override
-		void drawLocal(DrawContext context, TextRenderer font) {
-			context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, BACKGROUND, -91, 12, 182, 5);
-			context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, PROGRESS, 182, 5, 0, 0, -91, 12, 120, 5);
-			context.drawText(font, "Bossbar", -font.getWidth("Bossbar") / 2, 3, 0xFFFFFFFF, true);
+		void drawLocal(GuiGraphics context, Font font) {
+			context.blitSprite(RenderPipelines.GUI_TEXTURED, BACKGROUND, -91, 12, 182, 5);
+			context.blitSprite(RenderPipelines.GUI_TEXTURED, PROGRESS, 182, 5, 0, 0, -91, 12, 120, 5);
+			context.drawString(font, "Bossbar", -font.width("Bossbar") / 2, 3, 0xFFFFFFFF, true);
 		}
 	}
 }

@@ -3,11 +3,11 @@ package pl.kerf.project.gui;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.IntConsumer;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
 
 /**
  * Mały wybierak koloru jak w Blockbenchu: kwadrat nasycenie/jasność, pasek odcienia, pole hex i ostatnio użyte kolory.
@@ -21,7 +21,7 @@ public final class ColorPicker {
 	private static final List<Integer> RECENT = new ArrayList<>(List.of(0xFFFF3030, 0xFF30FF50, 0xFF3080FF, 0xFFFFE030, 0xFFFFFFFF, 0xFF000000));
 
 	private final IntConsumer onChange;
-	private TextFieldWidget hex;
+	private EditBox hex;
 	private boolean syncing;
 	/** HSV trzymane osobno, żeby odcień nie ginął przy szarościach i czerni. */
 	private float hue;
@@ -39,7 +39,7 @@ public final class ColorPicker {
 
 	/** Pole kolor: nieprzezroczysty ARGB. */
 	public int color() {
-		return 0xFF000000 | MathHelper.hsvToRgb(this.hue, this.sat, this.val) & 0xFFFFFF;
+		return 0xFF000000 | Mth.hsvToRgb(this.hue, this.sat, this.val) & 0xFFFFFF;
 	}
 
 	public void setColor(int argb) {
@@ -67,10 +67,10 @@ public final class ColorPicker {
 	}
 
 	/** Pole hex do dodania na ekran (szerokość w px); zmiana tekstu zmienia kolor. */
-	public TextFieldWidget hexField(TextRenderer font, int fx, int fy, int fw) {
-		this.hex = new TextFieldWidget(font, fx, fy, fw, 18, Text.literal("Hex"));
+	public EditBox hexField(Font font, int fx, int fy, int fw) {
+		this.hex = new EditBox(font, fx, fy, fw, 18, Component.literal("Hex"));
 		this.hex.setMaxLength(7);
-		this.hex.setChangedListener(text -> {
+		this.hex.setResponder(text -> {
 			if (this.syncing) {
 				return;
 			}
@@ -100,7 +100,7 @@ public final class ColorPicker {
 	private void syncHex() {
 		if (this.hex != null) {
 			this.syncing = true;
-			this.hex.setText(String.format("#%06x", this.color() & 0xFFFFFF));
+			this.hex.setValue(String.format("#%06x", this.color() & 0xFFFFFF));
 			this.syncing = false;
 		}
 	}
@@ -119,7 +119,7 @@ public final class ColorPicker {
 	}
 
 	/** Pierwsza kratka ostatnich kolorów (pod polem hex), 5 w rzędzie. */
-	public void renderRecent(DrawContext context, int rx, int ry) {
+	public void renderRecent(GuiGraphics context, int rx, int ry) {
 		for (int i = 0; i < RECENT.size(); i++) {
 			int cx = rx + i % 5 * 14;
 			int cy = ry + i / 5 * 14;
@@ -141,27 +141,36 @@ public final class ColorPicker {
 		return false;
 	}
 
-	public void render(DrawContext context) {
+	public void render(GuiGraphics context) {
 		// Kwadrat: kolumna = nasycenie (0..1), od góry jasność 1 do dołu 0.
 		context.fill(this.x - 1, this.y - 1, this.x + this.size + 1, this.y + this.size + 1, 0xFF000000);
 		for (int i = 0; i < this.size; i++) {
-			int top = 0xFF000000 | MathHelper.hsvToRgb(this.hue, i / (float) (this.size - 1), 1.0F) & 0xFFFFFF;
+			int top = 0xFF000000 | Mth.hsvToRgb(this.hue, i / (float) (this.size - 1), 1.0F) & 0xFFFFFF;
 			context.fillGradient(this.x + i, this.y, this.x + i + 1, this.y + this.size, top, 0xFF000000);
 		}
 
 		int mx = this.x + Math.round(this.sat * (this.size - 1));
 		int my = this.y + Math.round((1.0F - this.val) * (this.size - 1));
-		context.drawStrokedRectangle(mx - 2, my - 2, 5, 5, 0xFFFFFFFF);
-		context.drawStrokedRectangle(mx - 3, my - 3, 7, 7, 0xFF000000);
+		//? if <26.1.2 {
+		context.renderOutline(mx - 2, my - 2, 5, 5, 0xFFFFFFFF);
+		context.renderOutline(mx - 3, my - 3, 7, 7, 0xFF000000);
+		//?} else {
+		/*context.outline(mx - 2, my - 2, 5, 5, 0xFFFFFFFF);
+		context.outline(mx - 3, my - 3, 7, 7, 0xFF000000);
+		*///?}
 		// Pasek odcienia.
 		int bx = this.barX();
 		context.fill(bx - 1, this.y - 1, bx + BAR_W + 1, this.y + this.size + 1, 0xFF000000);
 		for (int j = 0; j < this.size; j++) {
-			context.fill(bx, this.y + j, bx + BAR_W, this.y + j + 1, 0xFF000000 | MathHelper.hsvToRgb(j / (float) this.size, 1.0F, 1.0F) & 0xFFFFFF);
+			context.fill(bx, this.y + j, bx + BAR_W, this.y + j + 1, 0xFF000000 | Mth.hsvToRgb(j / (float) this.size, 1.0F, 1.0F) & 0xFFFFFF);
 		}
 
 		int hy = this.y + Math.round(this.hue * (this.size - 1));
-		context.drawStrokedRectangle(bx - 2, hy - 1, BAR_W + 4, 3, 0xFFFFFFFF);
+		//? if <26.1.2 {
+		context.renderOutline(bx - 2, hy - 1, BAR_W + 4, 3, 0xFFFFFFFF);
+		//?} else {
+		/*context.outline(bx - 2, hy - 1, BAR_W + 4, 3, 0xFFFFFFFF);
+		*///?}
 	}
 
 	/** Początek przeciągania, gdy klik trafił w kwadrat albo pasek. */
@@ -198,8 +207,8 @@ public final class ColorPicker {
 	}
 
 	private void dragTo(double mx, double my) {
-		float fx = MathHelper.clamp((float) (mx - this.x) / (this.size - 1), 0.0F, 1.0F);
-		float fy = MathHelper.clamp((float) (my - this.y) / (this.size - 1), 0.0F, 1.0F);
+		float fx = Mth.clamp((float) (mx - this.x) / (this.size - 1), 0.0F, 1.0F);
+		float fy = Mth.clamp((float) (my - this.y) / (this.size - 1), 0.0F, 1.0F);
 		if (this.drag == 1) {
 			this.sat = fx;
 			this.val = 1.0F - fy;

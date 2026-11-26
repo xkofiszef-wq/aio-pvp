@@ -2,7 +2,7 @@ package pl.kerf.project.mixin;
 
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
-import net.minecraft.client.render.Camera;
+import net.minecraft.client.Camera;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
@@ -16,9 +16,13 @@ public class CameraMixin {
 	 * Tylko dwa pierwsze wywołania (zwykłe i w wagoniku); trzecie to odwrócenie dla widoku z przodu, które vanilla
 	 * liczy od już ustawionego kąta, więc widok z przodu też działa.
 	 */
-	@WrapOperation(method = "update", at = {
-		@At(value = "INVOKE", target = "Lnet/minecraft/client/render/Camera;setRotation(FF)V", ordinal = 0),
-		@At(value = "INVOKE", target = "Lnet/minecraft/client/render/Camera;setRotation(FF)V", ordinal = 1)
+	//? if <26.1.2 {
+	@WrapOperation(method = "setup", at = {
+	//?} else {
+	/*@WrapOperation(method = "alignWithEntity", at = {
+	*///?}
+		@At(value = "INVOKE", target = "Lnet/minecraft/client/Camera;setRotation(FF)V", ordinal = 0),
+		@At(value = "INVOKE", target = "Lnet/minecraft/client/Camera;setRotation(FF)V", ordinal = 1)
 	})
 	private void aio$freelookRotation(Camera camera, float yaw, float pitch, Operation<Void> original) {
 		if (Modules.FREELOOK.active()) {
@@ -29,7 +33,11 @@ public class CameraMixin {
 	}
 
 	/** Freelook: odległość kamery z kółka myszy; clipToSpace dalej skraca ją przy ścianach, jak w vanilli. */
-	@ModifyArg(method = "update", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/Camera;clipToSpace(F)F"))
+	//? if <26.1.2 {
+	@ModifyArg(method = "setup", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/Camera;getMaxZoom(F)F"))
+	//?} else {
+	/*@ModifyArg(method = "alignWithEntity", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/Camera;getMaxZoom(F)F"))
+	*///?}
 	private float aio$freelookDistance(float distance) {
 		return Modules.FREELOOK.active() ? distance * Modules.FREELOOK.distanceScale() : distance;
 	}

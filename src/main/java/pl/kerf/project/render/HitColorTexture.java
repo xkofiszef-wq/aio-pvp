@@ -1,8 +1,8 @@
 package pl.kerf.project.render;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.texture.NativeImageBackedTexture;
+import com.mojang.blaze3d.platform.NativeImage;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.texture.DynamicTexture;
 import pl.kerf.project.mixin.OverlayTextureAccessor;
 import pl.kerf.project.module.Modules;
 
@@ -33,16 +33,16 @@ public final class HitColorTexture {
 	}
 
 	/** Wywoływane co tick; teksturę wysyła do GPU tylko po zmianie ustawień. */
-	public static void sync(MinecraftClient client) {
+	public static void sync(Minecraft client) {
 		Modules.HitColor module = Modules.HIT_COLOR;
 		long signature = module.on() ? ((long) module.color.rgb() << 16 | (long) module.opacity.i() << 4 | module.behavior.get()) : -1L;
-		if (signature == applied || client.gameRenderer == null || client.gameRenderer.getOverlayTexture() == null) {
+		if (signature == applied || client.gameRenderer == null || client.gameRenderer.overlayTexture() == null) {
 			return;
 		}
 
 		applied = signature;
-		NativeImageBackedTexture texture = ((OverlayTextureAccessor) client.gameRenderer.getOverlayTexture()).aio$getTexture();
-		NativeImage image = texture.getImage();
+		DynamicTexture texture = ((OverlayTextureAccessor) client.gameRenderer.overlayTexture()).aio$getTexture();
+		NativeImage image = texture.getPixels();
 		if (image == null) {
 			return;
 		}
@@ -62,7 +62,7 @@ public final class HitColorTexture {
 			}
 
 			for (int column = 0; column < 16; column++) {
-				image.setColorArgb(column, row, pixel);
+				image.setPixel(column, row, pixel);
 			}
 		}
 

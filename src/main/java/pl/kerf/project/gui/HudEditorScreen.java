@@ -5,14 +5,17 @@ import pl.kerf.project.Lang;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.network.chat.Component;
+//? if <26.3 {
 import org.lwjgl.glfw.GLFW;
+//?} else {
+/*import com.mojang.blaze3d.platform.InputConstants;
+*///?}
 import pl.kerf.project.config.ConfigManager;
 import pl.kerf.project.gui.theme.Draw;
 import pl.kerf.project.gui.theme.Theme;
@@ -50,7 +53,7 @@ public class HudEditorScreen extends Screen {
 	private final long openedAt = System.currentTimeMillis();
 
 	// Okienko HUDs.
-	private TextFieldWidget search;
+	private EditBox search;
 	private double pickerScroll;
 	private HudModule pressedTile;
 	private HudModule placing;
@@ -63,7 +66,7 @@ public class HudEditorScreen extends Screen {
 	}
 
 	public HudEditorScreen(Screen parent) {
-		super(Text.literal(Lang.t("Edytor HUD")));
+		super(Component.literal(Lang.t("Edytor HUD")));
 		this.parent = parent;
 	}
 
@@ -79,13 +82,13 @@ public class HudEditorScreen extends Screen {
 		this.elements.add(new EditorElement.Scoreboard());
 		this.elements.add(new EditorElement.Bossbar());
 
-		String query = this.search == null ? "" : this.search.getText();
-		this.search = new TextFieldWidget(this.textRenderer, 0, 0, 100, 12, Text.literal(Lang.t("Szukaj")));
-		this.search.setDrawsBackground(false);
-		this.search.setPlaceholder(Text.literal(Lang.t("Szukaj HUD-ów…")).withColor(Theme.TEXT_4 & 0xFFFFFF));
-		this.search.setText(query);
-		this.search.setChangedListener(text -> this.pickerScroll = 0.0);
-		this.addDrawableChild(this.search);
+		String query = this.search == null ? "" : this.search.getValue();
+		this.search = new EditBox(this.font, 0, 0, 100, 12, Component.literal(Lang.t("Szukaj")));
+		this.search.setBordered(false);
+		this.search.setHint(Component.literal(Lang.t("Szukaj HUD-ów…")).withColor(Theme.TEXT_4 & 0xFFFFFF));
+		this.search.setValue(query);
+		this.search.setResponder(text -> this.pickerScroll = 0.0);
+		this.addRenderableWidget(this.search);
 		this.layoutPicker();
 	}
 
@@ -154,7 +157,7 @@ public class HudEditorScreen extends Screen {
 	}
 
 	private List<HudModule> pickerModules() {
-		String query = this.search.getText().trim().toLowerCase(Locale.ROOT);
+		String query = this.search.getValue().trim().toLowerCase(Locale.ROOT);
 		List<HudModule> list = new ArrayList<>();
 		for (HudModule module : Modules.HUD) {
 			if (query.isEmpty() || module.name.toLowerCase(Locale.ROOT).contains(query) || module.description.toLowerCase(Locale.ROOT).contains(query)) {
@@ -360,8 +363,8 @@ public class HudEditorScreen extends Screen {
 		}
 
 		// Element jeszcze nie był narysowany, więc rozmiar liczymy z jego zawartości.
-		module.boundsW = module.width(this.client, true) * module.scale;
-		module.boundsH = module.height(this.client, true) * module.scale;
+		module.boundsW = module.width(this.minecraft, true) * module.scale;
+		module.boundsH = module.height(this.minecraft, true) * module.scale;
 		EditorElement element = this.elementOf(module);
 		if (element != null && element.movable()) {
 			this.moveElement(element, (float) mx - element.w() / 2.0F, (float) my - element.h() / 2.0F);
@@ -372,10 +375,14 @@ public class HudEditorScreen extends Screen {
 	// --- wejście ---
 
 	@Override
-	public boolean mouseClicked(Click click, boolean doubled) {
+	public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
 		double mx = click.x();
 		double my = click.y();
+		//? if <26.3 {
 		if (this.overHudsButton(mx, my) && click.button() == 0) {
+		//?} else {
+		/*if (this.overHudsButton(mx, my) && ModuleKeys.button(click.button()) == 0) {
+		*///?}
 			pickerOpen = !pickerOpen;
 			this.layoutPicker();
 			return true;
@@ -393,7 +400,11 @@ public class HudEditorScreen extends Screen {
 			}
 
 			HudModule tile = this.tileAt(mx, my);
+			//? if <26.3 {
 			if (tile != null && click.button() == 0) {
+			//?} else {
+			/*if (tile != null && ModuleKeys.button(click.button()) == 0) {
+			*///?}
 				this.pressedTile = tile;
 				this.pressX = mx;
 				this.pressY = my;
@@ -403,7 +414,11 @@ public class HudEditorScreen extends Screen {
 		}
 
 		int corner = this.cornerAt(this.selected, mx, my);
+		//? if <26.3 {
 		if (corner >= 0 && click.button() == 0) {
+		//?} else {
+		/*if (corner >= 0 && ModuleKeys.button(click.button()) == 0) {
+		*///?}
 			EditorElement element = this.selected;
 			this.dragging = element;
 			this.resizeCorner = corner;
@@ -421,9 +436,17 @@ public class HudEditorScreen extends Screen {
 			return super.mouseClicked(click, doubled);
 		}
 
+		//? if <26.3 {
 		if (click.button() == 1) {
+		//?} else {
+		/*if (ModuleKeys.button(click.button()) == 1) {
+		*///?}
 			element.reset();
+		//? if <26.3 {
 		} else if (click.button() == 0) {
+		//?} else {
+		/*} else if (ModuleKeys.button(click.button()) == 0) {
+		*///?}
 			this.dragging = element;
 			this.resizeCorner = -1;
 			this.grabX = (float) mx - element.x();
@@ -434,7 +457,7 @@ public class HudEditorScreen extends Screen {
 	}
 
 	@Override
-	public boolean mouseDragged(Click click, double offsetX, double offsetY) {
+	public boolean mouseDragged(MouseButtonEvent click, double offsetX, double offsetY) {
 		if (this.pressedTile != null) {
 			if (this.placing == null && Math.hypot(click.x() - this.pressX, click.y() - this.pressY) > 4.0) {
 				this.placing = this.pressedTile;
@@ -461,7 +484,7 @@ public class HudEditorScreen extends Screen {
 	}
 
 	@Override
-	public boolean mouseReleased(Click click) {
+	public boolean mouseReleased(MouseButtonEvent click) {
 		if (this.pressedTile != null && this.placing == null) {
 			// Zwykły klik w kafelek: dodaj albo usuń element.
 			this.pressedTile.toggle();
@@ -495,9 +518,13 @@ public class HudEditorScreen extends Screen {
 	}
 
 	@Override
-	public boolean keyPressed(KeyInput input) {
+	public boolean keyPressed(KeyEvent input) {
 		if (this.getFocused() == this.search && this.search.visible) {
+			//? if <26.3 {
 			if (input.key() == GLFW.GLFW_KEY_ESCAPE) {
+			//?} else {
+			/*if (input.key() == InputConstants.KEY_ESCAPE) {
+			*///?}
 				this.setFocused(null);
 				return true;
 			}
@@ -505,27 +532,47 @@ public class HudEditorScreen extends Screen {
 			return super.keyPressed(input);
 		}
 
+		//? if <26.3 {
 		if (input.key() == GLFW.GLFW_KEY_G) {
+		//?} else {
+		/*if (input.key() == InputConstants.KEY_G) {
+		*///?}
 			grid = !grid;
 			return true;
 		}
 
+		//? if <26.3 {
 		if (input.key() == GLFW.GLFW_KEY_S) {
+		//?} else {
+		/*if (input.key() == InputConstants.KEY_S) {
+		*///?}
 			snapping = !snapping;
 			return true;
 		}
 
 		EditorElement element = this.selected;
 		if (element != null && element.visible() && element.movable()) {
+			//? if <26.3 {
 			int step = (input.modifiers() & GLFW.GLFW_MOD_SHIFT) != 0 ? 10 : 1;
+			//?} else {
+			/*int step = (input.modifiers() & InputConstants.MOD_SHIFT) != 0 ? 10 : 1;
+			*///?}
 			int dx = 0;
 			int dy = 0;
 			switch (input.key()) {
+				//? if <26.3 {
 				case GLFW.GLFW_KEY_LEFT -> dx = -step;
 				case GLFW.GLFW_KEY_RIGHT -> dx = step;
 				case GLFW.GLFW_KEY_UP -> dy = -step;
 				case GLFW.GLFW_KEY_DOWN -> dy = step;
 				case GLFW.GLFW_KEY_R -> {
+				//?} else {
+				/*case InputConstants.KEY_LEFT -> dx = -step;
+				case InputConstants.KEY_RIGHT -> dx = step;
+				case InputConstants.KEY_UP -> dy = -step;
+				case InputConstants.KEY_DOWN -> dy = step;
+				case InputConstants.KEY_R -> {
+				*///?}
 					element.reset();
 					return true;
 				}
@@ -548,13 +595,29 @@ public class HudEditorScreen extends Screen {
 	// --- rysowanie ---
 
 	@Override
-	public void renderBackground(DrawContext context, int mouseX, int mouseY, float deltaTicks) {
+	//? if <26.1.2 {
+	public void renderBackground(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
+	//?} else {
+	/*public void extractBackground(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
+	*///?}
 		// Bez rozmycia i przyciemnienia: HUD pod spodem ma być widoczny tak jak w grze.
-		this.client.inGameHud.renderDeferredSubtitles();
+		//? if <26.1.2 {
+		this.minecraft.gui.renderDeferredSubtitles();
+		//?}
+		//? if >=26.2 {
+		/*this.minecraft.gui.hud.extractDeferredSubtitles();
+		*///?}
+		//? if =26.1.2 {
+		/*this.minecraft.gui.extractDeferredSubtitles();
+		*///?}
 	}
 
 	@Override
-	public void render(DrawContext context, int mouseX, int mouseY, float deltaTicks) {
+	//? if <26.1.2 {
+	public void render(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
+	//?} else {
+	/*public void extractRenderState(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
+	*///?}
 		if (grid) {
 			for (int x = 0; x < this.width; x += 10) {
 				context.fill(x, 0, x + 1, this.height, 0x14FFFFFF);
@@ -566,7 +629,7 @@ public class HudEditorScreen extends Screen {
 		}
 
 		for (EditorElement element : this.elements) {
-			element.drawSample(context, this.textRenderer);
+			element.drawSample(context, this.font);
 		}
 
 		EditorElement hovered = this.dragging != null ? this.dragging : this.at(mouseX, mouseY);
@@ -592,36 +655,40 @@ public class HudEditorScreen extends Screen {
 		long shown = System.currentTimeMillis() - this.openedAt;
 		if (!pickerOpen && this.dragging == null && shown < 6000L) {
 			float fade = shown < 5000L ? 1.0F : (6000L - shown) / 1000.0F;
-			String hint = Ui.ellipsis(this.textRenderer, HINT, this.width - 28);
-			int w = this.textRenderer.getWidth(hint) + 14;
+			String hint = Ui.ellipsis(this.font, HINT, this.width - 28);
+			int w = this.font.width(hint) + 14;
 			int hx = this.width / 2 - w / 2;
 			Draw.round(context, hx, 22, w, 14, 4, Theme.alpha(Theme.GLASS_STRONG, Math.round(0xE6 * fade)));
 			Draw.outline(context, hx, 22, w, 14, 4, Theme.alpha(Theme.BORDER, Math.round(0x24 * fade)));
-			Draw.text(context, this.textRenderer, hint, hx + 7, 25, Theme.alpha(Theme.TEXT_2, Math.round(255 * fade)));
+			Draw.text(context, this.font, hint, hx + 7, 25, Theme.alpha(Theme.TEXT_2, Math.round(255 * fade)));
 		}
 
 		if (pickerOpen) {
 			this.drawPicker(context, mouseX, mouseY);
 		}
 
+		//? if <26.1.2 {
 		super.render(context, mouseX, mouseY, deltaTicks);
+		//?} else {
+		/*super.extractRenderState(context, mouseX, mouseY, deltaTicks);
+		*///?}
 	}
 
 	/** Mały kwadratowy szklany przycisk z samą ikoną 9x9 (przycisk HUDs). Otwarty panel = podświetlenie akcentem. */
-	private void iconButton(DrawContext context, int x, int y, int size, Draw.Icon icon, boolean hover, boolean open) {
+	private void iconButton(GuiGraphics context, int x, int y, int size, Draw.Icon icon, boolean hover, boolean open) {
 		boolean active = hover || open;
 		Draw.card(context, x, y, size, size, 4, active ? Theme.mix(Theme.GLASS_STRONG, Theme.alpha(Theme.ACCENT, 0xE6), open ? 0.35F : 0.15F) : Theme.GLASS_STRONG,
 			active ? Theme.alpha(Theme.ACCENT, 0xB0) : Theme.BORDER_STRONG);
 		Draw.icon(context, icon, x + (size - 9) / 2, y + (size - 9) / 2, open ? Theme.TEXT : hover ? Theme.TEXT_2 : Theme.TEXT_3);
 	}
 
-	private void drawPicker(DrawContext context, int mouseX, int mouseY) {
+	private void drawPicker(GuiGraphics context, int mouseX, int mouseY) {
 		int x = this.pickerX();
 		int y = this.pickerY();
 		int w = this.pickerW();
 		int h = this.pickerH();
 		Ui.panel(context, x, y, w, h);
-		Draw.text(context, this.textRenderer, "HUDs", x + 9, y + 5, Theme.TEXT);
+		Draw.text(context, this.font, "HUDs", x + 9, y + 5, Theme.TEXT);
 		boolean closeHover = Ui.inside(mouseX, mouseY, x + w - 16, y + 3, 12, 12);
 		if (closeHover) {
 			Draw.round(context, x + w - 17, y + 2, 14, 14, 3, Theme.SURFACE_HOVER);
@@ -634,7 +701,7 @@ public class HudEditorScreen extends Screen {
 		Draw.round(context, x + 8, y + 16, w - 16, 16, 4, Theme.SURFACE_2);
 		Draw.outline(context, x + 8, y + 16, w - 16, 16, 4, focused ? Theme.alpha(Theme.ACCENT, 0xC0) : Theme.BORDER);
 		Draw.icon(context, Draw.Icon.SEARCH, x + 12, y + 20, focused ? Theme.TEXT_2 : Theme.TEXT_4);
-		Draw.text(context, this.textRenderer, Ui.ellipsis(this.textRenderer, "Klik: dodaj, przeciągnij: ustaw", w - 16), x + 9, y + 37, Theme.TEXT_4);
+		Draw.text(context, this.font, Ui.ellipsis(this.font, "Klik: dodaj, przeciągnij: ustaw", w - 16), x + 9, y + 37, Theme.TEXT_4);
 
 		List<HudModule> modules = this.pickerModules();
 		this.clampPickerScroll();
@@ -654,15 +721,15 @@ public class HudEditorScreen extends Screen {
 			int boxW = this.tileW() - 6;
 			Draw.round(context, tx + 3, ty + 3, boxW, 26, 3, Theme.INSET);
 			context.enableScissor(tx + 4, Math.max(ty + 4, this.tilesTop()), tx + 2 + boxW, Math.min(ty + 28, this.tilesBottom()));
-			if (module.hasPreview() && this.client.player != null) {
-				module.renderPreview(context, this.client, tx + 3, ty + 3, boxW, 26, 1.0F);
+			if (module.hasPreview() && this.minecraft.player != null) {
+				module.renderPreview(context, this.minecraft, tx + 3, ty + 3, boxW, 26, 1.0F);
 			} else {
-				Previews.draw(context, this.client, module, tx + 3, ty + 3, boxW, 26);
+				Previews.draw(context, this.minecraft, module, tx + 3, ty + 3, boxW, 26);
 			}
 
 			context.disableScissor();
-			String name = Ui.ellipsis(this.textRenderer, module.name, this.tileW() - 24);
-			Draw.text(context, this.textRenderer, name, tx + (this.tileW() - this.textRenderer.getWidth(name)) / 2, ty + 31, module.on() ? Theme.TEXT : Theme.TEXT_3);
+			String name = Ui.ellipsis(this.font, module.name, this.tileW() - 24);
+			Draw.text(context, this.font, name, tx + (this.tileW() - this.font.width(name)) / 2, ty + 31, module.on() ? Theme.TEXT : Theme.TEXT_3);
 			if (module.on()) {
 				Draw.round(context, tx + this.tileW() - 9, ty + 33, 4, 4, 2, accent);
 			}
@@ -671,7 +738,7 @@ public class HudEditorScreen extends Screen {
 		context.disableScissor();
 	}
 
-	private void drawFrame(DrawContext context, EditorElement element, boolean isSelected, boolean hovered) {
+	private void drawFrame(GuiGraphics context, EditorElement element, boolean isSelected, boolean hovered) {
 		int x1 = Math.round(element.x()) - 1;
 		int y1 = Math.round(element.y()) - 1;
 		int x2 = Math.round(element.x() + element.w()) + 1;
@@ -682,7 +749,11 @@ public class HudEditorScreen extends Screen {
 		}
 
 		int line = isSelected ? Theme.alpha(Theme.ACCENT, 0x90) : hovered ? 0x90FFFFFF : 0x30FFFFFF;
-		context.drawStrokedRectangle(x1, y1, x2 - x1, y2 - y1, line);
+		//? if <26.1.2 {
+		context.renderOutline(x1, y1, x2 - x1, y2 - y1, line);
+		//?} else {
+		/*context.outline(x1, y1, x2 - x1, y2 - y1, line);
+		*///?}
 		if (!element.movable()) {
 			return;
 		}
@@ -706,22 +777,26 @@ public class HudEditorScreen extends Screen {
 		// Podpis tylko gdy coś się dzieje: nazwa przy najechaniu, rozmiar podczas przeciągania. Zaznaczony i nieruszany = sama ramka.
 		String label = active ? Math.round(element.w()) + " x " + Math.round(element.h()) : hovered && !isSelected ? element.name : null;
 		if (label != null) {
-			int labelW = this.textRenderer.getWidth(label) + 6;
+			int labelW = this.font.width(label) + 6;
 			int lx = Math.max(0, Math.min(this.width - labelW, x1 - 1));
 			int ly = y1 - 13 < 0 ? y2 + 3 : y1 - 13;
 			Draw.round(context, lx, ly, labelW, 11, 2, Theme.alpha(Theme.GLASS_STRONG, 0xC0));
-			Draw.text(context, this.textRenderer, label, lx + 3, ly + 2, active ? Theme.TEXT : Theme.TEXT_2);
+			Draw.text(context, this.font, label, lx + 3, ly + 2, active ? Theme.TEXT : Theme.TEXT_2);
 		}
 	}
 
 	@Override
-	public boolean shouldPause() {
+	public boolean isPauseScreen() {
 		return false;
 	}
 
 	@Override
-	public void close() {
+	public void onClose() {
 		ConfigManager.save();
-		this.client.setScreen(this.parent);
+		//? if <26.2 {
+		this.minecraft.setScreen(this.parent);
+		//?} else {
+		/*this.minecraft.gui.setScreen(this.parent);
+		*///?}
 	}
 }

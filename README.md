@@ -216,7 +216,7 @@ What this shows:
 - **All options together** give +5% to +16% here.
 - **Entity Culling, Fog Occlusion and Animate Only Visible Textures** alone stay within the noise in this scene. They help in other situations: Entity Culling with many players or mobs behind walls (more than 120 zombies, for example a crowded server spawn), Fog Occlusion in lava, in the Nether or deep under water with a short view range, and Animate Only Visible Textures with 128x and larger resource packs, where every animated texture costs much more.
 
-The benchmark is part of the repository's test code. Run it with `./gradlew runClientGameTest` and the JVM options `-Daio.bench=true -Dfabric.client.gametest.disableNetworkSynchronizer=true`; the table is written to `build/run/clientGameTest/aio_bench.md`.
+The benchmark is part of the repository's test code. Run it with `./gradlew :1.21.11:runClientGameTest` and the JVM options `-Daio.bench=true -Dfabric.client.gametest.disableNetworkSynchronizer=true`; the table is written to `versions/1.21.11/build/run/clientGameTest/aio_bench.md`.
 
 
 ## Beta features
@@ -247,9 +247,9 @@ The script stops when you turn the module off or when the game closes (it checks
 ./gradlew build
 ```
 
-The jar is written to `build/libs/aio-pvp-<version>+<minecraft version>.jar`. Upload that file, not the `-obf` or `-sources` ones.
+This builds all four Minecraft versions from one source tree, using [Stonecutter](https://codeberg.org/stonecutter/stonecutter). Each jar is written to `versions/<minecraft version>/build/libs/aio-pvp-<version>+<minecraft version>.jar`. Upload that file, not the `-sources` one. To build one version only, run `./gradlew :26.2:build` (or another version). Gradle needs Java 21 and Java 25 installed: 1.21.11 is compiled for Java 21, 26.x for Java 25.
 
-The repository root builds the Minecraft 1.21.11 version (Java 21). The 26.x versions are separate Gradle projects in `versions/26.1.2`, `versions/26.2` and `versions/26.3` (Java 25); run `./gradlew build` inside the folder of the version you need. GitHub Actions builds all four on every push.
+The code in `src/` is written for 1.21.11 with Mojang names. Lines that differ between versions sit in `//? if` comment blocks, and the settings of each version are in `versions/<minecraft version>/gradle.properties`. To edit the code as another version sees it, run `./gradlew "stonecutterSwitchTo26.2"`, and switch back with `./gradlew "stonecutterSwitchTo1.21.11"` before committing. GitHub Actions builds all four on every push.
 
 ## License
 

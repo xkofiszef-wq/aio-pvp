@@ -1,11 +1,16 @@
 package pl.kerf.project.gui;
 
 import java.util.function.Consumer;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.screen.ScreenTexts;
-import net.minecraft.text.Text;
+//? if >=26.1.2 {
+/*import net.minecraft.client.input.MouseButtonEvent;
+*///?}
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+//? if <26.1.2 {
+import net.minecraft.client.input.MouseButtonEvent;
+//?}
+import net.minecraft.network.chat.CommonComponents;
+import net.minecraft.network.chat.Component;
 import pl.kerf.project.Lang;
 import pl.kerf.project.config.PixelGrid;
 import pl.kerf.project.gui.theme.FlatButton;
@@ -29,7 +34,7 @@ public class WaypointIconScreen extends Screen {
 	private int paintValue;
 
 	public WaypointIconScreen(Screen parent, String icon, Consumer<String> onDone) {
-		super(Text.literal(Lang.t("Ikona waypointu")));
+		super(Component.literal(Lang.t("Ikona waypointu")));
 		this.parent = parent;
 		this.grid = PixelGrid.decode(icon).clone();
 		this.onDone = onDone;
@@ -50,22 +55,31 @@ public class WaypointIconScreen extends Screen {
 		this.picker.layout(this.sideX, this.canvasY, PICKER);
 		this.picker.setColor(this.color);
 		int hexX = this.sideX + PICKER + 6 + 8 + 8;
-		this.addDrawableChild(this.picker.hexField(this.textRenderer, hexX, this.canvasY, 64));
+		this.addRenderableWidget(this.picker.hexField(this.font, hexX, this.canvasY, 64));
 		this.recentY = this.canvasY + 28;
 		int by = this.canvasY + PICKER + 8;
-		this.addDrawableChild(FlatButton.builder(Text.literal(Lang.t("Wyczyść")), button -> java.util.Arrays.fill(this.grid, 0)).dimensions(this.sideX, by, 90, 20).build());
-		this.addDrawableChild(FlatButton.builder(ScreenTexts.DONE, button -> this.close()).dimensions(this.sideX + 94, by, 90, 20).style(FlatButton.Style.PRIMARY).build());
+		this.addRenderableWidget(FlatButton.builder(Component.literal(Lang.t("Wyczyść")), button -> java.util.Arrays.fill(this.grid, 0)).dimensions(this.sideX, by, 90, 20).build());
+		this.addRenderableWidget(FlatButton.builder(CommonComponents.GUI_DONE, button -> this.onClose()).dimensions(this.sideX + 94, by, 90, 20).style(FlatButton.Style.PRIMARY).build());
 	}
 
 	@Override
-	public void renderBackground(DrawContext context, int mouseX, int mouseY, float deltaTicks) {
+	//? if <26.1.2 {
+	public void renderBackground(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
 		super.renderBackground(context, mouseX, mouseY, deltaTicks);
+	//?} else {
+	/*public void extractBackground(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
+		super.extractBackground(context, mouseX, mouseY, deltaTicks);
+	*///?}
 		Ui.panel(context, this.canvasX - 8, Ui.PAD, this.panelW(), this.cell * N + 22 + 16);
 	}
 
 	@Override
-	public void render(DrawContext context, int mouseX, int mouseY, float deltaTicks) {
-		context.drawText(this.textRenderer, this.title, this.canvasX, Ui.PAD + 8, Theme.TEXT, false);
+	//? if <26.1.2 {
+	public void render(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
+	//?} else {
+	/*public void extractRenderState(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
+	*///?}
+		context.drawString(this.font, this.title, this.canvasX, Ui.PAD + 8, Theme.TEXT, false);
 		int canvas = this.cell * N;
 		context.fill(this.canvasX - 1, this.canvasY - 1, this.canvasX + canvas + 1, this.canvasY + canvas + 1, 0xFF000000);
 		for (int y = 0; y < N; y++) {
@@ -81,8 +95,12 @@ public class WaypointIconScreen extends Screen {
 
 		this.picker.render(context);
 		this.picker.renderRecent(context, this.sideX + PICKER + 6 + 8 + 8, this.recentY);
-		context.drawText(this.textRenderer, Lang.t("Lewy: rysuj, prawy: gumka"), this.sideX, this.canvasY + PICKER + 32, Theme.TEXT, false);
+		context.drawString(this.font, Lang.t("Lewy: rysuj, prawy: gumka"), this.sideX, this.canvasY + PICKER + 32, Theme.TEXT, false);
+		//? if <26.1.2 {
 		super.render(context, mouseX, mouseY, deltaTicks);
+		//?} else {
+		/*super.extractRenderState(context, mouseX, mouseY, deltaTicks);
+		*///?}
 	}
 
 	private boolean onCanvas(double mx, double my) {
@@ -94,7 +112,7 @@ public class WaypointIconScreen extends Screen {
 	}
 
 	@Override
-	public boolean mouseClicked(Click click, boolean doubled) {
+	public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
 		if (this.onCanvas(click.x(), click.y())) {
 			this.painting = true;
 			this.paintValue = click.button() == 1 ? 0 : this.color;
@@ -110,7 +128,7 @@ public class WaypointIconScreen extends Screen {
 	}
 
 	@Override
-	public boolean mouseDragged(Click click, double offsetX, double offsetY) {
+	public boolean mouseDragged(MouseButtonEvent click, double offsetX, double offsetY) {
 		if (this.picker.dragged(click.x(), click.y())) {
 			return true;
 		}
@@ -124,7 +142,7 @@ public class WaypointIconScreen extends Screen {
 	}
 
 	@Override
-	public boolean mouseReleased(Click click) {
+	public boolean mouseReleased(MouseButtonEvent click) {
 		this.painting = false;
 		if (this.picker.release()) {
 			return true;
@@ -134,8 +152,12 @@ public class WaypointIconScreen extends Screen {
 	}
 
 	@Override
-	public void close() {
+	public void onClose() {
 		this.onDone.accept(PixelGrid.encode(this.grid));
-		this.client.setScreen(this.parent);
+		//? if <26.2 {
+		this.minecraft.setScreen(this.parent);
+		//?} else {
+		/*this.minecraft.gui.setScreen(this.parent);
+		*///?}
 	}
 }

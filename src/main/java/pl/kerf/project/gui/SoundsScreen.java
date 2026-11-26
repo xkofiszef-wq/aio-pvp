@@ -3,13 +3,21 @@ package pl.kerf.project.gui;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.registry.Registries;
-import net.minecraft.screen.ScreenTexts;
-import net.minecraft.text.Text;
+//? if >=26.1.2 {
+/*import net.minecraft.client.input.MouseButtonEvent;
+*///?}
+import net.minecraft.client.gui.GuiGraphics;
+//? if >=26.1.2 {
+/*import net.minecraft.client.gui.screens.Screen;
+*///?}
+import net.minecraft.client.gui.components.EditBox;
+//? if <26.1.2 {
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.MouseButtonEvent;
+//?}
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.CommonComponents;
+import net.minecraft.network.chat.Component;
 import pl.kerf.project.Lang;
 import pl.kerf.project.gui.theme.FlatButton;
 import pl.kerf.project.gui.theme.Theme;
@@ -23,7 +31,7 @@ public class SoundsScreen extends Screen {
 	private final Screen parent;
 	private final List<String> all = new ArrayList<>();
 	private List<String> shown = List.of();
-	private TextFieldWidget search;
+	private EditBox search;
 	private String query = "";
 	private int scroll;
 	private int left;
@@ -32,9 +40,9 @@ public class SoundsScreen extends Screen {
 	private String dragging;
 
 	public SoundsScreen(Screen parent) {
-		super(Text.literal(Lang.t("Dźwięki")));
+		super(Component.literal(Lang.t("Dźwięki")));
 		this.parent = parent;
-		Registries.SOUND_EVENT.getIds().forEach(id -> this.all.add(id.toString()));
+		BuiltInRegistries.SOUND_EVENT.keySet().forEach(id -> this.all.add(id.toString()));
 		this.all.sort(String::compareTo);
 		this.filter();
 	}
@@ -50,16 +58,16 @@ public class SoundsScreen extends Screen {
 		this.panelW = Math.min(this.width - 12, 380);
 		this.left = (this.width - this.panelW) / 2;
 		int inner = this.left + 8;
-		this.search = new TextFieldWidget(this.textRenderer, inner, Ui.PAD + 22, this.panelW - 16, 18, Text.literal(Lang.t("Szukaj dźwięku...")));
-		this.search.setPlaceholder(Text.literal(Lang.t("Szukaj dźwięku...")));
-		this.search.setText(this.query);
-		this.search.setChangedListener(text -> {
+		this.search = new EditBox(this.font, inner, Ui.PAD + 22, this.panelW - 16, 18, Component.literal(Lang.t("Szukaj dźwięku...")));
+		this.search.setHint(Component.literal(Lang.t("Szukaj dźwięku...")));
+		this.search.setValue(this.query);
+		this.search.setResponder(text -> {
 			this.query = text;
 			this.filter();
 		});
-		this.addDrawableChild(this.search);
+		this.addRenderableWidget(this.search);
 		this.listTop = Ui.PAD + 46;
-		this.addDrawableChild(FlatButton.builder(ScreenTexts.DONE, button -> this.close()).dimensions(inner, this.height - Ui.PAD - 26, this.panelW - 16, 20).build());
+		this.addRenderableWidget(FlatButton.builder(CommonComponents.GUI_DONE, button -> this.onClose()).dimensions(inner, this.height - Ui.PAD - 26, this.panelW - 16, 20).build());
 	}
 
 	private int rows() {
@@ -68,38 +76,51 @@ public class SoundsScreen extends Screen {
 	}
 
 	@Override
-	public void renderBackground(DrawContext context, int mouseX, int mouseY, float deltaTicks) {
+	//? if <26.1.2 {
+	public void renderBackground(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
 		super.renderBackground(context, mouseX, mouseY, deltaTicks);
+	//?} else {
+	/*public void extractBackground(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
+		super.extractBackground(context, mouseX, mouseY, deltaTicks);
+	*///?}
 		Ui.panel(context, this.left, Ui.PAD, this.panelW, this.height - 2 * Ui.PAD);
 	}
 
 	@Override
-	public void render(DrawContext context, int mouseX, int mouseY, float deltaTicks) {
+	//? if <26.1.2 {
+	public void render(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
+	//?} else {
+	/*public void extractRenderState(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
+	*///?}
 		int inner = this.left + 8;
-		context.drawText(this.textRenderer, this.title, inner, Ui.PAD + 8, Theme.TEXT, false);
+		context.drawString(this.font, this.title, inner, Ui.PAD + 8, Theme.TEXT, false);
 		String count = this.shown.size() + " / " + this.all.size() + "  (" + Modules.SOUNDS.customized() + " " + Lang.t("zmienionych") + ")";
-		context.drawText(this.textRenderer, count, inner + this.panelW - 16 - this.textRenderer.getWidth(count), Ui.PAD + 8, 0xFFA0A4B0, false);
+		context.drawString(this.font, count, inner + this.panelW - 16 - this.font.width(count), Ui.PAD + 8, 0xFFA0A4B0, false);
 		this.scroll = Math.max(0, Math.min(this.scroll, Math.max(0, this.shown.size() - this.rows())));
 		for (int i = 0; i < this.rows() && i + this.scroll < this.shown.size(); i++) {
 			String id = this.shown.get(i + this.scroll);
 			int ry = this.listTop + i * ROW;
 			int percent = Modules.SOUNDS.percent(id);
 			context.fill(inner, ry, inner + this.panelW - 16, ry + ROW - 2, percent == 100 ? Theme.SURFACE : 0x30FFFFFF);
-			context.drawText(this.textRenderer, Ui.ellipsis(this.textRenderer, id, this.panelW - 16 - SLIDER_W - 50), inner + 4, ry + 5, percent == 100 ? Theme.TEXT : Theme.ACCENT, false);
+			context.drawString(this.font, Ui.ellipsis(this.font, id, this.panelW - 16 - SLIDER_W - 50), inner + 4, ry + 5, percent == 100 ? Theme.TEXT : Theme.ACCENT, false);
 			int sx = this.sliderX();
 			context.fill(sx, ry + 8, sx + SLIDER_W, ry + 10, 0xFF3A3E4A);
 			int knob = sx + Math.round(SLIDER_W * percent / (float) Sounds.MAX_PERCENT);
 			context.fill(sx, ry + 8, knob, ry + 10, Theme.ACCENT);
 			context.fill(knob - 2, ry + 5, knob + 2, ry + 13, 0xFFF2F4F8);
 			String label = percent + "%";
-			context.drawText(this.textRenderer, label, inner + this.panelW - 16 - 4 - this.textRenderer.getWidth(label), ry + 5, Theme.TEXT, false);
+			context.drawString(this.font, label, inner + this.panelW - 16 - 4 - this.font.width(label), ry + 5, Theme.TEXT, false);
 		}
 
 		// Tip pod listą.
 		int tipY = this.height - Ui.PAD - 26 - 22;
-		context.drawText(this.textRenderer, Lang.t("Nie wiesz, jak nazywa się dźwięk? Włącz napisy: Opcje, Ułatwienia dostępu,"), inner, tipY, 0xFFA0A4B0, false);
-		context.drawText(this.textRenderer, Lang.t("Pokaż napisy. Pojawią się w prawym dolnym rogu i podpowiedzą nazwę."), inner, tipY + 10, 0xFFA0A4B0, false);
+		context.drawString(this.font, Lang.t("Nie wiesz, jak nazywa się dźwięk? Włącz napisy: Opcje, Ułatwienia dostępu,"), inner, tipY, 0xFFA0A4B0, false);
+		context.drawString(this.font, Lang.t("Pokaż napisy. Pojawią się w prawym dolnym rogu i podpowiedzą nazwę."), inner, tipY + 10, 0xFFA0A4B0, false);
+		//? if <26.1.2 {
 		super.render(context, mouseX, mouseY, deltaTicks);
+		//?} else {
+		/*super.extractRenderState(context, mouseX, mouseY, deltaTicks);
+		*///?}
 	}
 
 	private int sliderX() {
@@ -121,7 +142,7 @@ public class SoundsScreen extends Screen {
 	}
 
 	@Override
-	public boolean mouseClicked(Click click, boolean doubled) {
+	public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
 		int row = this.rowAt(click.x(), click.y());
 		if (row >= 0) {
 			String id = this.shown.get(row);
@@ -141,7 +162,7 @@ public class SoundsScreen extends Screen {
 	}
 
 	@Override
-	public boolean mouseDragged(Click click, double offsetX, double offsetY) {
+	public boolean mouseDragged(MouseButtonEvent click, double offsetX, double offsetY) {
 		if (this.dragging != null) {
 			this.setFromMouse(this.dragging, click.x());
 			return true;
@@ -151,7 +172,7 @@ public class SoundsScreen extends Screen {
 	}
 
 	@Override
-	public boolean mouseReleased(Click click) {
+	public boolean mouseReleased(MouseButtonEvent click) {
 		this.dragging = null;
 		return super.mouseReleased(click);
 	}
@@ -163,7 +184,11 @@ public class SoundsScreen extends Screen {
 	}
 
 	@Override
-	public void close() {
-		this.client.setScreen(this.parent);
+	public void onClose() {
+		//? if <26.2 {
+		this.minecraft.setScreen(this.parent);
+		//?} else {
+		/*this.minecraft.gui.setScreen(this.parent);
+		*///?}
 	}
 }

@@ -1,20 +1,20 @@
 package pl.kerf.project.render;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.texture.NativeImageBackedTexture;
-import net.minecraft.client.texture.Sprite;
-import net.minecraft.client.texture.SpriteAtlasTexture;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.FoodComponent;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.entity.player.HungerManager;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.Atlases;
-import net.minecraft.util.Identifier;
+import com.mojang.blaze3d.platform.NativeImage;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.client.renderer.texture.TextureAtlas;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.data.AtlasIds;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Util;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.food.FoodData;
+import net.minecraft.world.food.FoodProperties;
 import org.joml.Matrix3x2fStack;
 import pl.kerf.project.AioPvp;
 import pl.kerf.project.mixin.SpriteContentsAccessor;
@@ -35,20 +35,20 @@ public final class SaturationOutline {
 	private static final int DARK = 50;
 	/** Zestawy: zwykły i z efektem Głodu (pack może mieć dla nich inne kształty). Kolejność: pusta, pełna, połówka. */
 	private static final Identifier[][] SPRITES = {
-		{Identifier.ofVanilla("hud/food_empty"), Identifier.ofVanilla("hud/food_full"), Identifier.ofVanilla("hud/food_half")},
-		{Identifier.ofVanilla("hud/food_empty_hunger"), Identifier.ofVanilla("hud/food_full_hunger"), Identifier.ofVanilla("hud/food_half_hunger")}
+		{Identifier.withDefaultNamespace("hud/food_empty"), Identifier.withDefaultNamespace("hud/food_full"), Identifier.withDefaultNamespace("hud/food_half")},
+		{Identifier.withDefaultNamespace("hud/food_empty_hunger"), Identifier.withDefaultNamespace("hud/food_full_hunger"), Identifier.withDefaultNamespace("hud/food_half_hunger")}
 	};
 	/** [zestaw][0 = pełna obwódka, 1 = połówka] */
 	private static final Identifier[][] OUTLINES = new Identifier[2][2];
 	/** Pełna ikonka, z której zbudowano obwódki; inny obiekt = przeładowany texturepack, budujemy od nowa. */
-	private static final Sprite[] BUILT_FROM = new Sprite[2];
+	private static final TextureAtlasSprite[] BUILT_FROM = new TextureAtlasSprite[2];
 	private static final int[] WIDTH = new int[2];
 	private static final int[] HEIGHT = new int[2];
 
 	static {
 		for (int set = 0; set < 2; set++) {
 			for (int part = 0; part < 2; part++) {
-				OUTLINES[set][part] = Identifier.of(AioPvp.MOD_ID, "saturation_outline_" + set + "_" + part);
+				OUTLINES[set][part] = Identifier.fromNamespaceAndPath(AioPvp.MOD_ID, "saturation_outline_" + set + "_" + part);
 			}
 		}
 	}
@@ -79,17 +79,17 @@ public final class SaturationOutline {
 	 * Obwódki saturacji, a z jedzeniem w ręce (opcja "Podgląd jedzenia w ręce") mrugające ikonki głodu i obwódki,
 	 * które to jedzenie doda. Wartości jak w HungerManager: głód do 20, saturacja najwyżej tyle co głód.
 	 */
-	public static void render(DrawContext context, PlayerEntity player, int top, int right) {
-		HungerManager hunger = player.getHungerManager();
+	public static void render(GuiGraphics context, Player player, int top, int right) {
+		FoodData hunger = player.getFoodData();
 		int food = hunger.getFoodLevel();
 		float saturation = hunger.getSaturationLevel();
-		int set = player.hasStatusEffect(StatusEffects.HUNGER) ? 1 : 0;
+		int set = player.hasEffect(MobEffects.HUNGER) ? 1 : 0;
 		build(set);
 		for (int j = 0; j < 10 && saturation > j * 2; j++) {
 			outline(context, set, saturation >= j * 2 + 2 ? 0 : 1, x(j, right), y(j, top), 0xFFFFFFFF);
 		}
 
-		FoodComponent eaten = Modules.SATURATION.foodPreview.on() ? heldFood(player) : null;
+		FoodProperties eaten = Modules.SATURATION.foodPreview.on() ? heldFood(player) : null;
 		if (eaten == null) {
 			return;
 		}
@@ -101,7 +101,7 @@ public final class SaturationOutline {
 			int x = x(j, right);
 			int y = y(j, top);
 			if (food < j * 2 + 2 && newFood >= j * 2 + 1) {
-				context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, SPRITES[set][newFood >= j * 2 + 2 ? 1 : 2], x, y, 9, 9, color);
+				context.blitSprite(RenderPipelines.GUI_TEXTURED, SPRITES[set][newFood >= j * 2 + 2 ? 1 : 2], x, y, 9, 9, color);
 			}
 
 			// Obwódka, której jeszcze nie ma: cała ikonka albo połówka, gdy obecna saturacja jej nie pokrywa.
@@ -121,32 +121,32 @@ public final class SaturationOutline {
 	}
 
 	/** Jedzenie w głównej ręce, a bez niego w drugiej; null = nic do zjedzenia. */
-	private static FoodComponent heldFood(PlayerEntity player) {
-		FoodComponent main = player.getMainHandStack().get(DataComponentTypes.FOOD);
-		return main != null ? main : player.getOffHandStack().get(DataComponentTypes.FOOD);
+	private static FoodProperties heldFood(Player player) {
+		FoodProperties main = player.getMainHandItem().get(DataComponents.FOOD);
+		return main != null ? main : player.getOffhandItem().get(DataComponents.FOOD);
 	}
 
 	/** Płynne mruganie raz na sekundę, od ledwo widocznego do pełnego. */
 	private static int blinkAlpha() {
-		double wave = 0.5 + 0.5 * Math.sin(Util.getMeasuringTimeMs() / 1000.0 * 2.0 * Math.PI);
+		double wave = 0.5 + 0.5 * Math.sin(Util.getMillis() / 1000.0 * 2.0 * Math.PI);
 		return (int) Math.round(255.0 * (0.2 + 0.8 * wave));
 	}
 
 	/** Tekstura ma 1 piksel zapasu z każdej strony (na dorysowaną obwódkę) i skalę ikonki z packa (np. 16x16 w 9x9). */
-	private static void outline(DrawContext context, int set, int part, int x, int y, int color) {
+	private static void outline(GuiGraphics context, int set, int part, int x, int y, int color) {
 		int w = WIDTH[set];
 		int h = HEIGHT[set];
-		Matrix3x2fStack matrices = context.getMatrices();
+		Matrix3x2fStack matrices = context.pose();
 		matrices.pushMatrix();
 		matrices.translate(x, y);
 		matrices.scale(9.0F / w, 9.0F / h);
-		context.drawTexture(RenderPipelines.GUI_TEXTURED, OUTLINES[set][part], -1, -1, 0.0F, 0.0F, w + 2, h + 2, w + 2, h + 2, w + 2, h + 2, color);
+		context.blit(RenderPipelines.GUI_TEXTURED, OUTLINES[set][part], -1, -1, 0.0F, 0.0F, w + 2, h + 2, w + 2, h + 2, w + 2, h + 2, color);
 		matrices.popMatrix();
 	}
 
 	private static void build(int set) {
-		SpriteAtlasTexture atlas = MinecraftClient.getInstance().getAtlasManager().getAtlasTexture(Atlases.GUI);
-		Sprite full = atlas.getSprite(SPRITES[set][1]);
+		TextureAtlas atlas = Minecraft.getInstance().getAtlasManager().getAtlasOrThrow(AtlasIds.GUI);
+		TextureAtlasSprite full = atlas.getSprite(SPRITES[set][1]);
 		if (full == BUILT_FROM[set]) {
 			return;
 		}
@@ -163,8 +163,8 @@ public final class SaturationOutline {
 		for (int x = -1; x <= w; x++) {
 			for (int y = -1; y <= h; y++) {
 				boolean on = outline[x + 1][y + 1];
-				whole.setColorArgb(x + 1, y + 1, on ? GOLD : 0);
-				partial.setColorArgb(x + 1, y + 1, on && inHalf(filled, half, x, y) ? GOLD : 0);
+				whole.setPixel(x + 1, y + 1, on ? GOLD : 0);
+				partial.setPixel(x + 1, y + 1, on && inHalf(filled, half, x, y) ? GOLD : 0);
 			}
 		}
 
@@ -253,7 +253,7 @@ public final class SaturationOutline {
 	}
 
 	private static void register(Identifier id, NativeImage image) {
-		MinecraftClient.getInstance().getTextureManager().registerTexture(id, new NativeImageBackedTexture(() -> "AIO PvP saturation outline", image));
+		Minecraft.getInstance().getTextureManager().register(id, new DynamicTexture(() -> "AIO PvP saturation outline", image));
 	}
 
 	/** Piksele pierwszej klatki ikonki (ARGB, 0 poza obrazkiem). */
@@ -262,14 +262,14 @@ public final class SaturationOutline {
 		final int h;
 		private final int[] argb;
 
-		Icon(Sprite sprite) {
-			this.w = sprite.getContents().getWidth();
-			this.h = sprite.getContents().getHeight();
-			NativeImage image = ((SpriteContentsAccessor) sprite.getContents()).aio$image();
+		Icon(TextureAtlasSprite sprite) {
+			this.w = sprite.contents().width();
+			this.h = sprite.contents().height();
+			NativeImage image = ((SpriteContentsAccessor) sprite.contents()).aio$image();
 			this.argb = new int[this.w * this.h];
 			for (int x = 0; x < this.w; x++) {
 				for (int y = 0; y < this.h; y++) {
-					this.argb[y * this.w + x] = image.getColorArgb(x, y);
+					this.argb[y * this.w + x] = image.getPixel(x, y);
 				}
 			}
 		}

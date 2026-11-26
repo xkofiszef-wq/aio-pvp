@@ -1,16 +1,16 @@
 package pl.kerf.project.hud;
 
+import com.mojang.blaze3d.platform.NativeImage;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.texture.NativeImageBackedTexture;
-import net.minecraft.resource.InputSupplier;
-import net.minecraft.resource.ResourceType;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.packs.PackType;
+import net.minecraft.server.packs.resources.IoSupplier;
 import pl.kerf.project.AioPvp;
 
 /**
@@ -26,9 +26,9 @@ public final class VanillaGui {
 	public static final int SLOT_PITCH = 20;
 	/** O ile ramka slotu wystaje poza ikonę przedmiotu 16x16. */
 	public static final int SLOT_MARGIN = 3;
-	public static final Identifier EFFECT_PANEL = Identifier.ofVanilla("container/inventory/effect_background");
-	public static final Identifier EFFECT_PANEL_AMBIENT = Identifier.ofVanilla("container/inventory/effect_background_ambient");
-	private static final Identifier HOTBAR = Identifier.ofVanilla("hud/hotbar");
+	public static final Identifier EFFECT_PANEL = Identifier.withDefaultNamespace("container/inventory/effect_background");
+	public static final Identifier EFFECT_PANEL_AMBIENT = Identifier.withDefaultNamespace("container/inventory/effect_background_ambient");
+	private static final Identifier HOTBAR = Identifier.withDefaultNamespace("hud/hotbar");
 	private static final int HOTBAR_W = 182;
 	private static final int HOTBAR_H = 22;
 	/** Panel efektu: 32x32, ramka 4 px (jak "nine_slice" w pliku .mcmeta gry). */
@@ -48,7 +48,7 @@ public final class VanillaGui {
 	 * N komórek, prawa krawędź. W pionie tekstura nie ma odpowiednika, więc każdy slot to osobne pudełko
 	 * 22x22, a kolejne nachodzą na siebie o 2 px, przez co między slotami zostaje jedna czarna linia.
 	 */
-	public static void slots(DrawContext context, int itemX, int itemY, int count, boolean horizontal, boolean pack) {
+	public static void slots(GuiGraphics context, int itemX, int itemY, int count, boolean horizontal, boolean pack) {
 		int x = itemX - SLOT_MARGIN;
 		int y = itemY - SLOT_MARGIN;
 		if (count <= 0) {
@@ -73,44 +73,48 @@ public final class VanillaGui {
 		}
 	}
 
-	private static void region(DrawContext context, boolean pack, int u, int x, int y, int width) {
+	private static void region(GuiGraphics context, boolean pack, int u, int x, int y, int width) {
 		Identifier pure = pack ? null : pure(HOTBAR);
 		if (pure == null) {
-			context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, HOTBAR, HOTBAR_W, HOTBAR_H, u, 0, x, y, width, HOTBAR_H);
+			context.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR, HOTBAR_W, HOTBAR_H, u, 0, x, y, width, HOTBAR_H);
 		} else {
-			context.drawTexture(RenderPipelines.GUI_TEXTURED, pure, x, y, u, 0.0F, width, HOTBAR_H, HOTBAR_W, HOTBAR_H);
+			context.blit(RenderPipelines.GUI_TEXTURED, pure, x, y, u, 0.0F, width, HOTBAR_H, HOTBAR_W, HOTBAR_H);
 		}
 	}
 
 	/** Panel efektu jak w ekwipunku, dowolnej szerokości (wysokość 32, jak w grze). */
-	public static void effectPanel(DrawContext context, int x, int y, int width, int height, boolean ambient, boolean pack) {
+	public static void effectPanel(GuiGraphics context, int x, int y, int width, int height, boolean ambient, boolean pack) {
 		Identifier sprite = ambient ? EFFECT_PANEL_AMBIENT : EFFECT_PANEL;
 		Identifier pure = pack ? null : pure(sprite);
 		if (pure == null) {
-			context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, sprite, x, y, width, height);
+			context.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, x, y, width, height);
 			return;
 		}
 
 		// Ramka 4 px z lewej i prawej, środek rozciągnięty (w oryginale jest jednolity).
 		int b = PANEL_BORDER;
-		context.drawTexture(RenderPipelines.GUI_TEXTURED, pure, x, y, 0.0F, 0.0F, b, height, b, PANEL, PANEL, PANEL);
-		context.drawTexture(RenderPipelines.GUI_TEXTURED, pure, x + b, y, b, 0.0F, width - 2 * b, height, PANEL - 2 * b, PANEL, PANEL, PANEL);
-		context.drawTexture(RenderPipelines.GUI_TEXTURED, pure, x + width - b, y, PANEL - b, 0.0F, b, height, b, PANEL, PANEL, PANEL);
+		context.blit(RenderPipelines.GUI_TEXTURED, pure, x, y, 0.0F, 0.0F, b, height, b, PANEL, PANEL, PANEL);
+		context.blit(RenderPipelines.GUI_TEXTURED, pure, x + b, y, b, 0.0F, width - 2 * b, height, PANEL - 2 * b, PANEL, PANEL, PANEL);
+		context.blit(RenderPipelines.GUI_TEXTURED, pure, x + width - b, y, PANEL - b, 0.0F, b, height, b, PANEL, PANEL, PANEL);
 	}
 
 	/** Oryginalna tekstura sprite'a prosto z wbudowanych zasobów gry (pomija texture packi); null, gdy jej nie ma. */
 	private static Identifier pure(Identifier sprite) {
 		return PURE.computeIfAbsent(sprite, key -> {
-			MinecraftClient client = MinecraftClient.getInstance();
-			Identifier file = Identifier.ofVanilla("textures/gui/sprites/" + key.getPath() + ".png");
-			InputSupplier<InputStream> supplier = client.getDefaultResourcePack().open(ResourceType.CLIENT_RESOURCES, file);
+			Minecraft client = Minecraft.getInstance();
+			Identifier file = Identifier.withDefaultNamespace("textures/gui/sprites/" + key.getPath() + ".png");
+			//? if <26.3 {
+			IoSupplier<InputStream> supplier = client.getVanillaPackResources().getResource(PackType.CLIENT_RESOURCES, file);
+			//?} else {
+			/*IoSupplier<InputStream> supplier = client.getVanillaPackResources().fullResources().getResource(PackType.CLIENT_RESOURCES, file);
+			*///?}
 			if (supplier == null) {
 				return null;
 			}
 
 			try (InputStream in = supplier.get()) {
-				Identifier id = Identifier.of(AioPvp.MOD_ID, "vanilla_gui/" + key.getPath());
-				client.getTextureManager().registerTexture(id, new NativeImageBackedTexture(() -> "AIO PvP " + id, NativeImage.read(in)));
+				Identifier id = Identifier.fromNamespaceAndPath(AioPvp.MOD_ID, "vanilla_gui/" + key.getPath());
+				client.getTextureManager().register(id, new DynamicTexture(() -> "AIO PvP " + id, NativeImage.read(in)));
 				return id;
 			} catch (Exception e) {
 				AioPvp.LOGGER.warn("Nie udało się wczytać oryginalnej tekstury {}", file, e);

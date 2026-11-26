@@ -6,19 +6,19 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.network.ClientPlayerLikeEntity;
-import net.minecraft.entity.player.SkinTextures;
-import net.minecraft.client.sound.PositionedSoundInstance;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.PlayerLikeEntity;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.ClickEvent;
-import net.minecraft.text.HoverEvent;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.entity.ClientAvatarEntity;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.network.chat.ClickEvent;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.HoverEvent;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.entity.Avatar;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.PlayerSkin;
 
 /**
  * Fight Report: liczy przebieg walki z jednym przeciwnikiem wyłącznie z tego, co klient i tak widzi
@@ -53,7 +53,7 @@ public final class FightTracker {
 	 */
 	public record Report(
 		String opponent, Outcome outcome, int ticks, int attempts, int landed, int taken, float damage,
-		int bestCombo, double averageDistance, int totems, int armorLost, SkinTextures opponentSkin
+		int bestCombo, double averageDistance, int totems, int armorLost, PlayerSkin opponentSkin
 	) {
 		public float damagePerHit() {
 			return this.landed == 0 ? 0.0F : this.damage / this.landed;
@@ -78,7 +78,7 @@ public final class FightTracker {
 	private static double distanceSum;
 	private static float damage;
 	private static float opponentHp;
-	private static SkinTextures opponentSkin;
+	private static PlayerSkin opponentSkin;
 	private static int pendingTick = -1;
 	private static double pendingDistance;
 	private static int ownHurt;
@@ -134,12 +134,12 @@ public final class FightTracker {
 
 	/** Tylko walki z graczami (i postaciami graczy, np. manekinami NPC); moby się nie liczą. */
 	private static boolean eligible(LivingEntity entity) {
-		return entity instanceof PlayerLikeEntity;
+		return entity instanceof Avatar;
 	}
 
 	/** Nasz atak na encję (strona klienta). Czy cios "wszedł", okaże się po animacji trafienia przeciwnika. */
-	public static void attack(MinecraftClient client, Entity entity) {
-		ClientPlayerEntity player = client.player;
+	public static void attack(Minecraft client, Entity entity) {
+		LocalPlayer player = client.player;
 		if (!Modules.FIGHT_REPORT.on() || player == null || player.isSpectator() || entity == player
 			|| !(entity instanceof LivingEntity living) || !eligible(living)) {
 			return;
@@ -160,7 +160,7 @@ public final class FightTracker {
 		attempts++;
 		lastAttackTick = ticks;
 		pendingTick = ticks;
-		pendingDistance = Math.sqrt(living.getBoundingBox().squaredMagnitude(player.getEyePos()));
+		pendingDistance = Math.sqrt(living.getBoundingBox().distanceToSqr(player.getEyePosition()));
 		lastEvent = ticks;
 	}
 
@@ -203,7 +203,7 @@ public final class FightTracker {
 	 * Czy na czacie padł komunikat o zabójstwie przeciwnika po naszym ciosie: wiadomość z jego nickiem i naszym nickiem
 	 * albo ze słowem o śmierci. Dla serwerów (praktyki, minigry), które nie wysyłają statusu śmierci ani zdrowia.
 	 */
-	private static boolean killMessage(MinecraftClient client) {
+	private static boolean killMessage(Minecraft client) {
 		if (attempts == 0 || ticks - lastAttackTick > KILL_MESSAGE_WINDOW) {
 			return false;
 		}
@@ -237,7 +237,7 @@ public final class FightTracker {
 		}
 	}
 
-	private static void start(ClientPlayerEntity player, LivingEntity living) {
+	private static void start(LocalPlayer player, LivingEntity living) {
 		opponent = living;
 		opponentDied = false;
 		opponentName = living.getName().getString();
@@ -252,7 +252,7 @@ public final class FightTracker {
 		damage = 0.0F;
 		opponentHp = hp(living);
 		// Skin bierzemy z gry (ten sam, który widać na graczu), więc nie trzeba niczego pobierać z internetu.
-		opponentSkin = living instanceof ClientPlayerLikeEntity avatar ? avatar.getSkin() : null;
+		opponentSkin = living instanceof ClientAvatarEntity avatar ? avatar.getSkin() : null;
 		pendingTick = -1;
 		armorStart = armorDamage(player);
 		armorLost = 0;
@@ -267,19 +267,19 @@ public final class FightTracker {
 		return Math.max(0.0F, entity.getHealth()) + entity.getAbsorptionAmount();
 	}
 
-	private static int armorDamage(ClientPlayerEntity player) {
+	private static int armorDamage(LocalPlayer player) {
 		int damage = 0;
 		for (EquipmentSlot slot : new EquipmentSlot[] {EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET}) {
-			damage += player.getEquippedStack(slot).getDamage();
+			damage += player.getItemBySlot(slot).getDamageValue();
 		}
 
 		return damage;
 	}
 
-	public static void tick(MinecraftClient client) {
+	public static void tick(Minecraft client) {
 		ticks++;
-		ClientPlayerEntity player = client.player;
-		if (player == null || client.world == null) {
+		LocalPlayer player = client.player;
+		if (player == null || client.level == null) {
 			// Wyjście ze świata: niedokończona walka przepada.
 			opponent = null;
 			RECENT_HURTS.clear();
@@ -314,14 +314,14 @@ public final class FightTracker {
 		}
 
 		opponentHp = hp;
-		if (!player.isDead()) {
+		if (!player.isDeadOrDying()) {
 			// Po śmierci ekwipunek znika, więc zużycie zbroi liczymy na bieżąco, póki żyjemy.
 			armorLost = Math.max(armorLost, armorDamage(player) - armorStart);
 		}
 
-		if (player.isDead()) {
+		if (player.isDeadOrDying()) {
 			finish(client, Outcome.LOSS);
-		} else if (opponent.isDead() || opponentDied || killMessage(client)) {
+		} else if (opponent.isDeadOrDying() || opponentDied || killMessage(client)) {
 			finish(client, Outcome.WIN);
 		} else if (opponent.isRemoved()) {
 			// Serwery praktyk i minigier po zabójstwie od razu usuwają przeciwnika albo przenoszą go do lobby, a zdrowia ani statusu
@@ -332,7 +332,7 @@ public final class FightTracker {
 		}
 	}
 
-	private static void finish(MinecraftClient client, Outcome outcome) {
+	private static void finish(Minecraft client, Outcome outcome) {
 		opponent = null;
 		// Pojedyncze przypadkowe kliknięcie w kogoś to jeszcze nie walka.
 		if (outcome == Outcome.ENDED && landed + taken < 2) {
@@ -344,17 +344,25 @@ public final class FightTracker {
 			landed == 0 ? 0.0 : distanceSum / landed, totems, armorLost, opponentSkin
 		));
 		String command = "/" + COMMAND;
-		client.inGameHud.getChatHud().addMessage(
-			Text.literal(Lang.t("[AIO PvP] ")).withColor(0x8C8CF0)
-				.append(Text.literal(Lang.t("Walka z ") + opponentName + ": ").withColor(0xC2C6D0))
-				.append(Text.literal(Lang.t(outcome.label)).withColor(outcome.color))
-				.append(Text.literal(Lang.t(". Raport: ")).withColor(0xC2C6D0))
-				.append(Text.literal(command).styled(style -> style.withColor(0xFFFFFF).withUnderline(true)
+		//? if <26.1.2 {
+		client.gui.getChat().addMessage(
+		//?}
+		//? if >=26.2 {
+		/*client.gui.hud.getChat().addClientSystemMessage(
+		*///?}
+		//? if =26.1.2 {
+		/*client.gui.getChat().addClientSystemMessage(
+		*///?}
+			Component.literal(Lang.t("[AIO PvP] ")).withColor(0x8C8CF0)
+				.append(Component.literal(Lang.t("Walka z ") + opponentName + ": ").withColor(0xC2C6D0))
+				.append(Component.literal(Lang.t(outcome.label)).withColor(outcome.color))
+				.append(Component.literal(Lang.t(". Raport: ")).withColor(0xC2C6D0))
+				.append(Component.literal(command).withStyle(style -> style.withColor(0xFFFFFF).withUnderlined(true)
 					.withClickEvent(new ClickEvent.RunCommand(command))
-					.withHoverEvent(new HoverEvent.ShowText(Text.literal(Lang.t("Kliknij albo wpisz, żeby otworzyć kartę walki"))))))
+					.withHoverEvent(new HoverEvent.ShowText(Component.literal(Lang.t("Kliknij albo wpisz, żeby otworzyć kartę walki"))))))
 		);
 		if (Modules.FIGHT_REPORT.sound.on()) {
-			client.getSoundManager().play(PositionedSoundInstance.ui(SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0F));
+			client.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.EXPERIENCE_ORB_PICKUP, 1.0F));
 		}
 	}
 }

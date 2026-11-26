@@ -2,12 +2,17 @@ package pl.kerf.project.render;
 
 import java.util.Map;
 import java.util.WeakHashMap;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.BlockView;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.world.entity.Entity;
+//? if <26.1.2 {
+import net.minecraft.world.level.BlockGetter;
+//?}
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+//? if >=26.1.2 {
+/*import net.minecraft.world.level.BlockGetter;
+*///?}
 
 /**
  * Czy encja jest całkowicie zasłonięta pełnymi blokami (od kamery do trzech punktów encji: środek, góra, dół).
@@ -25,37 +30,41 @@ public final class EntityCulling {
 	}
 
 	public static boolean hidden(Entity entity) {
-		MinecraftClient client = MinecraftClient.getInstance();
-		ClientWorld world = client.world;
+		Minecraft client = Minecraft.getInstance();
+		ClientLevel world = client.level;
 		Entity camera = client.getCameraEntity();
-		if (world == null || camera == null || entity == camera || entity.isGlowing() || entity.hasPassengers() || entity.hasVehicle()) {
+		if (world == null || camera == null || entity == camera || entity.isCurrentlyGlowing() || entity.isVehicle() || entity.isPassenger()) {
 			return false;
 		}
 
-		Box box = entity.getBoundingBox();
-		if (box.getAverageSideLength() > MAX_SIZE) {
+		AABB box = entity.getBoundingBox();
+		if (box.getSize() > MAX_SIZE) {
 			return false;
 		}
 
-		Vec3d eye = client.gameRenderer.getCamera().getCameraPos();
-		if (box.getCenter().squaredDistanceTo(eye) < MIN_DISTANCE_SQ) {
+		//? if <26.2 {
+		Vec3 eye = client.gameRenderer.getMainCamera().position();
+		//?} else {
+		/*Vec3 eye = client.gameRenderer.mainCamera().position();
+		*///?}
+		if (box.getCenter().distanceToSqr(eye) < MIN_DISTANCE_SQ) {
 			return false;
 		}
 
-		long now = world.getTime();
+		long now = world.getGameTime();
 		long[] cached = CACHE.get(entity);
 		if (cached != null && now - cached[0] < CACHE_TICKS) {
 			return cached[1] == 1L;
 		}
 
-		Vec3d center = box.getCenter();
-		boolean visible = clear(world, eye, center) || clear(world, eye, new Vec3d(center.x, box.maxY, center.z)) || clear(world, eye, new Vec3d(center.x, box.minY + 0.1, center.z));
+		Vec3 center = box.getCenter();
+		boolean visible = clear(world, eye, center) || clear(world, eye, new Vec3(center.x, box.maxY, center.z)) || clear(world, eye, new Vec3(center.x, box.minY + 0.1, center.z));
 		CACHE.put(entity, new long[] {now, visible ? 0L : 1L});
 		return !visible;
 	}
 
 	/** Czy między kamerą a punktem nie ma pełnego, nieprzezroczystego bloku. */
-	private static boolean clear(ClientWorld world, Vec3d from, Vec3d to) {
-		return BlockView.raycast(from, to, world, (view, pos) -> view.getBlockState(pos).isOpaqueFullCube() ? Boolean.FALSE : null, view -> Boolean.TRUE);
+	private static boolean clear(ClientLevel world, Vec3 from, Vec3 to) {
+		return BlockGetter.traverseBlocks(from, to, world, (view, pos) -> view.getBlockState(pos).isSolidRender() ? Boolean.FALSE : null, view -> Boolean.TRUE);
 	}
 }

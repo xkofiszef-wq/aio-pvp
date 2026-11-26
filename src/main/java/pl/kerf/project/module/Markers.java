@@ -4,26 +4,48 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
-import net.minecraft.block.Block;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.render.Camera;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.projectile.ProjectileUtil;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.EntityHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.client.render.DrawStyle;
-import net.minecraft.world.debug.gizmo.GizmoDrawing;
-import net.minecraft.util.math.Vec3d;
+//? if <26.1.2 {
+import net.minecraft.client.Camera;
+import net.minecraft.client.KeyMapping;
+//?} else {
+/*import net.minecraft.world.level.block.Block;
+*///?}
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+//? if <26.1.2 {
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.gizmos.GizmoStyle;
+import net.minecraft.gizmos.Gizmos;
+import net.minecraft.resources.Identifier;
+//?} else {
+/*import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Camera;
+*///?}
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.projectile.ProjectileUtil;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+//? if <26.1.2 {
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.phys.AABB;
+//?} else {
+/*import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
+*///?}
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.HitResult;
+//? if >=26.1.2 {
+/*import net.minecraft.core.BlockPos;
+*///?}
+import net.minecraft.world.phys.Vec3;
+//? if >=26.1.2 {
+/*import net.minecraft.world.phys.AABB;
+import net.minecraft.gizmos.GizmoStyle;
+import net.minecraft.gizmos.Gizmos;
+*///?}
 import pl.kerf.project.config.Setting;
 
 /**
@@ -33,14 +55,18 @@ import pl.kerf.project.config.Setting;
  */
 public final class Markers extends Module {
 	/** Klawisz stawiania markera (Opcje -> Sterowanie, domyślnie środkowy przycisk myszy). */
-	public static KeyBinding key;
+	public static KeyMapping key;
 	private static final int MAX_PER_OWNER = 3;
 
 	public final Setting.Num scale = this.add(new Setting.Num("scale", "Skala", 1.0, 0.5, 4.0, 0.1, "x"));
 	public final Setting.Num duration = this.add(new Setting.Num("duration", "Czas widoczności", 120.0, 10.0, 600.0, 10.0, " s"));
 	public final Setting.Bool beacon = this.add(new Setting.Bool("beacon", "Beacon (słup światła)", false));
 	public final Setting.Num beaconWidth = this.add(new Setting.Num("beacon_width", "Grubość beacona", 0.6, 0.1, 1.5, 0.1, " bl"));
+	//? if <26.1.2 {
 	public final Setting.Bool animate =this.add(new Setting.Bool("animate", "Animuj marker", true));
+	//?} else {
+	/*public final Setting.Bool animate = this.add(new Setting.Bool("animate", "Animuj marker", true));
+	*///?}
 	public final Setting.Color color = this.add(new Setting.Color("color", "Kolor markera", 0xFF5EC8FF, false));
 	public final Setting.Bool showBlock = this.add(new Setting.Bool("show_block", "Pokaż blok obok markera", true));
 	public final Setting.Mode showOwner = this.add(new Setting.Mode("show_owner", "Pokaż autora", 0, "Zawsze", "Po najechaniu", "Nigdy"));
@@ -59,11 +85,11 @@ public final class Markers extends Module {
 		final String kind;
 		final UUID uuid;
 		final long born;
-		Vec3d pos;
+		Vec3 pos;
 		Entity entity;
 		boolean seen;
 
-		Marker(String owner, Vec3d pos, String dim, String kind, UUID uuid, long born) {
+		Marker(String owner, Vec3 pos, String dim, String kind, UUID uuid, long born) {
 			this.owner = owner;
 			this.pos = pos;
 			this.dim = dim;
@@ -92,7 +118,7 @@ public final class Markers extends Module {
 		}
 
 		try {
-			Vec3d pos = new Vec3d(Double.parseDouble(p[1]), Double.parseDouble(p[2]), Double.parseDouble(p[3]));
+			Vec3 pos = new Vec3(Double.parseDouble(p[1]), Double.parseDouble(p[2]), Double.parseDouble(p[3]));
 			// Siódme pole (opcjonalne) to UUID encji, do której marker jest przyczepiony.
 			UUID uuid = p.length > 6 && !p[6].equals("-") ? UUID.fromString(p[6]) : null;
 			this.addMarker(new Marker(owner, pos, p[4], p[5], uuid, System.currentTimeMillis()));
@@ -113,7 +139,7 @@ public final class Markers extends Module {
 				return true;
 			}
 
-			boolean near = m.kind.equals(marker.kind) && java.util.Objects.equals(m.uuid, marker.uuid) && m.pos.squaredDistanceTo(marker.pos) < 4.0;
+			boolean near = m.kind.equals(marker.kind) && java.util.Objects.equals(m.uuid, marker.uuid) && m.pos.distanceToSqr(marker.pos) < 4.0;
 			return near && (sameOwner || marker.born - m.born < 5000L);
 		});
 		List<Marker> mine = this.markers.stream().filter(m -> m.owner.equalsIgnoreCase(marker.owner)).toList();
@@ -127,14 +153,18 @@ public final class Markers extends Module {
 	// ---------- stawianie markera ----------
 
 	/** Klawisz i wygasanie; wołane co tick. */
-	public void tick(MinecraftClient client) {
-		if (client.world == null || client.player == null) {
+	public void tick(Minecraft client) {
+		if (client.level == null || client.player == null) {
 			this.markers.clear();
 			return;
 		}
 
-		while (key != null && key.wasPressed()) {
-			if (this.on() && client.currentScreen == null) {
+		while (key != null && key.consumeClick()) {
+			//? if <26.2 {
+			if (this.on() && client.screen == null) {
+			//?} else {
+			/*if (this.on() && client.gui.screen() == null) {
+			*///?}
 				this.ping(client);
 			}
 		}
@@ -143,33 +173,33 @@ public final class Markers extends Module {
 		this.markers.removeIf(marker -> now - marker.born > this.duration.i() * 1000L);
 	}
 
-	private void ping(MinecraftClient client) {
+	private void ping(Minecraft client) {
 		long now = System.currentTimeMillis();
 		if (now - this.lastPing < 500L) {
 			return;
 		}
 
-		float tickProgress = client.getRenderTickCounter().getTickProgress(false);
-		HitResult hit = client.player.raycast(256.0, tickProgress, false);
+		float tickProgress = client.getDeltaTracker().getGameTimeDeltaPartialTick(false);
+		HitResult hit = client.player.pick(256.0, tickProgress, false);
 		// Encja na linii wzroku (bliżej niż trafiony blok) wygrywa: marker przyczepia się do niej i jedzie razem z nią.
-		Vec3d start = client.player.getCameraPosVec(tickProgress);
-		Vec3d look = client.player.getRotationVec(tickProgress);
-		Vec3d end = start.add(look.multiply(256.0));
-		double blockDistance = hit.getType() == HitResult.Type.BLOCK ? hit.getPos().squaredDistanceTo(start) : 256.0 * 256.0;
-		EntityHitResult entityHit = ProjectileUtil.raycast(client.player, start, end, client.player.getBoundingBox().stretch(look.multiply(256.0)).expand(1.0),
-			entity -> !entity.isSpectator() && entity.canHit(), blockDistance);
-		String dim = client.world.getRegistryKey().getValue().getPath();
+		Vec3 start = client.player.getEyePosition(tickProgress);
+		Vec3 look = client.player.getViewVector(tickProgress);
+		Vec3 end = start.add(look.scale(256.0));
+		double blockDistance = hit.getType() == HitResult.Type.BLOCK ? hit.getLocation().distanceToSqr(start) : 256.0 * 256.0;
+		EntityHitResult entityHit = ProjectileUtil.getEntityHitResult(client.player, start, end, client.player.getBoundingBox().expandTowards(look.scale(256.0)).inflate(1.0),
+			entity -> !entity.isSpectator() && entity.isPickable(), blockDistance);
+		String dim = client.level.dimension().identifier().getPath();
 		String me = client.player.getName().getString();
 		if (entityHit != null) {
 			Entity target = entityHit.getEntity();
 			this.lastPing = now;
-			String type = Registries.ENTITY_TYPE.getId(target.getType()).toString();
-			Vec3d pos = target.getLerpedPos(tickProgress).add(0.0, target.getHeight() + 0.6, 0.0);
-			Marker marker = new Marker(me, pos, dim, type, target.getUuid(), now);
+			String type = BuiltInRegistries.ENTITY_TYPE.getKey(target.getType()).toString();
+			Vec3 pos = target.getPosition(tickProgress).add(0.0, target.getBbHeight() + 0.6, 0.0);
+			Marker marker = new Marker(me, pos, dim, type, target.getUUID(), now);
 			marker.entity = target;
 			marker.seen = true;
 			this.addMarker(marker);
-			Modules.PARTY.broadcast(String.format(Locale.ROOT, "m %.1f %.1f %.1f %s %s %s", pos.x, pos.y, pos.z, dim, type, target.getUuid()));
+			Modules.PARTY.broadcast(String.format(Locale.ROOT, "m %.1f %.1f %.1f %s %s %s", pos.x, pos.y, pos.z, dim, type, target.getUUID()));
 			return;
 		}
 
@@ -180,24 +210,24 @@ public final class Markers extends Module {
 		this.lastPing = now;
 		BlockHitResult blockHit = (BlockHitResult) hit;
 		BlockPos blockPos = blockHit.getBlockPos();
-		Block block = client.world.getBlockState(blockPos).getBlock();
-		String blockId = Registries.BLOCK.getId(block).toString();
+		Block block = client.level.getBlockState(blockPos).getBlock();
+		String blockId = BuiltInRegistries.BLOCK.getKey(block).toString();
 		// Znacznik tuż nad trafioną ścianą, żeby nie wchodził w blok.
-		Vec3d pos = blockHit.getPos().add(Vec3d.of(blockHit.getSide().getVector()).multiply(0.3));
+		Vec3 pos = blockHit.getLocation().add(Vec3.atLowerCornerOf(blockHit.getDirection().getUnitVec3i()).scale(0.3));
 		this.addMarker(new Marker(me, pos, dim, blockId, null, now));
 		Modules.PARTY.broadcast(String.format(Locale.ROOT, "m %.1f %.1f %.1f %s %s -", pos.x, pos.y, pos.z, dim, blockId));
 	}
 
 	/** Ustawia pozycję markera z encji; false = encja zniknęła i marker ma zniknąć. */
-	private static boolean follow(MinecraftClient client, Marker marker, float tickProgress) {
+	private static boolean follow(Minecraft client, Marker marker, float tickProgress) {
 		if (marker.uuid == null) {
 			return true;
 		}
 
 		if (marker.entity == null || marker.entity.isRemoved()) {
 			Entity found = null;
-			for (Entity entity : client.world.getEntities()) {
-				if (entity.getUuid().equals(marker.uuid)) {
+			for (Entity entity : client.level.entitiesForRendering()) {
+				if (entity.getUUID().equals(marker.uuid)) {
 					found = entity;
 					break;
 				}
@@ -216,7 +246,7 @@ public final class Markers extends Module {
 			return false;
 		}
 
-		marker.pos = marker.entity.getLerpedPos(tickProgress).add(0.0, marker.entity.getHeight() + 0.6, 0.0);
+		marker.pos = marker.entity.getPosition(tickProgress).add(0.0, marker.entity.getBbHeight() + 0.6, 0.0);
 		return true;
 	}
 
@@ -229,73 +259,89 @@ public final class Markers extends Module {
 	 * Beacon: półprzezroczysty słup w kolorze markera, domyślnie tak gruby jak hitbox gracza (0,6 bloku); widać go przez ściany.
 	 * Wołane w zakresie gizmo otwartym przez {@link pl.kerf.project.render.WorldOverlays}.
 	 */
-	public void submit(MinecraftClient client) {
-		String dim = client.world.getRegistryKey().getValue().getPath();
+	public void submit(Minecraft client) {
+		String dim = client.level.dimension().identifier().getPath();
 		double half = this.beaconWidth.f() / 2.0;
 		int argb = this.color.argb();
 		int fill = Math.min(argb >>> 24, 110) << 24 | argb & 0xFFFFFF;
 		for (Marker marker : this.markers) {
 			if (marker.dim.equals(dim)) {
-				Box box = new Box(marker.pos.x - half, marker.pos.y - 0.3, marker.pos.z - half, marker.pos.x + half, marker.pos.y + BEACON_HEIGHT, marker.pos.z + half);
-				GizmoDrawing.box(box, DrawStyle.filledAndStroked(argb, 1.5F, fill)).ignoreOcclusion();
+				AABB box = new AABB(marker.pos.x - half, marker.pos.y - 0.3, marker.pos.z - half, marker.pos.x + half, marker.pos.y + BEACON_HEIGHT, marker.pos.z + half);
+				Gizmos.cuboid(box, GizmoStyle.strokeAndFill(argb, 1.5F, fill)).setAlwaysOnTop();
 			}
 		}
 	}
 
 	/** Rzutuje punkt świata na ekran HUD-u: {x, y, odległość od kamery} albo null, gdy punkt jest za kamerą. */
-	public static double[] project(DrawContext context, MinecraftClient client, Vec3d point) {
-		Camera camera = client.gameRenderer.getCamera();
-		Vec3d eye = camera.getCameraPos();
-		Vec3d forward = new Vec3d(camera.getHorizontalPlane());
-		Vec3d right = new Vec3d(camera.getDiagonalPlane()).multiply(-1.0);
-		Vec3d up = new Vec3d(camera.getVerticalPlane());
-		int sw = context.getScaledWindowWidth();
-		int sh = context.getScaledWindowHeight();
-		double fov = ((pl.kerf.project.mixin.GameRendererInvoker) client.gameRenderer).aio$getFov(camera, client.getRenderTickCounter().getTickProgress(false), true);
+	public static double[] project(GuiGraphics context, Minecraft client, Vec3 point) {
+		//? if <26.2 {
+		Camera camera = client.gameRenderer.getMainCamera();
+		//?} else {
+		/*Camera camera = client.gameRenderer.mainCamera();
+		*///?}
+		Vec3 eye = camera.position();
+		Vec3 forward = new Vec3(camera.forwardVector());
+		Vec3 right = new Vec3(camera.leftVector()).scale(-1.0);
+		Vec3 up = new Vec3(camera.upVector());
+		int sw = context.guiWidth();
+		int sh = context.guiHeight();
+		//? if <26.1.2 {
+		double fov = ((pl.kerf.project.mixin.GameRendererInvoker) client.gameRenderer).aio$getFov(camera, client.getDeltaTracker().getGameTimeDeltaPartialTick(false), true);
+		//?} else {
+		/*double fov = camera.getFov();
+		*///?}
 		double tanY = Math.tan(Math.toRadians(fov) / 2.0);
 		double tanX = tanY * sw / sh;
-		Vec3d d = point.subtract(eye);
-		double z = d.dotProduct(forward);
+		Vec3 d = point.subtract(eye);
+		double z = d.dot(forward);
 		if (z < 0.05) {
 			return null;
 		}
 
-		return new double[] {sw / 2.0 + d.dotProduct(right) / z / tanX * sw / 2.0, sh / 2.0 - d.dotProduct(up) / z / tanY * sh / 2.0, d.length()};
+		return new double[] {sw / 2.0 + d.dot(right) / z / tanX * sw / 2.0, sh / 2.0 - d.dot(up) / z / tanY * sh / 2.0, d.length()};
 	}
 
 	/** Rysuje znaczniki na HUD-zie: pozycja świata jest rzutowana na ekran, a ikona bloku i napisy rysują się zwykłym DrawContext. */
-	public void render(DrawContext context, MinecraftClient client) {
-		if (!this.on() || client.player == null || client.world == null || this.markers.isEmpty()) {
+	public void render(GuiGraphics context, Minecraft client) {
+		if (!this.on() || client.player == null || client.level == null || this.markers.isEmpty()) {
 			return;
 		}
 
-		Camera camera = client.gameRenderer.getCamera();
-		Vec3d eye = camera.getCameraPos();
-		Vec3d forward = new Vec3d(camera.getHorizontalPlane());
-		Vec3d right = new Vec3d(camera.getDiagonalPlane()).multiply(-1.0);
-		Vec3d up = new Vec3d(camera.getVerticalPlane());
-		int sw = context.getScaledWindowWidth();
-		int sh = context.getScaledWindowHeight();
+		//? if <26.2 {
+		Camera camera = client.gameRenderer.getMainCamera();
+		//?} else {
+		/*Camera camera = client.gameRenderer.mainCamera();
+		*///?}
+		Vec3 eye = camera.position();
+		Vec3 forward = new Vec3(camera.forwardVector());
+		Vec3 right = new Vec3(camera.leftVector()).scale(-1.0);
+		Vec3 up = new Vec3(camera.upVector());
+		int sw = context.guiWidth();
+		int sh = context.guiHeight();
 		// Prawdziwy kąt widzenia z tej klatki (z zoomem z innych modów i efektami sprintu), nie sam suwak FOV z opcji.
-		double fov = ((pl.kerf.project.mixin.GameRendererInvoker) client.gameRenderer).aio$getFov(camera, client.getRenderTickCounter().getTickProgress(false), true);
+		//? if <26.1.2 {
+		double fov = ((pl.kerf.project.mixin.GameRendererInvoker) client.gameRenderer).aio$getFov(camera, client.getDeltaTracker().getGameTimeDeltaPartialTick(false), true);
+		//?} else {
+		/*double fov = camera.getFov();
+		*///?}
 		double tanY = Math.tan(Math.toRadians(fov) / 2.0);
 		double tanX = tanY * sw / sh;
-		String dim = client.world.getRegistryKey().getValue().getPath();
-		float tickProgress = client.getRenderTickCounter().getTickProgress(false);
+		String dim = client.level.dimension().identifier().getPath();
+		float tickProgress = client.getDeltaTracker().getGameTimeDeltaPartialTick(false);
 		this.markers.removeIf(marker -> !follow(client, marker, tickProgress));
 		for (Marker marker : this.markers) {
 			if (!marker.dim.equals(dim)) {
 				continue;
 			}
 
-			Vec3d d = marker.pos.subtract(eye);
-			double z = d.dotProduct(forward);
+			Vec3 d = marker.pos.subtract(eye);
+			double z = d.dot(forward);
 			if (z < 0.05) {
 				continue;
 			}
 
-			double x = sw / 2.0 + d.dotProduct(right) / z / tanX * sw / 2.0;
-			double y = sh / 2.0 - d.dotProduct(up) / z / tanY * sh / 2.0;
+			double x = sw / 2.0 + d.dot(right) / z / tanX * sw / 2.0;
+			double y = sh / 2.0 - d.dot(up) / z / tanY * sh / 2.0;
 			if (x < -60 || x > sw + 60 || y < -60 || y > sh + 60) {
 				continue;
 			}
@@ -308,12 +354,12 @@ public final class Markers extends Module {
 		return mode.is(0) || mode.is(1) && hover;
 	}
 
-	private void draw(DrawContext context, MinecraftClient client, Marker marker, float x, float y, double distance, boolean hover) {
-		TextRenderer font = client.textRenderer;
+	private void draw(GuiGraphics context, Minecraft client, Marker marker, float x, float y, double distance, boolean hover) {
+		Font font = client.font;
 		int bob = this.animate.on() ? (int) Math.round(Math.sin(System.currentTimeMillis() / 250.0) * 2.0) : 0;
-		context.getMatrices().pushMatrix();
-		context.getMatrices().translate(x, y + bob);
-		context.getMatrices().scale(this.scale.f(), this.scale.f());
+		context.pose().pushMatrix();
+		context.pose().translate(x, y + bob);
+		context.pose().scale(this.scale.f(), this.scale.f());
 		int argb = this.color.argb();
 		// Romb jak w Lunarze: rząd po rzędzie.
 		for (int i = -5; i <= 5; i++) {
@@ -326,11 +372,11 @@ public final class Markers extends Module {
 		ItemStack stack;
 		if (marker.uuid != null) {
 			Identifier typeId = Identifier.tryParse(marker.kind);
-			description = typeId == null ? "" : Registries.ENTITY_TYPE.get(typeId).getName().getString();
-			stack = typeId == null ? ItemStack.EMPTY : new ItemStack(Registries.ITEM.get(Identifier.of(typeId.getNamespace(), typeId.getPath() + "_spawn_egg")));
+			description = typeId == null ? "" : BuiltInRegistries.ENTITY_TYPE.getValue(typeId).getDescription().getString();
+			stack = typeId == null ? ItemStack.EMPTY : new ItemStack(BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath(typeId.getNamespace(), typeId.getPath() + "_spawn_egg")));
 		} else {
 			Identifier blockId = Identifier.tryParse(marker.kind);
-			Block block = blockId == null ? net.minecraft.block.Blocks.AIR : Registries.BLOCK.get(blockId);
+			Block block = blockId == null ? net.minecraft.world.level.block.Blocks.AIR : BuiltInRegistries.BLOCK.getValue(blockId);
 			description = block.getName().getString();
 			stack = new ItemStack(block);
 		}
@@ -339,34 +385,42 @@ public final class Markers extends Module {
 		if (shown(this.showCoordinates, hover)) {
 			String coords = String.format(Locale.ROOT, "(%.1f, %.1f, %.1f)", marker.pos.x, marker.pos.y, marker.pos.z);
 			line -= 10;
-			context.drawText(font, coords, -font.getWidth(coords) / 2, line, 0xFFFFFFFF, true);
+			context.drawString(font, coords, -font.width(coords) / 2, line, 0xFFFFFFFF, true);
 		}
 
 		String info = (shown(this.showDescription, hover) ? description + " " : "")
 			+ (shown(this.showDistance, hover) ? String.format(Locale.ROOT, "(%.1fm)", distance) : "");
-		boolean icon = this.showBlock.on() && !stack.isEmpty() && !stack.isOf(Items.AIR);
+		//? if <26.1.2 {
+		boolean icon = this.showBlock.on() && !stack.isEmpty() && !stack.is(Items.AIR);
+		//?} else {
+		/*boolean icon = this.showBlock.on() && !stack.isEmpty();
+		*///?}
 		if (!info.isBlank() || icon) {
 			line -= 12;
-			int width = font.getWidth(info) + (icon ? 14 : 0);
+			int width = font.width(info) + (icon ? 14 : 0);
 			int left = -width / 2;
 			if (icon) {
-				context.getMatrices().pushMatrix();
-				context.getMatrices().translate(left, line - 1);
-				context.getMatrices().scale(0.75F, 0.75F);
-				context.drawItem(stack, 0, 0);
-				context.getMatrices().popMatrix();
+				context.pose().pushMatrix();
+				context.pose().translate(left, line - 1);
+				context.pose().scale(0.75F, 0.75F);
+				//? if <26.1.2 {
+				context.renderItem(stack, 0, 0);
+				//?} else {
+				/*context.item(stack, 0, 0);
+				*///?}
+				context.pose().popMatrix();
 				left += 14;
 			}
 
-			context.drawText(font, info, left, line, 0xFFFFFFFF, true);
+			context.drawString(font, info, left, line, 0xFFFFFFFF, true);
 		}
 
 		if (shown(this.showOwner, hover)) {
 			String owner = marker.owner + this.ownerSuffix.get();
 			line -= 11;
-			context.drawText(font, owner, -font.getWidth(owner) / 2, line, 0xFFFFFFFF, true);
+			context.drawString(font, owner, -font.width(owner) / 2, line, 0xFFFFFFFF, true);
 		}
 
-		context.getMatrices().popMatrix();
+		context.pose().popMatrix();
 	}
 }

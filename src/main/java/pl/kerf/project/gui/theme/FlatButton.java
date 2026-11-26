@@ -1,18 +1,18 @@
 package pl.kerf.project.gui.theme;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.narration.NarrationMessageBuilder;
-import net.minecraft.client.gui.tooltip.Tooltip;
-import net.minecraft.client.gui.widget.ClickableWidget;
-import net.minecraft.client.sound.PositionedSoundInstance;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.Tooltip;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.network.chat.Component;
+import net.minecraft.sounds.SoundEvents;
 
 /** Płaski przycisk w stylu interfejsu moda, z płynnym podświetleniem. Zastępuje vanillowe przyciski. */
-public final class FlatButton extends ClickableWidget {
+public final class FlatButton extends AbstractWidget {
 	public enum Style {
 		/** Wypełniony akcentem: główna akcja ekranu. */
 		PRIMARY,
@@ -33,12 +33,12 @@ public final class FlatButton extends ClickableWidget {
 	private String tip;
 	private final Anim hover = new Anim(0.0F, 18.0F);
 
-	private FlatButton(int x, int y, int width, int height, Text message, PressAction action) {
+	private FlatButton(int x, int y, int width, int height, Component message, PressAction action) {
 		super(x, y, width, height, message);
 		this.action = action;
 	}
 
-	public static Builder builder(Text message, PressAction action) {
+	public static Builder builder(Component message, PressAction action) {
 		return new Builder(message, action);
 	}
 
@@ -59,18 +59,22 @@ public final class FlatButton extends ClickableWidget {
 	}
 
 	@Override
-	public void onClick(Click click, boolean doubled) {
+	public void onClick(MouseButtonEvent click, boolean doubled) {
 		this.action.onPress(this);
 	}
 
 	@Override
-	public void playDownSound(net.minecraft.client.sound.SoundManager soundManager) {
-		soundManager.play(PositionedSoundInstance.ui(SoundEvents.UI_BUTTON_CLICK.value(), 1.2F, 0.35F));
+	public void playDownSound(net.minecraft.client.sounds.SoundManager soundManager) {
+		soundManager.play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK.value(), 1.2F, 0.35F));
 	}
 
 	@Override
-	protected void renderWidget(DrawContext context, int mouseX, int mouseY, float deltaTicks) {
-		TextRenderer font = MinecraftClient.getInstance().textRenderer;
+	//? if <26.1.2 {
+	protected void renderWidget(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
+	//?} else {
+	/*protected void extractWidgetRenderState(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
+	*///?}
+		Font font = Minecraft.getInstance().font;
 		float h = this.hover.to(this.isHovered() && this.active);
 		int x = this.getX();
 		int y = this.getY();
@@ -99,12 +103,12 @@ public final class FlatButton extends ClickableWidget {
 			}
 		}
 
-		Text message = this.getMessage();
-		int textW = font.getWidth(message);
+		Component message = this.getMessage();
+		int textW = font.width(message);
 		int iconW = this.icon != null ? 9 + (textW > 0 ? 5 : 0) : 0;
 		int maxText = w - 10 - iconW;
 		String shown = Draw.fit(font, message.getString(), maxText);
-		int contentW = iconW + font.getWidth(shown);
+		int contentW = iconW + font.width(shown);
 		int cx = x + (w - contentW) / 2;
 		int cy = y + (ht - 8) / 2;
 		if (this.icon != null) {
@@ -114,7 +118,7 @@ public final class FlatButton extends ClickableWidget {
 
 		boolean styled = shown.equals(message.getString());
 		if (styled) {
-			context.drawText(font, message, cx, cy, textColor, false);
+			context.drawString(font, message, cx, cy, textColor, false);
 		} else {
 			Draw.text(context, font, shown, cx, cy, textColor);
 		}
@@ -125,12 +129,12 @@ public final class FlatButton extends ClickableWidget {
 	}
 
 	@Override
-	protected void appendClickableNarrations(NarrationMessageBuilder builder) {
-		this.appendDefaultNarrations(builder);
+	protected void updateWidgetNarration(NarrationElementOutput builder) {
+		this.defaultButtonNarrationText(builder);
 	}
 
 	public static final class Builder {
-		private final Text message;
+		private final Component message;
 		private final PressAction action;
 		private int x;
 		private int y;
@@ -139,7 +143,7 @@ public final class FlatButton extends ClickableWidget {
 		private Tooltip tooltip;
 		private Style style = Style.SECONDARY;
 
-		Builder(Text message, PressAction action) {
+		Builder(Component message, PressAction action) {
 			this.message = message;
 			this.action = action;
 		}

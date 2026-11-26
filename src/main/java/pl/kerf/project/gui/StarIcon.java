@@ -1,6 +1,6 @@
 package pl.kerf.project.gui;
 
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.GuiGraphics;
 
 /**
  * Gwiazdka "ulubione" według projektu użytkownika: obrys 22x21 komórek (lewa połowa z rysunku, prawa to jej lustrzane odbicie,
@@ -129,10 +129,10 @@ final class StarIcon {
 		return argb & 0xFF000000 | r << 16 | g << 8 | b;
 	}
 
-	static void draw(DrawContext context, int x, int y, boolean filled, int color) {
-		context.getMatrices().pushMatrix();
-		context.getMatrices().translate(x, y);
-		context.getMatrices().scale(0.4F, 0.4F);
+	static void draw(GuiGraphics context, int x, int y, boolean filled, int color) {
+		context.pose().pushMatrix();
+		context.pose().translate(x, y);
+		context.pose().scale(0.4F, 0.4F);
 		for (int r = 0; r < ROWS; r++) {
 			for (int c = 0; c < COLS; c++) {
 				if (filled) {
@@ -145,6 +145,6 @@ final class StarIcon {
 			}
 		}
 
-		context.getMatrices().popMatrix();
+		context.pose().popMatrix();
 	}
 }

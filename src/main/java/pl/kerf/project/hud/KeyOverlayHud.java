@@ -1,11 +1,11 @@
 package pl.kerf.project.hud;
 
 import java.util.Locale;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.render.RenderTickCounter;
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.RenderPipelines;
 import pl.kerf.project.config.Setting;
 import pl.kerf.project.module.HudModule;
 
@@ -19,7 +19,7 @@ public final class KeyOverlayHud extends HudModule {
 	public final Setting.Mode position = this.add(new Setting.Mode("position", "Pozycja", 0, "Góra slotu", "Dół slotu", "Nad hotbarem"));
 	public final Setting.Mode background = this.add(new Setting.Mode("background", "Tło", 0, "Brak", "Jasne", "Ciemne"));
 	public final Setting.Color color = this.add(new Setting.Color("color", "Kolor tekstu", 0xFFFFFFFF, false));
-	private static final net.minecraft.util.Identifier HOTBAR = net.minecraft.util.Identifier.ofVanilla("hud/hotbar");
+	private static final net.minecraft.resources.Identifier HOTBAR = net.minecraft.resources.Identifier.withDefaultNamespace("hud/hotbar");
 	/** Skrócone nazwy klawiszy (klucz: język + klawisz), żeby nie tłumaczyć i nie dzielić nazw co klatkę. */
 	private static final java.util.Map<String, String> LABELS = new java.util.HashMap<>();
 
@@ -33,67 +33,67 @@ public final class KeyOverlayHud extends HudModule {
 	}
 
 	@Override
-	public int width(MinecraftClient client, boolean editing) {
+	public int width(Minecraft client, boolean editing) {
 		return 182;
 	}
 
 	@Override
-	public int height(MinecraftClient client, boolean editing) {
+	public int height(Minecraft client, boolean editing) {
 		return 22;
 	}
 
 	@Override
-	public void render(DrawContext context, MinecraftClient client, RenderTickCounter tickCounter, boolean editing) {
+	public void render(GuiGraphics context, Minecraft client, DeltaTracker tickCounter, boolean editing) {
 		// Zawsze przyklejone do vanillowego hotbara.
-		this.boundsX = context.getScaledWindowWidth() / 2.0F - 91.0F;
-		this.boundsY = context.getScaledWindowHeight() - 22.0F;
+		this.boundsX = context.guiWidth() / 2.0F - 91.0F;
+		this.boundsY = context.guiHeight() - 22.0F;
 		this.boundsW = 182;
 		this.boundsH = 22;
-		context.getMatrices().pushMatrix();
-		context.getMatrices().translate(this.boundsX, this.boundsY);
+		context.pose().pushMatrix();
+		context.pose().translate(this.boundsX, this.boundsY);
 		ownLayer(context);
 		this.draw(context, client, tickCounter, editing);
-		context.getMatrices().popMatrix();
+		context.pose().popMatrix();
 	}
 
 	@Override
-	public void renderPreview(DrawContext context, MinecraftClient client, int x, int y, int width, int height, float maxScale) {
+	public void renderPreview(GuiGraphics context, Minecraft client, int x, int y, int width, int height, float maxScale) {
 		this.renderPreview(context, client, x, y, width, height);
 	}
 
 	@Override
-	public void renderPreview(DrawContext context, MinecraftClient client, int x, int y, int width, int height) {
+	public void renderPreview(GuiGraphics context, Minecraft client, int x, int y, int width, int height) {
 		// Pierwsze 5 slotów prawdziwego hotbara w dużej skali: w wąskim panelu cały hotbar byłby nieczytelny.
 		int slots = 5;
 		int contentW = slots * 20 + 2;
 		int above = 8;
 		float fit = Math.min(2.5F, Math.min((width - 8.0F) / contentW, (height - 8.0F) / (22 + above)));
-		context.getMatrices().pushMatrix();
-		context.getMatrices().translate(x + (width - contentW * fit) / 2.0F, y + (height - (22 + above) * fit) / 2.0F + above * fit);
-		context.getMatrices().scale(fit, fit);
-		context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, HOTBAR, 182, 22, 0, 0, 0, 0, 1 + slots * 20, 22);
-		context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, HOTBAR, 182, 22, 181, 0, 1 + slots * 20, 0, 1, 22);
+		context.pose().pushMatrix();
+		context.pose().translate(x + (width - contentW * fit) / 2.0F, y + (height - (22 + above) * fit) / 2.0F + above * fit);
+		context.pose().scale(fit, fit);
+		context.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR, 182, 22, 0, 0, 0, 0, 1 + slots * 20, 22);
+		context.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR, 182, 22, 181, 0, 1 + slots * 20, 0, 1, 22);
 		this.drawLabels(context, client, slots);
-		context.getMatrices().popMatrix();
+		context.pose().popMatrix();
 	}
 
 	/** Etykiety w lokalnych współrzędnych hotbara: (0,0) to jego lewy górny róg. */
 	@Override
-	protected void draw(DrawContext context, MinecraftClient client, RenderTickCounter tickCounter, boolean editing) {
+	protected void draw(GuiGraphics context, Minecraft client, DeltaTracker tickCounter, boolean editing) {
 		this.drawLabels(context, client, 9);
 	}
 
-	private void drawLabels(DrawContext context, MinecraftClient client, int count) {
-		KeyBinding[] keys = client.options.hotbarKeys;
+	private void drawLabels(GuiGraphics context, Minecraft client, int count) {
+		KeyMapping[] keys = client.options.keyHotbarSlots;
 		for (int i = 0; i < count && i < keys.length; i++) {
 			if (keys[i].isUnbound()) {
 				continue;
 			}
 
-			KeyBinding key = keys[i];
-			String label = LABELS.computeIfAbsent(client.options.language + "|" + key.getBoundKeyTranslationKey(),
-				k -> shorten(key.getBoundKeyLocalizedText().getString()));
-			int labelW = client.textRenderer.getWidth(label);
+			KeyMapping key = keys[i];
+			String label = LABELS.computeIfAbsent(client.options.languageCode + "|" + key.saveString(),
+				k -> shorten(key.getTranslatedKeyMessage().getString()));
+			int labelW = client.font.width(label);
 			float textW = labelW * 0.5F;
 			float slotX = 3 + i * 20;
 			float lx;
@@ -109,9 +109,9 @@ public final class KeyOverlayHud extends HudModule {
 				ly = -6.5F;
 			}
 
-			context.getMatrices().pushMatrix();
-			context.getMatrices().translate(lx, ly);
-			context.getMatrices().scale(0.5F, 0.5F);
+			context.pose().pushMatrix();
+			context.pose().translate(lx, ly);
+			context.pose().scale(0.5F, 0.5F);
 			int textColor = this.color.argb();
 			if (!this.background.is(BG_NONE)) {
 				boolean light = this.background.is(BG_LIGHT);
@@ -123,8 +123,8 @@ public final class KeyOverlayHud extends HudModule {
 			}
 
 			// Napis zaraz po swoim tle (mieści się w nim), więc GUI nie przeszukuje dla niego warstw.
-			context.drawText(client.textRenderer, label, 0, 0, textColor, this.background.is(BG_NONE));
-			context.getMatrices().popMatrix();
+			context.drawString(client.font, label, 0, 0, textColor, this.background.is(BG_NONE));
+			context.pose().popMatrix();
 		}
 	}
 

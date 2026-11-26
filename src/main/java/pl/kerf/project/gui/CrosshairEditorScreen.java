@@ -5,14 +5,18 @@ import pl.kerf.project.Lang;
 import pl.kerf.project.gui.theme.Theme;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.network.chat.CommonComponents;
+import net.minecraft.network.chat.Component;
 import pl.kerf.project.gui.theme.FlatButton;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.screen.ScreenTexts;
-import net.minecraft.text.Text;
+//? if <26.3 {
 import org.lwjgl.glfw.GLFW;
+//?} else {
+/*import com.mojang.blaze3d.platform.InputConstants;
+*///?}
 import pl.kerf.project.config.ConfigManager;
 import pl.kerf.project.config.PixelGrid;
 import pl.kerf.project.module.Modules;
@@ -61,7 +65,7 @@ public class CrosshairEditorScreen extends Screen {
 	private int previewW;
 
 	public CrosshairEditorScreen(Screen parent) {
-		super(Text.literal(Lang.t("Edytor celownika")));
+		super(Component.literal(Lang.t("Edytor celownika")));
 		this.parent = parent;
 		for (int i = 0; i < 2; i++) {
 			System.arraycopy(this.module.grid(i == 1).get(), 0, this.grids[i], 0, N * N);
@@ -93,20 +97,20 @@ public class CrosshairEditorScreen extends Screen {
 		int count = 4;
 		int bw = (this.centerRight - this.centerLeft - 16 - (count - 1) * 4) / count;
 		int by = this.height - Ui.PAD - 26;
-		this.addDrawableChild(FlatButton.builder(Text.literal(Lang.t("Cofnij")), button -> this.undo()).dimensions(bx, by, bw, 20).build());
-		this.addDrawableChild(FlatButton.builder(Text.literal(Lang.t("Wyczyść")), button -> this.apply(new int[N * N])).dimensions(bx + (bw + 4), by, bw, 20).build());
-		this.addDrawableChild(FlatButton.builder(Text.literal(Lang.t("Kopiuj")), button -> this.apply(this.grids[1 - state].clone()))
+		this.addRenderableWidget(FlatButton.builder(Component.literal(Lang.t("Cofnij")), button -> this.undo()).dimensions(bx, by, bw, 20).build());
+		this.addRenderableWidget(FlatButton.builder(Component.literal(Lang.t("Wyczyść")), button -> this.apply(new int[N * N])).dimensions(bx + (bw + 4), by, bw, 20).build());
+		this.addRenderableWidget(FlatButton.builder(Component.literal(Lang.t("Kopiuj")), button -> this.apply(this.grids[1 - state].clone()))
 			.dimensions(bx + 2 * (bw + 4), by, bw, 20)
-			.tooltip(net.minecraft.client.gui.tooltip.Tooltip.of(Text.literal(Lang.t("Kopiuje rysunek z zakładki \"") + Lang.t(STATE_NAMES[1 - state]) + Lang.t("\" do tej"))))
+			.tooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(Lang.t("Kopiuje rysunek z zakładki \"") + Lang.t(STATE_NAMES[1 - state]) + Lang.t("\" do tej"))))
 			.build());
-		this.addDrawableChild(FlatButton.builder(ScreenTexts.DONE, button -> this.close()).dimensions(bx + 3 * (bw + 4), by, bw, 20).style(FlatButton.Style.PRIMARY).build());
+		this.addRenderableWidget(FlatButton.builder(CommonComponents.GUI_DONE, button -> this.onClose()).dimensions(bx + 3 * (bw + 4), by, bw, 20).style(FlatButton.Style.PRIMARY).build());
 
 		if (this.previewW > 0) {
 			String[] names = {"Vanilla", "Kropka", "Plus z obwódką", "Plus z przerwą", "Krzyżyk X", "Kółko"};
 			int py = this.height - Ui.PAD - 24 - (names.length - 1) * 20;
 			for (int i = 0; i < names.length; i++) {
 				int preset = i;
-				this.addDrawableChild(FlatButton.builder(Text.literal(Lang.t(names[i])), button -> this.apply(preset(preset, this.module.brush.argb())))
+				this.addRenderableWidget(FlatButton.builder(Component.literal(Lang.t(names[i])), button -> this.apply(preset(preset, this.module.brush.argb())))
 					.dimensions(this.previewX + 6, py + i * 20, this.previewW - 12, 18)
 					.build());
 			}
@@ -282,13 +286,13 @@ public class CrosshairEditorScreen extends Screen {
 	// --- myszka i klawiatura ---
 
 	@Override
-	public boolean mouseClicked(Click click, boolean doubled) {
+	public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
 		double mx = click.x();
 		double my = click.y();
 		for (int i = 0; i < 2; i++) {
 			if (Ui.inside(mx, my, this.tabX(i), this.tabY(), this.tabW(), 16)) {
 				state = i;
-				this.clearAndInit();
+				this.rebuildWidgets();
 				return true;
 			}
 		}
@@ -300,8 +304,13 @@ public class CrosshairEditorScreen extends Screen {
 		if (this.onCanvas(mx, my)) {
 			int x = this.cellX(mx);
 			int y = this.cellY(my);
+			//? if <26.3 {
 			boolean erase = click.button() == 1 || tool == TOOL_ERASER;
 			if (tool == TOOL_PICKER && click.button() == 0) {
+			//?} else {
+			/*boolean erase = ModuleKeys.button(click.button()) == 1 || tool == TOOL_ERASER;
+			if (tool == TOOL_PICKER && ModuleKeys.button(click.button()) == 0) {
+			*///?}
 				int picked = this.grid()[y * N + x];
 				if (picked >>> 24 != 0) {
 					this.module.brush.set(picked);
@@ -312,7 +321,11 @@ public class CrosshairEditorScreen extends Screen {
 			}
 
 			this.pushUndo();
+			//? if <26.3 {
 			if (tool == TOOL_FILL && click.button() == 0) {
+			//?} else {
+			/*if (tool == TOOL_FILL && ModuleKeys.button(click.button()) == 0) {
+			*///?}
 				this.floodFill(x, y, this.module.brush.argb());
 			} else {
 				this.painting = true;
@@ -328,7 +341,7 @@ public class CrosshairEditorScreen extends Screen {
 	}
 
 	@Override
-	public boolean mouseDragged(Click click, double offsetX, double offsetY) {
+	public boolean mouseDragged(MouseButtonEvent click, double offsetX, double offsetY) {
 		if (this.painting && this.onCanvas(click.x(), click.y())) {
 			this.paint(this.cellX(click.x()), this.cellY(click.y()), this.paintColor);
 			this.save();
@@ -339,14 +352,18 @@ public class CrosshairEditorScreen extends Screen {
 	}
 
 	@Override
-	public boolean mouseReleased(Click click) {
+	public boolean mouseReleased(MouseButtonEvent click) {
 		this.painting = false;
 		return super.mouseReleased(click);
 	}
 
 	@Override
-	public boolean keyPressed(KeyInput input) {
+	public boolean keyPressed(KeyEvent input) {
+		//? if <26.3 {
 		if (input.key() == GLFW.GLFW_KEY_Z && (input.modifiers() & GLFW.GLFW_MOD_CONTROL) != 0) {
+		//?} else {
+		/*if (input.key() == InputConstants.KEY_Z && (input.modifiers() & InputConstants.MOD_CONTROL) != 0) {
+		*///?}
 			this.undo();
 			return true;
 		}
@@ -393,7 +410,11 @@ public class CrosshairEditorScreen extends Screen {
 		}
 
 		if (Ui.inside(mx, my, x, this.brushY(), w, 18)) {
-			this.client.setScreen(new ColorScreen(this, this.module.brush, this.module));
+			//? if <26.2 {
+			this.minecraft.setScreen(new ColorScreen(this, this.module.brush, this.module));
+			//?} else {
+			/*this.minecraft.gui.setScreen(new ColorScreen(this, this.module.brush, this.module));
+			*///?}
 			return true;
 		}
 
@@ -416,8 +437,13 @@ public class CrosshairEditorScreen extends Screen {
 	// --- rysowanie ---
 
 	@Override
-	public void renderBackground(DrawContext context, int mouseX, int mouseY, float deltaTicks) {
+	//? if <26.1.2 {
+	public void renderBackground(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
 		super.renderBackground(context, mouseX, mouseY, deltaTicks);
+	//?} else {
+	/*public void extractBackground(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
+		super.extractBackground(context, mouseX, mouseY, deltaTicks);
+	*///?}
 		int h = this.height - 2 * Ui.PAD;
 		Ui.panel(context, this.toolsX, Ui.PAD, this.toolsW, h);
 		Ui.panel(context, this.centerLeft, Ui.PAD, this.centerRight - this.centerLeft, h);
@@ -427,7 +453,11 @@ public class CrosshairEditorScreen extends Screen {
 	}
 
 	@Override
-	public void render(DrawContext context, int mouseX, int mouseY, float deltaTicks) {
+	//? if <26.1.2 {
+	public void render(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
+	//?} else {
+	/*public void extractRenderState(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
+	*///?}
 		this.drawTools(context, mouseX, mouseY);
 		this.drawTabs(context, mouseX, mouseY);
 		this.drawCanvas(context, mouseX, mouseY);
@@ -435,17 +465,21 @@ public class CrosshairEditorScreen extends Screen {
 			this.drawPreview(context);
 		}
 
+		//? if <26.1.2 {
 		super.render(context, mouseX, mouseY, deltaTicks);
+		//?} else {
+		/*super.extractRenderState(context, mouseX, mouseY, deltaTicks);
+		*///?}
 	}
 
-	private void drawTabs(DrawContext context, int mouseX, int mouseY) {
-		context.drawTextWithShadow(this.textRenderer, this.title, this.centerLeft + 8, Ui.PAD + 7, Theme.TEXT);
+	private void drawTabs(GuiGraphics context, int mouseX, int mouseY) {
+		context.drawString(this.font, this.title, this.centerLeft + 8, Ui.PAD + 7, Theme.TEXT);
 		if (!this.module.custom.on()) {
 			// Krótka informacja w nagłówku, gdy "Własny celownik" jest wyłączony (rysunek nie pojawi się w grze).
 			String warning = Lang.t("wyłączony w grze");
-			int wx = this.centerRight - 8 - this.textRenderer.getWidth(warning);
-			if (wx > this.centerLeft + 16 + this.textRenderer.getWidth(this.title)) {
-				context.drawTextWithShadow(this.textRenderer, warning, wx, Ui.PAD + 7, 0xFFE0A050);
+			int wx = this.centerRight - 8 - this.font.width(warning);
+			if (wx > this.centerLeft + 16 + this.font.width(this.title)) {
+				context.drawString(this.font, warning, wx, Ui.PAD + 7, 0xFFE0A050);
 			}
 		}
 		for (int i = 0; i < 2; i++) {
@@ -454,32 +488,40 @@ public class CrosshairEditorScreen extends Screen {
 			boolean active = state == i;
 			boolean hover = Ui.inside(mouseX, mouseY, x, y, this.tabW(), 16);
 			context.fill(x, y, x + this.tabW(), y + 16, active ? 0xFF2F4A6E : hover ? 0xFF33333F : 0xFF22222A);
-			context.drawStrokedRectangle(x, y, this.tabW(), 16, active ? Theme.ACCENT : Theme.BORDER);
+			//? if <26.1.2 {
+			context.renderOutline(x, y, this.tabW(), 16, active ? Theme.ACCENT : Theme.BORDER);
+			//?} else {
+			/*context.outline(x, y, this.tabW(), 16, active ? Theme.ACCENT : Theme.BORDER);
+			*///?}
 			// Miniatura rysunku z tej zakładki obok nazwy.
 			CustomCrosshairRenderer.draw(context, this.grids[i], x + 4, y + 1, 1.0F);
-			context.drawText(this.textRenderer, Lang.t(STATE_NAMES[i]), x + 22, y + 4, active ? Theme.TEXT : Theme.TEXT_2, false);
+			context.drawString(this.font, Lang.t(STATE_NAMES[i]), x + 22, y + 4, active ? Theme.TEXT : Theme.TEXT_2, false);
 		}
 	}
 
-	private void drawTools(DrawContext context, int mouseX, int mouseY) {
+	private void drawTools(GuiGraphics context, int mouseX, int mouseY) {
 		int x = this.toolsX + 6;
 		int w = this.toolsW - 12;
-		context.drawTextWithShadow(this.textRenderer, Lang.t("Narzędzia"), x, Ui.PAD + 8, Theme.TEXT);
+		context.drawString(this.font, Lang.t("Narzędzia"), x, Ui.PAD + 8, Theme.TEXT);
 		for (int i = 0; i < TOOL_NAMES.length; i++) {
 			this.toolButton(context, mouseX, mouseY, x, this.toolRowY(i), w, TOOL_NAMES[i], tool == i);
 		}
 
-		context.drawTextWithShadow(this.textRenderer, Lang.t("Lustro"), x, this.mirrorY0() - 11, Theme.TEXT_3);
+		context.drawString(this.font, Lang.t("Lustro"), x, this.mirrorY0() - 11, Theme.TEXT_3);
 		this.toolButton(context, mouseX, mouseY, x, this.mirrorY0(), w, Lang.t("Poziomo  ") + (mirrorX ? "ON" : "OFF"), mirrorX);
 		this.toolButton(context, mouseX, mouseY, x, this.mirrorY0() + 16, w, Lang.t("Pionowo  ") + (mirrorY ? "ON" : "OFF"), mirrorY);
 
-		context.drawTextWithShadow(this.textRenderer, Lang.t("Kolor"), x, this.brushY() - 11, Theme.TEXT_3);
+		context.drawString(this.font, Lang.t("Kolor"), x, this.brushY() - 11, Theme.TEXT_3);
 		int by = this.brushY();
 		boolean hover = Ui.inside(mouseX, mouseY, x, by, w, 18);
 		context.fill(x, by, x + w, by + 18, 0xFF000000);
 		Ui.checker(context, x + 1, by + 1, w - 2, 16);
 		context.fill(x + 1, by + 1, x + w - 1, by + 17, this.module.brush.argb());
-		context.drawStrokedRectangle(x, by, w, 18, hover ? 0xFFFFFFFF : Theme.BORDER);
+		//? if <26.1.2 {
+		context.renderOutline(x, by, w, 18, hover ? 0xFFFFFFFF : Theme.BORDER);
+		//?} else {
+		/*context.outline(x, by, w, 18, hover ? 0xFFFFFFFF : Theme.BORDER);
+		*///?}
 		for (int i = 0; i < PALETTE.length; i++) {
 			int px = x + i % 4 * 20;
 			int py = this.paletteY() + i / 4 * 20;
@@ -490,20 +532,24 @@ public class CrosshairEditorScreen extends Screen {
 
 		int helpY = this.paletteY() + 46;
 		if (helpY + 30 < this.height - Ui.PAD) {
-			context.drawTextWithShadow(this.textRenderer, Lang.t("LPM: maluj"), x, helpY, 0xFF7A7A86);
-			context.drawTextWithShadow(this.textRenderer, Lang.t("PPM: gumka"), x, helpY + 10, 0xFF7A7A86);
-			context.drawTextWithShadow(this.textRenderer, Lang.t("Ctrl+Z: cofnij"), x, helpY + 20, 0xFF7A7A86);
+			context.drawString(this.font, Lang.t("LPM: maluj"), x, helpY, 0xFF7A7A86);
+			context.drawString(this.font, Lang.t("PPM: gumka"), x, helpY + 10, 0xFF7A7A86);
+			context.drawString(this.font, Lang.t("Ctrl+Z: cofnij"), x, helpY + 20, 0xFF7A7A86);
 		}
 	}
 
-	private void toolButton(DrawContext context, int mouseX, int mouseY, int x, int y, int w, String label, boolean active) {
+	private void toolButton(GuiGraphics context, int mouseX, int mouseY, int x, int y, int w, String label, boolean active) {
 		boolean hover = Ui.inside(mouseX, mouseY, x, y, w, 14);
 		context.fill(x, y, x + w, y + 14, active ? 0xFF2F4A6E : hover ? 0xFF33333F : 0xFF22222A);
-		context.drawStrokedRectangle(x, y, w, 14, active ? Theme.ACCENT : Theme.BORDER);
-		context.drawText(this.textRenderer, Lang.t(label), x + 5, y + 3, active ? Theme.TEXT : Theme.TEXT_2, false);
+		//? if <26.1.2 {
+		context.renderOutline(x, y, w, 14, active ? Theme.ACCENT : Theme.BORDER);
+		//?} else {
+		/*context.outline(x, y, w, 14, active ? Theme.ACCENT : Theme.BORDER);
+		*///?}
+		context.drawString(this.font, Lang.t(label), x + 5, y + 3, active ? Theme.TEXT : Theme.TEXT_2, false);
 	}
 
-	private void drawCanvas(DrawContext context, int mouseX, int mouseY) {
+	private void drawCanvas(GuiGraphics context, int mouseX, int mouseY) {
 		int size = this.cell * N;
 		context.fill(this.canvasX - 1, this.canvasY - 1, this.canvasX + size + 1, this.canvasY + size + 1, 0xFF000000);
 		// Szachownica = przezroczystość.
@@ -520,23 +566,32 @@ public class CrosshairEditorScreen extends Screen {
 		// Środkowe linie pomocnicze.
 		int mid = this.canvasX + N / 2 * this.cell;
 		int midY = this.canvasY + N / 2 * this.cell;
-		context.drawStrokedRectangle(mid, this.canvasY, this.cell, size, 0x30FFFFFF);
-		context.drawStrokedRectangle(this.canvasX, midY, size, this.cell, 0x30FFFFFF);
+		//? if <26.1.2 {
+		context.renderOutline(mid, this.canvasY, this.cell, size, 0x30FFFFFF);
+		context.renderOutline(this.canvasX, midY, size, this.cell, 0x30FFFFFF);
+		//?} else {
+		/*context.outline(mid, this.canvasY, this.cell, size, 0x30FFFFFF);
+		context.outline(this.canvasX, midY, size, this.cell, 0x30FFFFFF);
+		*///?}
 		if (this.onCanvas(mouseX, mouseY)) {
 			int hx = this.canvasX + this.cellX(mouseX) * this.cell;
 			int hy = this.canvasY + this.cellY(mouseY) * this.cell;
-			context.drawStrokedRectangle(hx, hy, this.cell, this.cell, 0xFFFFFFFF);
+			//? if <26.1.2 {
+			context.renderOutline(hx, hy, this.cell, this.cell, 0xFFFFFFFF);
+			//?} else {
+			/*context.outline(hx, hy, this.cell, this.cell, 0xFFFFFFFF);
+			*///?}
 		}
 	}
 
-	private void drawPreview(DrawContext context) {
+	private void drawPreview(GuiGraphics context) {
 		int x = this.previewX + 6;
-		context.drawTextWithShadow(this.textRenderer, Lang.t("Podgląd na żywo"), x, Ui.PAD + 8, Theme.TEXT_3);
+		context.drawString(this.font, Lang.t("Podgląd na żywo"), x, Ui.PAD + 8, Theme.TEXT_3);
 		float scale = this.module.scale.f();
 		int box = Math.max(24, (int) Math.ceil(N * scale) + 8);
 		int y = Ui.PAD + 22;
 		for (int s = 0; s < 2; s++) {
-			context.drawTextWithShadow(this.textRenderer, Lang.t(STATE_NAMES[s]), x, y, s == state ? Theme.TEXT : Theme.TEXT_2);
+			context.drawString(this.font, Lang.t(STATE_NAMES[s]), x, y, s == state ? Theme.TEXT : Theme.TEXT_2);
 			y += 10;
 			for (int i = 0; i < BACKGROUNDS.length; i++) {
 				int bx = x + i * (box + 4);
@@ -551,9 +606,13 @@ public class CrosshairEditorScreen extends Screen {
 	}
 
 	@Override
-	public void close() {
+	public void onClose() {
 		this.save();
 		ConfigManager.save();
-		this.client.setScreen(this.parent);
+		//? if <26.2 {
+		this.minecraft.setScreen(this.parent);
+		//?} else {
+		/*this.minecraft.gui.setScreen(this.parent);
+		*///?}
 	}
 }

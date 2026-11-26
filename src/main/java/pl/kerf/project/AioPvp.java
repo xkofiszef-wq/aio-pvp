@@ -2,12 +2,26 @@ package pl.kerf.project;
 
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.api.ClientModInitializer;
+//? if <26.1.2 {
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
+//?} else {
+/*import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
+*///?}
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
+//? if >=26.1.2 {
+/*import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
+*///?}
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.InteractionResult;
+//? if <26.1.2 {
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
+//?}
 import pl.kerf.project.gui.FightReportScreen;
 import pl.kerf.project.hud.LagDetectorHud;
 import pl.kerf.project.module.FightTracker;
@@ -15,14 +29,13 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents;
-import net.minecraft.client.gui.screen.ChatScreen;
 import pl.kerf.project.media.MediaSession;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
+//? if <26.1.2 {
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.render.RenderTickCounter;
-import net.minecraft.util.Identifier;
+//?} else {
+/*import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
+*///?}
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pl.kerf.project.config.ConfigManager;
@@ -45,7 +58,7 @@ public class AioPvp implements ClientModInitializer {
 		Modules.GUI_THEME.sync();
 		ModuleKeys.register();
 
-		HudElementRegistry.addLast(Identifier.of(MOD_ID, "hud"), AioPvp::renderHud);
+		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(MOD_ID, "hud"), AioPvp::renderHud);
 
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			Modules.ARMOR_HUD.tick(client);
@@ -61,22 +74,30 @@ public class AioPvp implements ClientModInitializer {
 			Modules.OPTIMIZATION.tick(client);
 			Modules.GUI_THEME.sync();
 			if (FightTracker.consumeOpenRequest() && FightTracker.last() != null) {
+				//? if <26.2 {
 				client.setScreen(new FightReportScreen(null, FightTracker.last()));
+				//?} else {
+				/*client.gui.setScreen(new FightReportScreen(null, FightTracker.last()));
+				*///?}
 			}
 		});
 		// Fight Report: własne ataki (zdarzenie leci też po stronie serwera w singleplayerze, stąd isClient).
 		AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
-			if (world.isClient()) {
-				FightTracker.attack(MinecraftClient.getInstance(), entity);
-				Modules.INSTANT_HIT.onAttack(MinecraftClient.getInstance(), entity);
+			if (world.isClientSide()) {
+				FightTracker.attack(Minecraft.getInstance(), entity);
+				Modules.INSTANT_HIT.onAttack(Minecraft.getInstance(), entity);
 			}
 
-			return ActionResult.PASS;
+			return InteractionResult.PASS;
 		});
 		ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(
+			//? if <26.1.2 {
 			ClientCommandManager.literal(FightTracker.COMMAND).executes(context -> {
+			//?} else {
+			/*ClientCommands.literal(FightTracker.COMMAND).executes(context -> {
+			*///?}
 				if (FightTracker.last() == null) {
-					context.getSource().sendFeedback(Text.literal(Lang.t("Fight Report: jeszcze nie było żadnej walki.")));
+					context.getSource().sendFeedback(Component.literal(Lang.t("Fight Report: jeszcze nie było żadnej walki.")));
 					return 0;
 				}
 
@@ -87,75 +108,115 @@ public class AioPvp implements ClientModInitializer {
 		ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> Modules.WAYPOINTS.register(dispatcher));
 		ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> Modules.PARTY.register(dispatcher));
 		// Wiadomości moda (zaproszenia do party, markery) idą zwykłą prywatną wiadomością i znikają z czatu odbiorcy.
-		ClientReceiveMessageEvents.ALLOW_GAME.register((message, overlay) -> !Modules.PARTY.receive(MinecraftClient.getInstance(), message.getString(), null));
+		ClientReceiveMessageEvents.ALLOW_GAME.register((message, overlay) -> !Modules.PARTY.receive(Minecraft.getInstance(), message.getString(), null));
 		ClientReceiveMessageEvents.ALLOW_CHAT.register((message, signed, sender, params, time) ->
-			!Modules.PARTY.receive(MinecraftClient.getInstance(), message.getString(), sender == null ? null : sender.name()));
+			!Modules.PARTY.receive(Minecraft.getInstance(), message.getString(), sender == null ? null : sender.name()));
 		// Fight Report: zapamiętuje ostatnie wiadomości, żeby poznać zabójstwo na serwerach bez statusu śmierci.
 		ClientReceiveMessageEvents.GAME.register((message, overlay) -> FightTracker.chat(message.getString()));
 		ClientReceiveMessageEvents.CHAT.register((message, signed, sender, params, time) -> FightTracker.chat(message.getString()));
 		// /calc 2+2*3: zwykły kalkulator na czacie (tylko u ciebie, nic nie idzie na serwer).
 		ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(
+			//? if <26.1.2 {
 			ClientCommandManager.literal("calc").then(ClientCommandManager.argument("wyrazenie", StringArgumentType.greedyString()).executes(context -> {
+			//?} else {
+			/*ClientCommands.literal("calc").then(ClientCommands.argument("wyrazenie", StringArgumentType.greedyString()).executes(context -> {
+			*///?}
 				String expression = StringArgumentType.getString(context, "wyrazenie");
 				try {
 					String result = MathExpr.format(MathExpr.eval(expression));
-					context.getSource().sendFeedback(Text.literal(expression + " = ").withColor(0xC2C6D0).append(Text.literal(result).withColor(0x8C8CF0)));
+					context.getSource().sendFeedback(Component.literal(expression + " = ").withColor(0xC2C6D0).append(Component.literal(result).withColor(0x8C8CF0)));
 					return 1;
 				} catch (IllegalArgumentException e) {
-					context.getSource().sendError(Text.literal(Lang.t("Kalkulator: ") + e.getMessage()));
+					context.getSource().sendError(Component.literal(Lang.t("Kalkulator: ") + e.getMessage()));
 					return 0;
 				}
 			}))
 		));
 		// Powiadomienia: w grze nad HUD-em, a w menu nad każdym ekranem.
-		HudElementRegistry.addLast(Identifier.of(MOD_ID, "notifications"), (context, tickCounter) -> {
+		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(MOD_ID, "notifications"), (context, tickCounter) -> {
 			// Przy otwartym ekranie rysuje je afterRender niżej; tu tylko w grze, żeby nie były podwójne.
-			if (MinecraftClient.getInstance().currentScreen == null) {
+			//? if <26.2 {
+			if (Minecraft.getInstance().screen == null) {
+			//?} else {
+			/*if (Minecraft.getInstance().gui.screen() == null) {
+			*///?}
 				Notifications.render(context);
 			}
 		});
 		ScreenEvents.AFTER_INIT.register((client, screen, width, height) ->
+			//? if <26.1.2 {
 			ScreenEvents.afterRender(screen).register((current, context, mouseX, mouseY, delta) -> Notifications.render(context)));
+			//?} else {
+			/*ScreenEvents.afterExtract(screen).register((current, context, mouseX, mouseY, delta) -> Notifications.render(context)));
+			*///?}
 		ClientLifecycleEvents.CLIENT_STOPPING.register(client -> MediaSession.stop());
 
 		// Odtwarzacz zostaje na ekranie przy czacie, ekwipunku i innych oknach w grze: rysuje się na wierzchu okna
 		// (okno przyciemnia zwykły HUD) i ma klikalne przyciski, bo kursor jest wtedy wolny. Własne okna moda go nie rysują.
 		ScreenEvents.AFTER_INIT.register((client, screen, width, height) -> {
-			if (client.world == null || screen.getClass().getName().startsWith("pl.kerf.project.gui")) {
+			if (client.level == null || screen.getClass().getName().startsWith("pl.kerf.project.gui")) {
 				return;
 			}
 
+			//? if <26.1.2 {
 			ScreenEvents.afterRender(screen).register((current, context, mouseX, mouseY, delta) -> {
+			//?} else {
+			/*ScreenEvents.afterExtract(screen).register((current, context, mouseX, mouseY, delta) -> {
+			*///?}
 				if (client.player != null) {
 					if (Modules.MEDIA.on()) {
-						Modules.MEDIA.render(context, client, client.getRenderTickCounter(), false);
+						Modules.MEDIA.render(context, client, client.getDeltaTracker(), false);
 					}
 
 					Modules.PARTY.renderPopup(context, client);
 				}
 			});
 			ScreenMouseEvents.allowMouseClick(screen).register((current, click) ->
+				//? if <26.3 {
 				!(click.button() == 0 && (Modules.PARTY.clickPopup(click.x(), click.y()) || Modules.MEDIA.on() && Modules.MEDIA.click(click.x(), click.y()))));
+				//?} else {
+				/*!(ModuleKeys.button(click.button()) == 0 && (Modules.PARTY.clickPopup(click.x(), click.y()) || Modules.MEDIA.on() && Modules.MEDIA.click(click.x(), click.y()))));
+				*///?}
 		});
 
-		WorldRenderEvents.END_EXTRACTION.register(context -> WorldOverlays.submit(MinecraftClient.getInstance()));
+		//? if <26.1.2 {
+		WorldRenderEvents.END_EXTRACTION.register(context -> WorldOverlays.submit(Minecraft.getInstance()));
+		//?} else {
+		/*LevelRenderEvents.END_EXTRACTION.register(context -> WorldOverlays.submit(Minecraft.getInstance()));
+		*///?}
 		// Własne podświetlenie bloku zastępuje vanilla'owe, więc domyślne trzeba wyłączyć.
+		//? if <26.1.2 {
 		WorldRenderEvents.BEFORE_BLOCK_OUTLINE.register((context, outline) -> !Modules.BLOCK_OUTLINE.on());
+		//?} else {
+		/*LevelRenderEvents.BEFORE_BLOCK_OUTLINE.register((context, outline) -> !Modules.BLOCK_OUTLINE.on());
+		*///?}
 
 		LOGGER.info("AIO PvP: załadowano {} modułów", Modules.ALL.size());
 	}
 
-	private static void renderHud(DrawContext context, RenderTickCounter tickCounter) {
-		MinecraftClient client = MinecraftClient.getInstance();
-		if (client.player == null || client.world == null || client.options.hudHidden) {
+	private static void renderHud(GuiGraphics context, DeltaTracker tickCounter) {
+		Minecraft client = Minecraft.getInstance();
+		//? if <26.2 {
+		if (client.player == null || client.level == null || client.options.hideGui) {
+		//?} else {
+		/*if (client.player == null || client.level == null || client.gui.hud.isHidden()) {
+		*///?}
 			return;
 		}
 
-		boolean editing = client.currentScreen instanceof HudEditorScreen;
+		//? if <26.2 {
+		boolean editing = client.screen instanceof HudEditorScreen;
+		//?} else {
+		/*boolean editing = client.gui.screen() instanceof HudEditorScreen;
+		*///?}
 		// HUD gry rysuje się też pod otwartym ekranem, ale bez przyciemnienia GUI, więc elementy moda biłyby
 		// jasno nad ekwipunkiem/menu. Chowamy je, gdy ekran jest otwarty; wyjątek: czat (klikalny odtwarzacz)
 		// i edytor HUD (tam elementy muszą być widoczne).
-		if (client.currentScreen != null && !editing && !(client.currentScreen instanceof ChatScreen)) {
+		//? if <26.2 {
+		if (client.screen != null && !editing && !(client.screen instanceof ChatScreen)) {
+		//?} else {
+		/*if (client.gui.screen() != null && !editing && !(client.gui.screen() instanceof ChatScreen)) {
+		*///?}
 			return;
 		}
 
@@ -171,7 +232,11 @@ public class AioPvp implements ClientModInitializer {
 				continue;
 			}
 
-			if (module.on() && module == Modules.MEDIA && client.currentScreen != null && !editing) {
+			//? if <26.2 {
+			if (module.on() && module == Modules.MEDIA && client.screen != null && !editing) {
+			//?} else {
+			/*if (module.on() && module == Modules.MEDIA && client.gui.screen() != null && !editing) {
+			*///?}
 				// Przy otwartym oknie odtwarzacz rysuje się na wierzchu okna (patrz AFTER_INIT wyżej).
 				continue;
 			}
@@ -186,7 +251,11 @@ public class AioPvp implements ClientModInitializer {
 		}
 
 		// Okienko głosowania na wierzchu wszystkich elementów HUD (przy otwartym oknie rysuje je hook ekranu).
-		if (client.currentScreen == null) {
+		//? if <26.2 {
+		if (client.screen == null) {
+		//?} else {
+		/*if (client.gui.screen() == null) {
+		*///?}
 			Modules.PARTY.renderPopup(context, client);
 		}
 	}

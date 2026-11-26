@@ -1,7 +1,7 @@
 package pl.kerf.project.render;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.util.math.ChunkSectionPos;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.SectionPos;
 
 /**
  * Fog Occlusion: fragmenty świata dalej niż koniec mgły są w niej całkiem niewidoczne, więc nie ma po co ich budować
@@ -29,23 +29,27 @@ public final class FogOcclusion {
 		// Lista fragmentów jest liczona rzadko (przy ruchu kamery); po zmianie mgły trzeba ją odświeżyć, inaczej zostają dziury.
 		if (Math.abs(Math.min(value, 4096.0F) - Math.min(scheduledFor, 4096.0F)) >= RESCHEDULE_STEP) {
 			scheduledFor = value;
-			MinecraftClient client = MinecraftClient.getInstance();
-			if (client.worldRenderer != null) {
-				client.worldRenderer.scheduleTerrainUpdate();
+			Minecraft client = Minecraft.getInstance();
+			if (client.levelRenderer != null) {
+				//? if <26.2 {
+				client.levelRenderer.needsUpdate();
+				//?} else {
+				/*client.levelRenderer.sectionOcclusionGraph().invalidate();
+				*///?}
 			}
 		}
 	}
 
-	/** Czy fragment (pozycja spakowana jak w {@link ChunkSectionPos}) leży całkowicie za końcem mgły względem fragmentu kamery. */
+	/** Czy fragment (pozycja spakowana jak w {@link SectionPos}) leży całkowicie za końcem mgły względem fragmentu kamery. */
 	public static boolean beyond(long centerSection, long otherSection) {
 		float limit = end;
 		if (limit >= 4096.0F) {
 			return false;
 		}
 
-		double dx = (ChunkSectionPos.unpackX(otherSection) - ChunkSectionPos.unpackX(centerSection)) * 16.0;
-		double dy = (ChunkSectionPos.unpackY(otherSection) - ChunkSectionPos.unpackY(centerSection)) * 16.0;
-		double dz = (ChunkSectionPos.unpackZ(otherSection) - ChunkSectionPos.unpackZ(centerSection)) * 16.0;
+		double dx = (SectionPos.x(otherSection) - SectionPos.x(centerSection)) * 16.0;
+		double dy = (SectionPos.y(otherSection) - SectionPos.y(centerSection)) * 16.0;
+		double dz = (SectionPos.z(otherSection) - SectionPos.z(centerSection)) * 16.0;
 		return Math.sqrt(dx * dx + dy * dy + dz * dz) - MARGIN > limit;
 	}
 }

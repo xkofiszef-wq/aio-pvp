@@ -2,7 +2,7 @@ package pl.kerf.project.render;
 
 import java.util.Map;
 import java.util.WeakHashMap;
-import net.minecraft.entity.Entity;
+import net.minecraft.world.entity.Entity;
 
 /**
  * Które encje dostały niedawno cios od innej encji (gracz, mob, pocisk). Hit Color koloruje tylko takie trafienia:
@@ -17,11 +17,11 @@ public final class HitTracker {
 	}
 
 	public static void mark(Entity entity) {
-		HITS.put(entity, entity.age);
+		HITS.put(entity, entity.tickCount);
 	}
 
 	public static boolean recent(Entity entity) {
 		Integer at = HITS.get(entity);
-		return at != null && entity.age >= at && entity.age - at <= WINDOW_TICKS;
+		return at != null && entity.tickCount >= at && entity.tickCount - at <= WINDOW_TICKS;
 	}
 }

@@ -38,12 +38,16 @@ public final class Optimization extends Module {
 		.lockedBy(() -> loaded("exordium")));
 
 	/** Wołane co tick: po zmianie opcji "Animate Only Visible Textures" świat buduje się od nowa, żeby fragmenty miały zapisane tekstury. */
-	public void tick(net.minecraft.client.MinecraftClient client) {
+	public void tick(net.minecraft.client.Minecraft client) {
 		boolean now = this.active(this.animateOnlyVisible);
 		if (now != this.animateWas) {
 			this.animateWas = now;
-			if (client.worldRenderer != null && client.world != null) {
-				client.worldRenderer.reload();
+			if (client.levelRenderer != null && client.level != null) {
+				//? if <26.2 {
+				client.levelRenderer.allChanged();
+				//?} else {
+				/*client.levelExtractor.allChanged();
+				*///?}
 			}
 		}
 	}

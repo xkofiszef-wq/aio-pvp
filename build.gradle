@@ -1,24 +1,32 @@
-buildscript {
-    repositories {
-        mavenCentral()
-    }
-    dependencies {
-        classpath 'com.guardsquare:proguard-gradle:7.6.1'
-    }
-}
+import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
 
-plugins {
-    id 'net.fabricmc.fabric-loom-remap' version '1.14-SNAPSHOT'
-    id 'maven-publish'
+// Wspólny skrypt dla każdej wersji Minecrafta (Stonecutter uruchamia go w versions/<wersja>/).
+// 1.21.11 ma zaszyfrowane nazwy, więc Loom przemapowuje je na nazwy Mojanga; 26.x ich nie ma i nie potrzebuje.
+def obfuscated = stonecutter.current.parsed.matches('<26')
+apply plugin: obfuscated ? 'net.fabricmc.fabric-loom-remap' : 'net.fabricmc.fabric-loom'
 
-}
+def mc = project.minecraft_version
+def javaVersion = project.java_version as int
 
-// Nazwa jara i wersja w grze: aio-pvp-<wersja moda>+<wersja Minecrafta>, np. aio-pvp-1.0.23+1.21.11.jar.
-version = "${project.mod_version}+${project.minecraft_version}"
+// Nazwa jara i wersja w grze: aio-pvp-<wersja moda>+<wersja Minecrafta>, np. aio-pvp-1.0.52+1.21.11.jar.
+version = "${project.mod_version}+${mc}"
 group = project.maven_group
 
 base {
     archivesName = project.archives_base_name
+}
+
+// Nazwy zmienione w 26.x, które występują w kodzie tak często, że zamiast //? if są podmieniane w całym src/.
+stonecutter {
+    replacements.regex(stonecutter.current.parsed.matches('>=26')) {
+        replace(/\bGuiGraphics\b/, 'GuiGraphicsExtractor')
+        reverse(/\bGuiGraphicsExtractor\b/, 'GuiGraphics')
+    }
+    replacements.regex(stonecutter.current.parsed.matches('>=26')) {
+        replace(/\bcontext\.drawString\(/, 'context.text(')
+        reverse(/\bcontext\.text\(/, 'context.drawString(')
+    }
 }
 
 repositories {
@@ -33,90 +41,65 @@ repositories {
     }
 }
 
-
-
 dependencies {
-    minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
-    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    minecraft "com.mojang:minecraft:${mc}"
+    if (obfuscated) {
+        mappings loom.officialMojangMappings()
+        modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+        modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
-    // Fabric API
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
-
-    // Mod Menu: opcjonalny. Bez niego mod działa, tylko nie ma przycisku konfiguracji na liście modów.
-    modCompileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
-    modLocalRuntime "com.terraformersmc:modmenu:${project.modmenu_version}"
-
-    // spark (profiler): tylko w dev (runClient / testy), nie trafia do jara moda. W grze: /sparkc profiler.
-    modLocalRuntime "maven.modrinth:spark:${project.spark_version}"
-    modLocalRuntime "maven.modrinth:fabric-permissions-api:0.6.1"
-
-
-
+        // Mod Menu: opcjonalny. Bez niego mod działa, tylko nie ma przycisku konfiguracji na liście modów.
+        modCompileOnly project.modmenu
+        modLocalRuntime project.modmenu
+    } else {
+        implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+        implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+        compileOnly project.modmenu
+        localRuntime project.modmenu
+    }
 }
 
 processResources {
-    inputs.property "version", project.version
+    def props = [version: project.version, minecraft: project.minecraft_dependency, java: javaVersion]
+    inputs.properties props
 
-    filesMatching("fabric.mod.json") {
-        expand "version": project.version
+    filesMatching(['fabric.mod.json', 'aio_pvp.mixins.json']) {
+        expand props
+    }
+
+    // W aio_pvp.mixins.json są mixiny wszystkich wersji. Zostają tylko te, które w tej wersji mają kod
+    // (plik mixinu z innej wersji jest w całości w komentarzu //? if, więc nie powstaje z niego klasa).
+    def classes = tasks.named('compileJava').flatMap { it.destinationDirectory }
+    dependsOn 'compileJava'
+    doLast {
+        def file = new File(destinationDir, 'aio_pvp.mixins.json')
+        def json = new JsonSlurper().parse(file)
+        json.client = json.client.findAll { new File(classes.get().asFile, "pl/kerf/project/mixin/${it}.class").exists() }
+        file.text = JsonOutput.prettyPrint(JsonOutput.toJson(json))
     }
 }
 
 tasks.withType(JavaCompile).configureEach {
-    it.options.release = 21
+    it.options.release = javaVersion
+    it.options.compilerArgs += ['-Xmaxerrs', '2000']
 }
 
 java {
     withSourcesJar()
-
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
+    toolchain.languageVersion = JavaLanguageVersion.of(javaVersion)
 }
 
 jar {
-    from("LICENSE") {
-        rename { "${it}_${project.base.archivesName.get()}"}
+    from(rootProject.file('LICENSE')) {
+        rename { "${it}_${project.base.archivesName.get()}" }
     }
-}
-
-// Obfuskacja (zaciemnienie) gotowego .jar: MUSI biec po remapJar, bo mixiny są wtedy już przemapowane.
-// Zmienia nazwy klas/pól/metod w pakietach logiki (config, gui, hud, media, module, render); mixiny i
-// entrypointy zostają z oryginalnymi nazwami, bo ładuje je Fabric/Mixin po nazwie z JSON-a.
-tasks.register('proguardJar', proguard.gradle.ProGuardTask) {
-    dependsOn tasks.named('remapJar')
-    def inputJar = tasks.named('remapJar').flatMap { it.archiveFile }
-    def outputJar = layout.buildDirectory.file("libs/${base.archivesName.get()}-${project.version}-obf.jar")
-
-    injars inputJar
-    outjars outputJar
-
-    // Biblioteki (nie są obfuskowane, tylko potrzebne do analizy): Minecraft, Fabric, ModMenu + JDK.
-    libraryjars configurations.runtimeClasspath
-    doFirst {
-        new File(System.getProperty('java.home'), 'jmods').listFiles()?.each {
-            libraryjars([filter: '!module-info.class'], it.path)
-        }
-    }
-
-    // Tylko zmiana nazw: bez usuwania i optymalizacji (to psuje kod wołany przez Mixin/Fabric przez refleksję).
-    dontshrink()
-    dontoptimize()
-    dontwarn()
-    keepattributes '*Annotation*,Signature,InnerClasses,EnclosingMethod,Exceptions'
-    // Zasoby (assets/aio_pvp/**) zostają nietknięte: nie włączamy adaptresourcefilenames/contents.
-
-    // Zostają z oryginalnymi nazwami:
-    keep 'public class pl.kerf.project.AioPvp { *; }'
-    keep 'public class pl.kerf.project.ModMenuIntegration { *; }'
-    keep 'class pl.kerf.project.mixin.** { *; }'
 }
 
 // Testy klienta (Fabric client gametest): uruchamiają grę, tworzą świat i robią zrzuty ekranu modułów.
 fabricApi {
     configureTests {
         createSourceSet = true
-        modId = "aio_pvp_test"
+        modId = 'aio_pvp_test'
         enableGameTests = false
         enableClientGameTests = true
         eula = true
@@ -124,8 +107,8 @@ fabricApi {
 }
 
 // Test zgodności z modami wydajnościowymi (Sodium, ImmediatelyFast z run/perf-mods, pobrane z Modrinth):
-// ./gradlew runClientGameTest -Pperf. Fabric sam przemapowuje te jary w grze testowej; bez -Pperf ich nie ma.
-if (project.hasProperty("perf")) {
+// ./gradlew :1.21.11:runClientGameTest -Pperf. Fabric sam przemapowuje te jary w grze testowej; bez -Pperf ich nie ma.
+if (project.hasProperty('perf')) {
     loom.runs.configureEach {
         vmArg "-Dfabric.addMods=${file('run/perf-mods').absolutePath}"
     }

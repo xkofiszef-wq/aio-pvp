@@ -2,6 +2,7 @@ package pl.kerf.project.media;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.mojang.blaze3d.platform.NativeImage;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -11,10 +12,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.texture.NativeImageBackedTexture;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Util;
 import pl.kerf.project.AioPvp;
 
@@ -26,7 +26,7 @@ import pl.kerf.project.AioPvp;
  * gdy gra się zamknie, a mod zatrzymuje go od razu po wyłączeniu funkcji.
  */
 public final class MediaSession {
-	public static final Identifier ART = Identifier.of(AioPvp.MOD_ID, "media_art");
+	public static final Identifier ART = Identifier.fromNamespaceAndPath(AioPvp.MOD_ID, "media_art");
 	private static final Path DIR = FabricLoader.getInstance().getConfigDir().resolve(AioPvp.MOD_ID).resolve("media");
 	private static Process process;
 	private static volatile State state = State.EMPTY;
@@ -46,7 +46,7 @@ public final class MediaSession {
 	}
 
 	public static boolean supported() {
-		return Util.getOperatingSystem() == Util.OperatingSystem.WINDOWS;
+		return Util.getPlatform() == Util.OS.WINDOWS;
 	}
 
 	public static State state() {
@@ -69,7 +69,7 @@ public final class MediaSession {
 	}
 
 	/** Uruchamia lub zatrzymuje skrypt zgodnie z tym, czy funkcja jest włączona. Wywoływane co tick. */
-	public static void tick(MinecraftClient client, boolean enabled) {
+	public static void tick(Minecraft client, boolean enabled) {
 		if (!enabled || !supported()) {
 			stop();
 			return;
@@ -210,7 +210,7 @@ public final class MediaSession {
 	}
 
 	/** Wczytuje okładkę jako teksturę, gdy skrypt zapisał nową. */
-	private static void loadArt(MinecraftClient client) {
+	private static void loadArt(Minecraft client) {
 		State current = state;
 		if (!current.active || current.art == loadedArt) {
 			return;
@@ -225,7 +225,7 @@ public final class MediaSession {
 
 		try (InputStream in = Files.newInputStream(file)) {
 			NativeImage image = NativeImage.read(in);
-			client.getTextureManager().registerTexture(ART, new NativeImageBackedTexture(() -> "AIO PvP album art", image));
+			client.getTextureManager().register(ART, new DynamicTexture(() -> "AIO PvP album art", image));
 			hasArt = true;
 		} catch (IOException e) {
 			hasArt = false;

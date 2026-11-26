@@ -4,7 +4,27 @@ pluginManagement {
             name = 'Fabric'
             url = 'https://maven.fabricmc.net/'
         }
+        maven {
+            name = 'KikuGie'
+            url = 'https://maven.kikugie.dev/releases'
+        }
         gradlePluginPortal()
+    }
+}
+
+plugins {
+    id 'dev.kikugie.stonecutter' version '0.10'
+}
+
+// Jeden kod źródłowy (src/) dla wszystkich wersji Minecrafta. Różnice są w komentarzach //? if w kodzie,
+// a ustawienia każdej wersji w versions/<wersja>/gradle.properties.
+stonecutter {
+    centralScript = 'build.gradle'
+    kotlinController = false
+
+    create(rootProject) {
+        versions('1.21.11', '26.1.2', '26.2', '26.3')
+        vcsVersion = '1.21.11'
     }
 }
 

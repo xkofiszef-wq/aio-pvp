@@ -8,16 +8,31 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import java.util.ArrayList;
 import java.util.List;
+//? if <26.1.2 {
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
+//?} else {
+/*import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
+*///?}
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ServerInfo;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.render.DrawStyle;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.debug.gizmo.GizmoDrawing;
-import net.minecraft.world.debug.gizmo.TextGizmo;
+//? if <26.1.2 {
+import net.minecraft.client.KeyMapping;
+//?}
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ServerData;
+//? if >=26.1.2 {
+/*import net.minecraft.client.KeyMapping;
+*///?}
+import net.minecraft.gizmos.GizmoStyle;
+//? if >=26.1.2 {
+/*import net.minecraft.network.chat.Component;
+import net.minecraft.world.phys.Vec3;
+*///?}
+import net.minecraft.gizmos.Gizmos;
+import net.minecraft.gizmos.TextGizmo;
+//? if <26.1.2 {
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.phys.Vec3;
+//?}
 import pl.kerf.project.Lang;
 import pl.kerf.project.config.ConfigManager;
 import pl.kerf.project.config.PixelGrid;
@@ -31,8 +46,8 @@ import pl.kerf.project.gui.WaypointScreen;
  */
 public final class Waypoints extends Module {
 	/** Klawisze (Opcje -> Sterowanie, domyślnie nieprzypisane); ustawiane przy rejestracji klawiszy. */
-	public static KeyBinding key;
-	public static KeyBinding menuKey;
+	public static KeyMapping key;
+	public static KeyMapping menuKey;
 	/** Napis dalej niż tyle bloków jest przesuwany na promień do punktu, żeby zawsze mieścił się w polu widzenia. */
 	private static final double LABEL_MAX_DISTANCE = 24.0;
 	private static final double BEAM_HEIGHT = 320.0;
@@ -67,6 +82,7 @@ public final class Waypoints extends Module {
 	}
 
 	public void register(CommandDispatcher<FabricClientCommandSource> dispatcher) {
+		//? if <26.1.2 {
 		dispatcher.register(ClientCommandManager.literal("waypoint")
 			.then(ClientCommandManager.literal("add").executes(c -> this.addHere(c.getSource(), null))
 				.then(ClientCommandManager.argument("name", StringArgumentType.greedyString()).executes(c -> this.addHere(c.getSource(), StringArgumentType.getString(c, "name")))))
@@ -74,41 +90,67 @@ public final class Waypoints extends Module {
 				.then(ClientCommandManager.argument("name", StringArgumentType.greedyString()).executes(c -> this.remove(c.getSource(), StringArgumentType.getString(c, "name")))))
 			.then(ClientCommandManager.literal("list").executes(c -> this.list(c.getSource())))
 			.then(ClientCommandManager.literal("menu").executes(c -> {
+		//?} else {
+		/*dispatcher.register(ClientCommands.literal("waypoint")
+			.then(ClientCommands.literal("add").executes(c -> this.addHere(c.getSource(), null))
+				.then(ClientCommands.argument("name", StringArgumentType.greedyString()).executes(c -> this.addHere(c.getSource(), StringArgumentType.getString(c, "name")))))
+			.then(ClientCommands.literal("remove")
+				.then(ClientCommands.argument("name", StringArgumentType.greedyString()).executes(c -> this.remove(c.getSource(), StringArgumentType.getString(c, "name")))))
+			.then(ClientCommands.literal("list").executes(c -> this.list(c.getSource())))
+			.then(ClientCommands.literal("menu").executes(c -> {
+		*///?}
 				// Czat po komendzie zamyka swój ekran, więc menu otwieramy dopiero w następnym kroku pętli klienta.
-				MinecraftClient client = MinecraftClient.getInstance();
-				client.send(() -> client.setScreen(new WaypointScreen(null)));
+				Minecraft client = Minecraft.getInstance();
+				//? if <26.1.2 {
+				client.schedule(() -> client.setScreen(new WaypointScreen(null)));
+				//?}
+				//? if >=26.2 {
+				/*client.execute(() -> client.gui.setScreen(new WaypointScreen(null)));
+				*///?}
+				//? if =26.1.2 {
+				/*client.execute(() -> client.setScreen(new WaypointScreen(null)));
+				*///?}
 				return 1;
 			})));
 	}
 
 	/** Klawisze; wołane co tick. */
-	public void tick(MinecraftClient client) {
+	public void tick(Minecraft client) {
 		this.trackDeath(client);
-		while (key != null && key.wasPressed()) {
-			if (this.on() && client.player != null && client.currentScreen == null) {
+		while (key != null && key.consumeClick()) {
+			//? if <26.2 {
+			if (this.on() && client.player != null && client.screen == null) {
+			//?} else {
+			/*if (this.on() && client.player != null && client.gui.screen() == null) {
+			*///?}
 				this.addHere(null, null);
 			}
 		}
 
-		while (menuKey != null && menuKey.wasPressed()) {
-			if (this.on() && client.player != null && client.currentScreen == null) {
+		while (menuKey != null && menuKey.consumeClick()) {
+			//? if <26.2 {
+			if (this.on() && client.player != null && client.screen == null) {
 				client.setScreen(new WaypointScreen(null));
+			//?} else {
+			/*if (this.on() && client.player != null && client.gui.screen() == null) {
+				client.gui.setScreen(new WaypointScreen(null));
+			*///?}
 			}
 		}
 	}
 
 	/** Ostatnia pozycja żywego gracza i to, czy żył w poprzednim ticku: śmierć = przejście żywy -> martwy. */
-	private net.minecraft.util.math.BlockPos lastAlivePos;
+	private net.minecraft.core.BlockPos lastAlivePos;
 	private boolean wasAlive;
 
-	private void trackDeath(MinecraftClient client) {
-		if (client.player == null || client.world == null) {
+	private void trackDeath(Minecraft client) {
+		if (client.player == null || client.level == null) {
 			this.wasAlive = false;
 			return;
 		}
 
 		if (client.player.isAlive()) {
-			this.lastAlivePos = client.player.getBlockPos();
+			this.lastAlivePos = client.player.blockPosition();
 			this.wasAlive = true;
 		} else if (this.wasAlive) {
 			this.wasAlive = false;
@@ -125,14 +167,14 @@ public final class Waypoints extends Module {
 	}
 
 	/** Waypointy bieżącego świata i wymiaru (kopia tylko do odczytu). */
-	public List<Point> here(MinecraftClient client) {
+	public List<Point> here(Minecraft client) {
 		String world = world(client);
 		String dim = dim(client);
 		return this.points().stream().filter(point -> point.world().equals(world) && point.dim().equals(dim)).toList();
 	}
 
 	/** Dodaje punkt; zwraca tekst błędu albo null, gdy się udało. */
-	public String create(MinecraftClient client, String name, int x, int y, int z, int argb, String icon) {
+	public String create(Minecraft client, String name, int x, int y, int z, int argb, String icon) {
 		String label = name == null || name.isBlank() ? "Waypoint " + (this.here(client).size() + 1) : name.strip();
 		if (this.find(client, label) != null) {
 			return Lang.t("Waypoint o takiej nazwie już istnieje: ") + label;
@@ -144,7 +186,7 @@ public final class Waypoints extends Module {
 	}
 
 	/** Zmienia istniejący punkt (nazwa, pozycja, kolor, ikona); zwraca tekst błędu albo null, gdy się udało. */
-	public String update(MinecraftClient client, Point old, String name, int x, int y, int z, int argb, String icon) {
+	public String update(Minecraft client, Point old, String name, int x, int y, int z, int argb, String icon) {
 		String label = name == null || name.isBlank() ? old.name() : name.strip();
 		Point clash = this.find(client, label);
 		if (clash != null && !clash.equals(old)) {
@@ -167,7 +209,7 @@ public final class Waypoints extends Module {
 	}
 
 	private int addHere(FabricClientCommandSource source, String name) {
-		MinecraftClient client = MinecraftClient.getInstance();
+		Minecraft client = Minecraft.getInstance();
 		if (!this.ready(client, source)) {
 			return 0;
 		}
@@ -178,7 +220,7 @@ public final class Waypoints extends Module {
 	}
 
 	private int remove(FabricClientCommandSource source, String name) {
-		MinecraftClient client = MinecraftClient.getInstance();
+		Minecraft client = Minecraft.getInstance();
 		if (!this.ready(client, source)) {
 			return 0;
 		}
@@ -195,7 +237,7 @@ public final class Waypoints extends Module {
 	}
 
 	private int list(FabricClientCommandSource source) {
-		MinecraftClient client = MinecraftClient.getInstance();
+		Minecraft client = Minecraft.getInstance();
 		if (!this.ready(client, source)) {
 			return 0;
 		}
@@ -214,34 +256,38 @@ public final class Waypoints extends Module {
 	}
 
 	/** Wiązka: cienka linia (grubość 0) albo półprzezroczysty słup o podanej szerokości, jak beacon w Markers; widać ją przez ściany. */
-	private void beam(Vec3d from, Vec3d to, int argb) {
+	private void beam(Vec3 from, Vec3 to, int argb) {
 		float width = this.beamWidth.f();
 		if (width < 0.05F) {
-			GizmoDrawing.line(from, to, argb, 3.0F).ignoreOcclusion();
+			Gizmos.line(from, to, argb, 3.0F).setAlwaysOnTop();
 			return;
 		}
 
 		double half = width / 2.0;
 		int fill = Math.min(argb >>> 24, 110) << 24 | argb & 0xFFFFFF;
-		GizmoDrawing.box(new net.minecraft.util.math.Box(from.x - half, from.y, from.z - half, to.x + half, to.y, to.z + half), DrawStyle.filledAndStroked(argb, 1.5F, fill)).ignoreOcclusion();
+		Gizmos.cuboid(new net.minecraft.world.phys.AABB(from.x - half, from.y, from.z - half, to.x + half, to.y, to.z + half), GizmoStyle.strokeAndFill(argb, 1.5F, fill)).setAlwaysOnTop();
 	}
 
 	/**
 	 * Rysowane razem z podświetleniem bloku, w zakresie gizmo otwartym przez {@link pl.kerf.project.render.WorldOverlays}.
 	 * Zawsze widać wiązkę (i ikonę, jeśli punkt ją ma); nazwa z dystansem pojawia się, gdy patrzysz na wiązkę.
 	 */
-	public void submit(MinecraftClient client) {
-		net.minecraft.client.render.Camera camera = client.gameRenderer.getCamera();
-		Vec3d eye = camera.getCameraPos();
-		Vec3d forward = new Vec3d(camera.getHorizontalPlane());
-		Vec3d right = new Vec3d(camera.getDiagonalPlane()).multiply(-1.0);
-		Vec3d up = new Vec3d(camera.getVerticalPlane());
+	public void submit(Minecraft client) {
+		//? if <26.2 {
+		net.minecraft.client.Camera camera = client.gameRenderer.getMainCamera();
+		//?} else {
+		/*net.minecraft.client.Camera camera = client.gameRenderer.mainCamera();
+		*///?}
+		Vec3 eye = camera.position();
+		Vec3 forward = new Vec3(camera.forwardVector());
+		Vec3 right = new Vec3(camera.leftVector()).scale(-1.0);
+		Vec3 up = new Vec3(camera.upVector());
 		float opacity = this.opacity.f() / 100.0F;
 		double lookFlat = Math.sqrt(forward.x * forward.x + forward.z * forward.z);
 		for (Point point : this.here(client)) {
 			int argb = fade(point.color(), opacity);
-			Vec3d base = new Vec3d(point.x() + 0.5, point.y(), point.z() + 0.5);
-			Vec3d beamTop = base.add(0.0, BEAM_HEIGHT, 0.0);
+			Vec3 base = new Vec3(point.x() + 0.5, point.y(), point.z() + 0.5);
+			Vec3 beamTop = base.add(0.0, BEAM_HEIGHT, 0.0);
 			boolean hasIcon = !point.icon().isEmpty();
 			double dx = base.x - eye.x;
 			double dz = base.z - eye.z;
@@ -255,14 +301,14 @@ public final class Waypoints extends Module {
 			}
 
 			// Ikona wisi nad punktem; nazwa bez ikony pojawia się na wiązce dokładnie tam, gdzie patrzysz.
-			Vec3d anchor = base.add(0.0, 1.5, 0.0);
+			Vec3 anchor = base.add(0.0, 1.5, 0.0);
 			if (!hasIcon && lookFlat > 1.0E-4) {
 				double lookY = eye.y + forward.y / lookFlat * flat;
-				anchor = new Vec3d(base.x, Math.max(base.y + 0.5, Math.min(base.y + BEAM_HEIGHT, lookY)), base.z);
+				anchor = new Vec3(base.x, Math.max(base.y + 0.5, Math.min(base.y + BEAM_HEIGHT, lookY)), base.z);
 			}
 
 			double distance = eye.distanceTo(anchor);
-			Vec3d at = distance > LABEL_MAX_DISTANCE ? eye.add(anchor.subtract(eye).multiply(LABEL_MAX_DISTANCE / distance)) : anchor;
+			Vec3 at = distance > LABEL_MAX_DISTANCE ? eye.add(anchor.subtract(eye).scale(LABEL_MAX_DISTANCE / distance)) : anchor;
 			double shown = Math.max(eye.distanceTo(at), 2.0);
 			// Rozmiar rośnie z odległością od kamery, więc na ekranie zostaje taki sam.
 			float scale = (float) (TextGizmo.Style.DEFAULT_SCALE * this.labelSize.f() * shown / 3.0);
@@ -280,36 +326,40 @@ public final class Waypoints extends Module {
 				double low = anchor.y - ((labelShown ? 9.0 * unit + 3.0 * pad : pad)) * back;
 				double high = anchor.y + (3.0 * pad + iconW + 0.04 * shown) * back;
 				if (low > base.y) {
-					this.beam(base, new Vec3d(base.x, low, base.z), argb);
+					this.beam(base, new Vec3(base.x, low, base.z), argb);
 				}
 
 				if (high < beamTop.y) {
-					this.beam(new Vec3d(base.x, high, base.z), beamTop, argb);
+					this.beam(new Vec3(base.x, high, base.z), beamTop, argb);
 				}
 			}
 
 			if (labelShown) {
 				String text = point.name() + " " + Math.round(eye.distanceTo(base)) + "m";
-				double textW = client.textRenderer.getWidth(text) * unit;
+				double textW = client.font.width(text) * unit;
 				double textH = 9.0 * unit;
 				if (this.labelBackground.on()) {
 					// Tło lekko za tekstem (dalej od kamery), żeby nie przykrywało liter. Kolejność wierzchołków decyduje o stronie, z której kwadrat widać.
-					Vec3d c = at.add(forward.multiply(0.02 * shown));
-					Vec3d tl = c.add(right.multiply(-textW / 2.0 - pad)).add(up.multiply(pad));
-					Vec3d tr = c.add(right.multiply(textW / 2.0 + pad)).add(up.multiply(pad));
-					Vec3d br = tr.subtract(up.multiply(textH + 2.0 * pad));
-					Vec3d bl = tl.subtract(up.multiply(textH + 2.0 * pad));
-					GizmoDrawing.quad(tl, bl, br, tr, DrawStyle.filled(fade(this.labelBackgroundColor.argb(), opacity))).ignoreOcclusion();
+					Vec3 c = at.add(forward.scale(0.02 * shown));
+					Vec3 tl = c.add(right.scale(-textW / 2.0 - pad)).add(up.scale(pad));
+					Vec3 tr = c.add(right.scale(textW / 2.0 + pad)).add(up.scale(pad));
+					Vec3 br = tr.subtract(up.scale(textH + 2.0 * pad));
+					Vec3 bl = tl.subtract(up.scale(textH + 2.0 * pad));
+					Gizmos.rect(tl, bl, br, tr, GizmoStyle.fill(fade(this.labelBackgroundColor.argb(), opacity))).setAlwaysOnTop();
 				}
 
 				// Alfa 254 zamiast 255: tekst trafia do tej samej warstwy co półprzezroczyste tło i rysuje się po nim.
 				int textColor = Math.min(argb >>> 24, 254) << 24 | argb & 0xFFFFFF;
-				GizmoDrawing.text(text, at, TextGizmo.Style.left(textColor).scaled(scale)).ignoreOcclusion();
+				//? if <26.1.2 {
+				Gizmos.billboardText(text, at, TextGizmo.Style.forColorAndCentered(textColor).withScale(scale)).setAlwaysOnTop();
+				//?} else {
+				/*Gizmos.billboardText(text, at, TextGizmo.Style.forColor(textColor).withScale(scale)).setAlwaysOnTop();
+				*///?}
 			}
 
 			if (hasIcon) {
 				double iconW = ICON_WIDTH_PER_BLOCK * shown * this.labelSize.f();
-				Vec3d center = at.add(up.multiply(pad * 2.0 + iconW / 2.0 + 0.02 * shown));
+				Vec3 center = at.add(up.scale(pad * 2.0 + iconW / 2.0 + 0.02 * shown));
 				drawIcon(PixelGrid.decode(point.icon()), center, right, up, iconW / PixelGrid.SIZE, opacity);
 			}
 		}
@@ -321,7 +371,7 @@ public final class Waypoints extends Module {
 	}
 
 	/** Ikona jako płaskie kolorowe kwadraty zwrócone do kamery; pusty piksel nic nie rysuje. */
-	private static void drawIcon(int[] grid, Vec3d center, Vec3d right, Vec3d up, double cell, float opacity) {
+	private static void drawIcon(int[] grid, Vec3 center, Vec3 right, Vec3 up, double cell, float opacity) {
 		int n = PixelGrid.SIZE;
 		for (int i = 0; i < grid.length; i++) {
 			if (grid[i] >>> 24 == 0) {
@@ -330,47 +380,55 @@ public final class Waypoints extends Module {
 
 			double x0 = (i % n - n / 2.0) * cell;
 			double y0 = (n / 2.0 - i / n) * cell;
-			Vec3d a = center.add(right.multiply(x0)).add(up.multiply(y0));
-			Vec3d b = a.add(right.multiply(cell));
-			Vec3d c = b.subtract(up.multiply(cell));
-			Vec3d d = a.subtract(up.multiply(cell));
-			GizmoDrawing.quad(a, d, c, b, DrawStyle.filled(fade(grid[i], opacity))).ignoreOcclusion();
+			Vec3 a = center.add(right.scale(x0)).add(up.scale(y0));
+			Vec3 b = a.add(right.scale(cell));
+			Vec3 c = b.subtract(up.scale(cell));
+			Vec3 d = a.subtract(up.scale(cell));
+			Gizmos.rect(a, d, c, b, GizmoStyle.fill(fade(grid[i], opacity))).setAlwaysOnTop();
 		}
 	}
 
-	private boolean ready(MinecraftClient client, FabricClientCommandSource source) {
+	private boolean ready(Minecraft client, FabricClientCommandSource source) {
 		if (!this.on()) {
 			this.say(source, Lang.t("Włącz moduł Waypoints w menu moda."));
 			return false;
 		}
 
-		return client.player != null && client.world != null;
+		return client.player != null && client.level != null;
 	}
 
 	/** Z klawisza nie ma źródła komendy, więc odpowiedź idzie przez czat gry. */
 	private void say(FabricClientCommandSource source, String message) {
 		if (source != null) {
-			source.sendFeedback(Text.literal(message));
+			source.sendFeedback(Component.literal(message));
 		} else {
-			MinecraftClient.getInstance().inGameHud.getChatHud().addMessage(Text.literal(message));
+			//? if <26.1.2 {
+			Minecraft.getInstance().gui.getChat().addMessage(Component.literal(message));
+			//?}
+			//? if >=26.2 {
+			/*Minecraft.getInstance().gui.hud.getChat().addClientSystemMessage(Component.literal(message));
+			*///?}
+			//? if =26.1.2 {
+			/*Minecraft.getInstance().gui.getChat().addClientSystemMessage(Component.literal(message));
+			*///?}
 		}
 	}
 
-	private Point find(MinecraftClient client, String name) {
+	private Point find(Minecraft client, String name) {
 		return this.here(client).stream().filter(point -> point.name().equalsIgnoreCase(name)).findFirst().orElse(null);
 	}
 
-	private static String world(MinecraftClient client) {
-		ServerInfo server = client.getCurrentServerEntry();
+	private static String world(Minecraft client) {
+		ServerData server = client.getCurrentServer();
 		if (server != null) {
-			return server.address;
+			return server.ip;
 		}
 
-		return client.getServer() != null ? "sp:" + client.getServer().getSaveProperties().getLevelName() : "?";
+		return client.getSingleplayerServer() != null ? "sp:" + client.getSingleplayerServer().getWorldData().getLevelName() : "?";
 	}
 
-	private static String dim(MinecraftClient client) {
-		return client.world.getRegistryKey().getValue().toString();
+	private static String dim(Minecraft client) {
+		return client.level.dimension().identifier().toString();
 	}
 
 	private List<Point> points() {

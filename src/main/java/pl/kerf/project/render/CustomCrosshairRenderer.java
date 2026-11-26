@@ -1,6 +1,6 @@
 package pl.kerf.project.render;
 
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.GuiGraphics;
 import pl.kerf.project.config.PixelGrid;
 import pl.kerf.project.module.Modules;
 
@@ -10,11 +10,11 @@ public final class CustomCrosshairRenderer {
 	}
 
 	/** Rysuje siatkę pikseli z lewym górnym rogiem w (x, y), każdy piksel jako kwadrat {@code pixel} x {@code pixel}. */
-	public static void draw(DrawContext context, int[] grid, float x, float y, float pixel) {
+	public static void draw(GuiGraphics context, int[] grid, float x, float y, float pixel) {
 		int size = PixelGrid.SIZE;
-		context.getMatrices().pushMatrix();
-		context.getMatrices().translate(x, y);
-		context.getMatrices().scale(pixel, pixel);
+		context.pose().pushMatrix();
+		context.pose().translate(x, y);
+		context.pose().scale(pixel, pixel);
 		for (int i = 0; i < grid.length; i++) {
 			int argb = grid[i];
 			if (argb >>> 24 != 0) {
@@ -24,16 +24,16 @@ public final class CustomCrosshairRenderer {
 			}
 		}
 
-		context.getMatrices().popMatrix();
+		context.pose().popMatrix();
 	}
 
 	/** Celownik w grze (bez celu albo na celu), wyśrodkowany tak jak vanillowy (15x15 przy skali 1). */
-	public static void drawInGame(DrawContext context, boolean onTarget) {
+	public static void drawInGame(GuiGraphics context, boolean onTarget) {
 		float scale = Modules.CROSSHAIR.scale.f();
 		float size = PixelGrid.SIZE * scale;
 		// Zaokrąglenie w dół jak w vanilla, żeby piksele trafiały w siatkę ekranu.
-		float x = (float) Math.floor((context.getScaledWindowWidth() - size) / 2.0F);
-		float y = (float) Math.floor((context.getScaledWindowHeight() - size) / 2.0F);
+		float x = (float) Math.floor((context.guiWidth() - size) / 2.0F);
+		float y = (float) Math.floor((context.guiHeight() - size) / 2.0F);
 		draw(context, Modules.CROSSHAIR.grid(onTarget).get(), x, y, scale);
 	}
 }

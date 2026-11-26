@@ -2,24 +2,24 @@ package pl.kerf.project.hud;
 
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.hud.InGameHud;
-import net.minecraft.client.render.RenderTickCounter;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffectUtil;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffectUtil;
+import net.minecraft.world.effect.MobEffects;
 import pl.kerf.project.config.Setting;
 import pl.kerf.project.module.HudModule;
 
 public final class PotionStatusHud extends HudModule {
 	private static final int ROW = 20;
 	private static final int VANILLA_ROW = 33;
-	private static final List<StatusEffectInstance> SAMPLE = List.of(
-		new StatusEffectInstance(StatusEffects.STRENGTH, 1800, 1), new StatusEffectInstance(StatusEffects.SPEED, 150, 1)
+	private static final List<MobEffectInstance> SAMPLE = List.of(
+		new MobEffectInstance(MobEffects.STRENGTH, 1800, 1), new MobEffectInstance(MobEffects.SPEED, 150, 1)
 	);
 
 	public final Setting.Mode style = this.add(new Setting.Mode("style", "Wygląd", 0, "Zwykły", "Vanilla GUI", "Resourcepack GUI"));
@@ -27,9 +27,9 @@ public final class PotionStatusHud extends HudModule {
 	public final Setting.Bool hideAmbient = this.add(new Setting.Bool("hide_ambient", "Pomiń efekty z beaconów", false));
 	public final Setting.Mode layout = this.add(new Setting.Mode("layout", "Układ", 0, "Pionowo", "Poziomo"));
 
-	private final List<StatusEffectInstance> rows = new ArrayList<>();
-	private final List<Text> names = new ArrayList<>();
-	private final List<Text> times = new ArrayList<>();
+	private final List<MobEffectInstance> rows = new ArrayList<>();
+	private final List<Component> names = new ArrayList<>();
+	private final List<Component> times = new ArrayList<>();
 	/** Lista i szerokość tekstu liczone raz na tick (czasy efektów zmieniają się co tick, nie co klatkę). */
 	private int updatedAge = -1;
 	private boolean updatedEditing;
@@ -39,34 +39,34 @@ public final class PotionStatusHud extends HudModule {
 		super("potion_status", "Potion Status", "Aktywne efekty mikstur z pozostałym czasem (zamiast ikon vanilla w rogu).", true, 0.0F, 0.5F, 0.0F, 0.5F, 4.0F, 0.0F);
 	}
 
-	private void update(MinecraftClient client, boolean editing) {
-		if (client.player.age == this.updatedAge && editing == this.updatedEditing) {
+	private void update(Minecraft client, boolean editing) {
+		if (client.player.tickCount == this.updatedAge && editing == this.updatedEditing) {
 			return;
 		}
 
-		this.updatedAge = client.player.age;
+		this.updatedAge = client.player.tickCount;
 		this.updatedEditing = editing;
 		this.rows.clear();
 		this.names.clear();
 		this.times.clear();
-		List<StatusEffectInstance> effects = new ArrayList<>(client.player.getStatusEffects());
-		effects.removeIf(effect -> !effect.shouldShowIcon() || this.hideAmbient.on() && effect.isAmbient());
+		List<MobEffectInstance> effects = new ArrayList<>(client.player.getActiveEffects());
+		effects.removeIf(effect -> !effect.showIcon() || this.hideAmbient.on() && effect.isAmbient());
 		if (effects.isEmpty() && editing) {
 			effects = SAMPLE;
 		} else {
 			effects.sort(null);
 		}
 
-		float tickRate = client.world.getTickManager().getTickRate();
-		for (StatusEffectInstance effect : effects) {
-			MutableText name = effect.getEffectType().value().getName().copy();
+		float tickRate = client.level.tickRateManager().tickrate();
+		for (MobEffectInstance effect : effects) {
+			MutableComponent name = effect.getEffect().value().getDisplayName().copy();
 			if (effect.getAmplifier() >= 1 && effect.getAmplifier() <= 9) {
-				name.append(" ").append(Text.translatable("enchantment.level." + (effect.getAmplifier() + 1)));
+				name.append(" ").append(Component.translatable("enchantment.level." + (effect.getAmplifier() + 1)));
 			}
 
 			this.rows.add(effect);
 			this.names.add(name);
-			this.times.add(StatusEffectUtil.getDurationText(effect, 1.0F, tickRate));
+			this.times.add(MobEffectUtil.formatDuration(effect, 1.0F, tickRate));
 		}
 
 		this.textWidth = this.textWidth(client);
@@ -107,12 +107,12 @@ public final class PotionStatusHud extends HudModule {
 		return this.horizontal() ? 0 : i * this.row();
 	}
 
-	private int textWidth(MinecraftClient client) {
+	private int textWidth(Minecraft client) {
 		int text = 0;
 		for (int i = 0; i < this.rows.size(); i++) {
-			text = Math.max(text, client.textRenderer.getWidth(this.times.get(i)));
+			text = Math.max(text, client.font.width(this.times.get(i)));
 			if (this.showName.on()) {
-				text = Math.max(text, client.textRenderer.getWidth(this.names.get(i)));
+				text = Math.max(text, client.font.width(this.names.get(i)));
 			}
 		}
 
@@ -120,7 +120,7 @@ public final class PotionStatusHud extends HudModule {
 	}
 
 	@Override
-	public int width(MinecraftClient client, boolean editing) {
+	public int width(Minecraft client, boolean editing) {
 		this.update(client, editing);
 		if (this.rows.isEmpty()) {
 			return 0;
@@ -130,7 +130,7 @@ public final class PotionStatusHud extends HudModule {
 	}
 
 	@Override
-	public int height(MinecraftClient client, boolean editing) {
+	public int height(Minecraft client, boolean editing) {
 		if (this.horizontal()) {
 			return this.rows.isEmpty() ? 0 : this.row() - this.gap();
 		}
@@ -139,7 +139,7 @@ public final class PotionStatusHud extends HudModule {
 	}
 
 	@Override
-	protected void draw(DrawContext context, MinecraftClient client, RenderTickCounter tickCounter, boolean editing) {
+	protected void draw(GuiGraphics context, Minecraft client, DeltaTracker tickCounter, boolean editing) {
 		boolean vanilla = this.vanilla();
 		int panelW = 32 + this.textWidth + 7;
 		int iconX = vanilla ? 7 : 0;
@@ -153,23 +153,27 @@ public final class PotionStatusHud extends HudModule {
 		}
 
 		for (int i = 0; i < this.rows.size(); i++) {
-			context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, InGameHud.getEffectTexture(this.rows.get(i).getEffectType()), this.cellX(i) + iconX, this.cellY(i) + iconY, 18, 18);
+			//? if <26.2 {
+			context.blitSprite(RenderPipelines.GUI_TEXTURED, Gui.getMobEffectSprite(this.rows.get(i).getEffect()), this.cellX(i) + iconX, this.cellY(i) + iconY, 18, 18);
+			//?} else {
+			/*context.blitSprite(RenderPipelines.GUI_TEXTURED, net.minecraft.client.gui.Hud.getMobEffectSprite(this.rows.get(i).getEffect()), this.cellX(i) + iconX, this.cellY(i) + iconY, 18, 18);
+			*///?}
 		}
 
 		for (int i = 0; i < this.rows.size(); i++) {
-			StatusEffectInstance effect = this.rows.get(i);
+			MobEffectInstance effect = this.rows.get(i);
 			int x = this.cellX(i) + textX;
 			int y = this.cellY(i);
 			// Końcówka efektu (poniżej 10 s) na czerwono.
-			boolean ending = !effect.isInfinite() && effect.getDuration() <= 200;
+			boolean ending = !effect.isInfiniteDuration() && effect.getDuration() <= 200;
 			int timeColor = ending ? 0xFFFF5555 : 0xFFAAAAAA;
 			if (this.showName.on()) {
 				int textY = y + (vanilla ? 7 : 0);
-				context.drawText(client.textRenderer, this.names.get(i), x, textY, 0xFFFFFFFF, true);
-				context.drawText(client.textRenderer, this.times.get(i), x, textY + (vanilla ? 9 : 10), timeColor, true);
+				context.drawString(client.font, this.names.get(i), x, textY, 0xFFFFFFFF, true);
+				context.drawString(client.font, this.times.get(i), x, textY + (vanilla ? 9 : 10), timeColor, true);
 			} else {
 				int textY = y + (vanilla ? 12 : 5);
-				context.drawText(client.textRenderer, this.times.get(i), x, textY, ending ? timeColor : 0xFFFFFFFF, true);
+				context.drawString(client.font, this.times.get(i), x, textY, ending ? timeColor : 0xFFFFFFFF, true);
 			}
 		}
 	}

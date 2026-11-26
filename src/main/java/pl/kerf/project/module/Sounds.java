@@ -2,7 +2,7 @@ package pl.kerf.project.module;
 
 import java.util.HashMap;
 import java.util.Map;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
 import pl.kerf.project.config.ConfigManager;
 import pl.kerf.project.config.Setting;
 

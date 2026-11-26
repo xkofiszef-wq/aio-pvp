@@ -1,28 +1,43 @@
 package pl.kerf.project.hud;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.render.RenderTickCounter;
-import net.minecraft.client.sound.PositionedSoundInstance;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.sound.SoundEvent;
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import pl.kerf.project.config.Setting;
 import pl.kerf.project.module.HudModule;
 
 public final class ArmorHud extends HudModule {
 	private static final EquipmentSlot[] SLOTS = {EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET};
+	//? if <26.1.2 {
 	private static final ItemStack[] SAMPLE = {
 		new ItemStack(Items.DIAMOND_HELMET), new ItemStack(Items.DIAMOND_CHESTPLATE), new ItemStack(Items.DIAMOND_LEGGINGS), new ItemStack(Items.DIAMOND_BOOTS)
 	};
+	//?} else {
+	/*/^* Przykład do edytora; tworzony przy pierwszym użyciu, bo w 26.x przedmiotów nie można tworzyć przed wczytaniem ich danych. ^/
+	private static ItemStack[] sample;
+
+	private static ItemStack[] sample() {
+		if (sample == null) {
+			sample = new ItemStack[] {
+				new ItemStack(Items.DIAMOND_HELMET), new ItemStack(Items.DIAMOND_CHESTPLATE), new ItemStack(Items.DIAMOND_LEGGINGS), new ItemStack(Items.DIAMOND_BOOTS)
+			};
+		}
+
+		return sample;
+	}
+	*///?}
 	private static final int LAYOUT_HORIZONTAL = 0;
 	private static final int INFO_BAR = 0;
 	private static final int INFO_PERCENT = 1;
 	private static final int INFO_POINTS = 2;
 	private static final int RED = 0xFFFF5555;
 	/** Ostrzeżenie o pękającej zbroi: assets/aio_pvp/sounds/tool_breaking.ogg (z Durability Viewer, MIT). */
-	private static final SoundEvent TOOL_BREAKING = SoundEvent.of(net.minecraft.util.Identifier.of("aio_pvp", "tool_breaking"));
+	private static final SoundEvent TOOL_BREAKING = SoundEvent.createVariableRangeEvent(net.minecraft.resources.Identifier.fromNamespaceAndPath("aio_pvp", "tool_breaking"));
 
 	public final Setting.Mode style = this.add(new Setting.Mode("style", "Wygląd", 1, "Zwykły", "Vanilla GUI", "Resourcepack GUI"));
 	public final Setting.Mode layout = this.add(new Setting.Mode("layout", "Układ", 0, "Poziomo", "Pionowo"));
@@ -36,7 +51,7 @@ public final class ArmorHud extends HudModule {
 	private final boolean[] wasLow = new boolean[SLOTS.length];
 	private final boolean[] hadItem = new boolean[SLOTS.length];
 	private final int[] lastDamage = new int[SLOTS.length];
-	private final net.minecraft.item.Item[] lastItem = new net.minecraft.item.Item[SLOTS.length];
+	private final net.minecraft.world.item.Item[] lastItem = new net.minecraft.world.item.Item[SLOTS.length];
 	private final ItemStack[] stacks = new ItemStack[SLOTS.length];
 
 	public ArmorHud() {
@@ -62,15 +77,19 @@ public final class ArmorHud extends HudModule {
 	}
 
 	/** Uzupełnia {@link #stacks}; zwraca false, gdy nie ma czego pokazać. */
-	private boolean collect(MinecraftClient client, boolean editing) {
+	private boolean collect(Minecraft client, boolean editing) {
 		boolean anyWorn = false;
 		for (int i = 0; i < SLOTS.length; i++) {
-			this.stacks[i] = client.player.getEquippedStack(SLOTS[i]);
+			this.stacks[i] = client.player.getItemBySlot(SLOTS[i]);
 			anyWorn |= !this.stacks[i].isEmpty();
 		}
 
 		if (!anyWorn && editing) {
+			//? if <26.1.2 {
 			System.arraycopy(SAMPLE, 0, this.stacks, 0, SAMPLE.length);
+			//?} else {
+			/*System.arraycopy(sample(), 0, this.stacks, 0, sample().length);
+			*///?}
 			return true;
 		}
 
@@ -78,7 +97,7 @@ public final class ArmorHud extends HudModule {
 	}
 
 	@Override
-	public int width(MinecraftClient client, boolean editing) {
+	public int width(Minecraft client, boolean editing) {
 		if (!this.collect(client, editing)) {
 			return 0;
 		}
@@ -87,20 +106,20 @@ public final class ArmorHud extends HudModule {
 	}
 
 	@Override
-	public int height(MinecraftClient client, boolean editing) {
+	public int height(Minecraft client, boolean editing) {
 		return this.layout.is(LAYOUT_HORIZONTAL) ? 16 : (SLOTS.length - 1) * this.pitch() + 16;
 	}
 
 	private static float fraction(ItemStack stack) {
-		return (stack.getMaxDamage() - stack.getDamage()) / (float) stack.getMaxDamage();
+		return (stack.getMaxDamage() - stack.getDamageValue()) / (float) stack.getMaxDamage();
 	}
 
 	private boolean isLow(ItemStack stack) {
-		return stack.isDamageable() && fraction(stack) * 100.0F <= this.threshold.f();
+		return stack.isDamageableItem() && fraction(stack) * 100.0F <= this.threshold.f();
 	}
 
 	@Override
-	protected void draw(DrawContext context, MinecraftClient client, RenderTickCounter tickCounter, boolean editing) {
+	protected void draw(GuiGraphics context, Minecraft client, DeltaTracker tickCounter, boolean editing) {
 		boolean horizontal = this.layout.is(LAYOUT_HORIZONTAL);
 		int pitch = this.pitch();
 		if (this.vanilla()) {
@@ -115,21 +134,29 @@ public final class ArmorHud extends HudModule {
 
 			int x = horizontal ? i * pitch : 0;
 			int y = horizontal ? 0 : i * pitch;
-			context.drawItem(stack, x, y);
+			//? if <26.1.2 {
+			context.renderItem(stack, x, y);
+			//?} else {
+			/*context.item(stack, x, y);
+			*///?}
 			boolean low = this.isLow(stack);
 			if (this.info.is(INFO_BAR)) {
-				context.drawStackOverlay(client.textRenderer, stack, x, y);
-			} else if (this.hasText() && stack.isDamageable()) {
+				//? if <26.1.2 {
+				context.renderItemDecorations(client.font, stack, x, y);
+				//?} else {
+				/*context.itemDecorations(client.font, stack, x, y);
+				*///?}
+			} else if (this.hasText() && stack.isDamageableItem()) {
 				float fraction = fraction(stack);
-				int left = stack.getMaxDamage() - stack.getDamage();
+				int left = stack.getMaxDamage() - stack.getDamageValue();
 				String text = this.info.is(INFO_PERCENT) ? String.valueOf(Math.round(fraction * 100.0F)) : compact(left);
 				int color = low ? RED : this.colored.on() ? durabilityColor(fraction) : 0xFFFFFFFF;
 				// Dokładnie tak jak liczba przedmiotów w slocie: ta sama czcionka, cień i miejsce (prawy dolny róg).
-				context.drawText(client.textRenderer, text, x + 19 - 2 - client.textRenderer.getWidth(text), y + 6 + 3, color, true);
+				context.drawString(client.font, text, x + 19 - 2 - client.font.width(text), y + 6 + 3, color, true);
 			}
 
 			if (low && this.warning.on()) {
-				context.drawText(client.textRenderer, "!", x + 1, y - 1, RED, true);
+				context.drawString(client.font, "!", x + 1, y - 1, RED, true);
 			}
 		}
 	}
@@ -156,15 +183,15 @@ public final class ArmorHud extends HudModule {
 	 * Wywoływane co tick, tylko dla zbroi własnego gracza. Gdy część jest poniżej progu, dźwięk pękania gra
 	 * przy KAŻDYM uderzeniu w nią (każda utrata wytrzymałości), a niżej przy zniszczeniu.
 	 */
-	public void tick(MinecraftClient client) {
+	public void tick(Minecraft client) {
 		if (client.player == null) {
 			return;
 		}
 
 		for (int i = 0; i < SLOTS.length; i++) {
-			ItemStack stack = client.player.getEquippedStack(SLOTS[i]);
+			ItemStack stack = client.player.getItemBySlot(SLOTS[i]);
 			boolean low = !stack.isEmpty() && this.isLow(stack);
-			int damage = stack.isEmpty() ? -1 : stack.getDamage();
+			int damage = stack.isEmpty() ? -1 : stack.getDamageValue();
 			// Ta sama część zbroi i większe zużycie niż tick temu = dostała uderzenie.
 			boolean hit = low && this.hadItem[i] && stack.getItem() == this.lastItem[i] && damage > this.lastDamage[i];
 			boolean broke = stack.isEmpty() && this.hadItem[i] && this.wasLow[i];
@@ -172,7 +199,7 @@ public final class ArmorHud extends HudModule {
 				float volume = this.volume.f() / 100.0F;
 				if (volume > 0.0F) {
 					// Dźwięk z Durability Viewer (Guntram Blohm, licencja MIT); przy zniszczeniu części niżej.
-					client.getSoundManager().play(PositionedSoundInstance.ui(TOOL_BREAKING, broke ? 0.8F : 1.0F, volume));
+					client.getSoundManager().play(SimpleSoundInstance.forUI(TOOL_BREAKING, broke ? 0.8F : 1.0F, volume));
 				}
 			}
 

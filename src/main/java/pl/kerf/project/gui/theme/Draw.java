@@ -1,16 +1,16 @@
 package pl.kerf.project.gui.theme;
 
 import pl.kerf.project.Lang;
+import com.mojang.blaze3d.platform.NativeImage;
 import java.util.HashMap;
 import java.util.Map;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.texture.NativeImageBackedTexture;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import org.joml.Matrix3x2fStack;
 import pl.kerf.project.AioPvp;
 import pl.kerf.project.module.Module;
@@ -27,12 +27,12 @@ public final class Draw {
 	 * Prostokąt z zaokrąglonymi rogami (styl z projektu w Figmie: przyciski i pola mają 4 px). Promienie 1-2 są
 	 * pomijane, bo w pikselach GUI i tak nie dają widocznego łuku. Panele i kafelki mają 0, więc zostają kwadratowe.
 	 */
-	public static void round(DrawContext context, int x, int y, int w, int h, int r, int color) {
+	public static void round(GuiGraphics context, int x, int y, int w, int h, int r, int color) {
 		roundExact(context, x, y, w, h, r < 3 ? 0 : r, color);
 	}
 
 	/** Jak {@link #round}, ale bez progu: zaokrągla też małe promienie (przyciski i przełącznik z projektu w Figmie). */
-	public static void roundExact(DrawContext context, int x, int y, int w, int h, int r, int color) {
+	public static void roundExact(GuiGraphics context, int x, int y, int w, int h, int r, int color) {
 		if (w <= 0 || h <= 0) {
 			return;
 		}
@@ -44,7 +44,7 @@ public final class Draw {
 		}
 
 		int s = screenScale();
-		Matrix3x2fStack matrices = context.getMatrices();
+		Matrix3x2fStack matrices = context.pose();
 		matrices.pushMatrix();
 		matrices.scale(1.0F / s, 1.0F / s);
 		shape(context, x * s, y * s, w * s, h * s, r * s, 0, color);
@@ -52,12 +52,12 @@ public final class Draw {
 	}
 
 	/** Obramowanie o grubości 1 px (kwadratowe rogi, jak {@link #round}). */
-	public static void outline(DrawContext context, int x, int y, int w, int h, int r, int color) {
+	public static void outline(GuiGraphics context, int x, int y, int w, int h, int r, int color) {
 		outlineExact(context, x, y, w, h, r < 3 ? 0 : r, color);
 	}
 
 	/** Jak {@link #outline}, ale bez progu promienia (para do {@link #roundExact}). */
-	public static void outlineExact(DrawContext context, int x, int y, int w, int h, int r, int color) {
+	public static void outlineExact(GuiGraphics context, int x, int y, int w, int h, int r, int color) {
 		r = Math.max(0, Math.min(r, Math.min(w, h) / 2));
 		if (r <= 0) {
 			context.fill(x, y, x + w, y + 1, color);
@@ -68,7 +68,7 @@ public final class Draw {
 		}
 
 		int s = screenScale();
-		Matrix3x2fStack matrices = context.getMatrices();
+		Matrix3x2fStack matrices = context.pose();
 		matrices.pushMatrix();
 		matrices.scale(1.0F / s, 1.0F / s);
 		shape(context, x * s, y * s, w * s, h * s, r * s, s, color);
@@ -77,7 +77,7 @@ public final class Draw {
 
 	/** Ile pikseli ekranu ma jeden piksel GUI (skala GUI). */
 	private static int screenScale() {
-		return Math.max(1, (int) MinecraftClient.getInstance().getWindow().getScaleFactor());
+		return Math.max(1, (int) Minecraft.getInstance().getWindow().getGuiScale());
 	}
 
 	/**
@@ -85,7 +85,7 @@ public final class Draw {
 	 * a cztery rogi to ćwiartki wygładzonego koła z tekstury, w kolorze kształtu. {@code ring} = 0: wypełniony,
 	 * {@code ring} > 0: sama ramka tej grubości.
 	 */
-	private static void shape(DrawContext context, int x, int y, int w, int h, int r, int ring, int color) {
+	private static void shape(GuiGraphics context, int x, int y, int w, int h, int r, int ring, int color) {
 		if (ring == 0) {
 			context.fill(x + r, y, x + w - r, y + h, color);
 			context.fill(x, y + r, x + r, y + h - r, color);
@@ -99,10 +99,10 @@ public final class Draw {
 
 		Identifier circle = circle(r, ring);
 		int size = 2 * r;
-		context.drawTexture(RenderPipelines.GUI_TEXTURED, circle, x, y, 0.0F, 0.0F, r, r, size, size, color);
-		context.drawTexture(RenderPipelines.GUI_TEXTURED, circle, x + w - r, y, r, 0.0F, r, r, size, size, color);
-		context.drawTexture(RenderPipelines.GUI_TEXTURED, circle, x, y + h - r, 0.0F, r, r, r, size, size, color);
-		context.drawTexture(RenderPipelines.GUI_TEXTURED, circle, x + w - r, y + h - r, r, r, r, r, size, size, color);
+		context.blit(RenderPipelines.GUI_TEXTURED, circle, x, y, 0.0F, 0.0F, r, r, size, size, color);
+		context.blit(RenderPipelines.GUI_TEXTURED, circle, x + w - r, y, r, 0.0F, r, r, size, size, color);
+		context.blit(RenderPipelines.GUI_TEXTURED, circle, x, y + h - r, 0.0F, r, r, r, size, size, color);
+		context.blit(RenderPipelines.GUI_TEXTURED, circle, x + w - r, y + h - r, r, r, r, r, size, size, color);
 	}
 
 	private static final Map<Integer, Identifier> CIRCLES = new HashMap<>();
@@ -110,15 +110,15 @@ public final class Draw {
 	/** Białe koło (albo pierścień) o promieniu r pikseli, z krawędzią wygładzoną; tworzone raz na rozmiar. */
 	private static Identifier circle(int r, int ring) {
 		return CIRCLES.computeIfAbsent(r << 16 | ring, key -> {
-			Identifier id = Identifier.of(AioPvp.MOD_ID, "round_" + r + "_" + ring);
+			Identifier id = Identifier.fromNamespaceAndPath(AioPvp.MOD_ID, "round_" + r + "_" + ring);
 			NativeImage image = new NativeImage(2 * r, 2 * r, true);
 			for (int px = 0; px < 2 * r; px++) {
 				for (int py = 0; py < 2 * r; py++) {
-					image.setColorArgb(px, py, coverage(r, ring, px, py) << 24 | 0xFFFFFF);
+					image.setPixel(px, py, coverage(r, ring, px, py) << 24 | 0xFFFFFF);
 				}
 			}
 
-			MinecraftClient.getInstance().getTextureManager().registerTexture(id, new NativeImageBackedTexture(() -> "AIO PvP " + id, image));
+			Minecraft.getInstance().getTextureManager().register(id, new DynamicTexture(() -> "AIO PvP " + id, image));
 			return id;
 		});
 	}
@@ -144,7 +144,7 @@ public final class Draw {
 	}
 
 	/** Płaska karta: wypełnienie i cienka ramka. */
-	public static void card(DrawContext context, int x, int y, int w, int h, int r, int fill, int border) {
+	public static void card(GuiGraphics context, int x, int y, int w, int h, int r, int fill, int border) {
 		round(context, x, y, w, h, r, fill);
 		outline(context, x, y, w, h, r, border);
 	}
@@ -153,7 +153,7 @@ public final class Draw {
 	 * Miękki cień wokół okna: same pierścienie na zewnątrz, bez wypełnienia, żeby nie przyciemniać
 	 * półprzezroczystego szkła od spodu.
 	 */
-	public static void shadow(DrawContext context, int x, int y, int w, int h, int r, int size) {
+	public static void shadow(GuiGraphics context, int x, int y, int w, int h, int r, int size) {
 		for (int i = 1; i <= size; i++) {
 			int alpha = Math.round(70.0F * (1.0F - (float) i / (size + 1)));
 			// Pierścienie cienia idą za kształtem okna: przy zaokrąglonym rośnie też ich promień.
@@ -165,9 +165,9 @@ public final class Draw {
 	 * Przełącznik z Figmy (komponent "Przełącznik"): pigułka 20x10 z ramką 1 px, gałka 8x8, włączony w kolorze akcentu
 	 * motywu. Gałka jeździ płynnie po pikselach ekranu, nie skacze co piksel GUI. {@code t} = 0 (wył.) .. 1 (wł.).
 	 */
-	public static void toggle(DrawContext context, int x, int y, float t) {
+	public static void toggle(GuiGraphics context, int x, int y, float t) {
 		int s = screenScale();
-		Matrix3x2fStack matrices = context.getMatrices();
+		Matrix3x2fStack matrices = context.pose();
 		matrices.pushMatrix();
 		matrices.scale(1.0F / s, 1.0F / s);
 		int px = x * s;
@@ -186,39 +186,39 @@ public final class Draw {
 	 * Tekst dopasowany do szerokości przez zmniejszenie (do 65 procent), a nie ucięcie; dopiero poniżej tego rozmiaru jest skracany wielokropkiem.
 	 * Dzięki temu opisy pod modułami i w modułach są czytelne przy każdej skali GUI.
 	 */
-	public static void textScaled(DrawContext context, TextRenderer font, String text, int x, int y, int maxWidth, int color) {
+	public static void textScaled(GuiGraphics context, Font font, String text, int x, int y, int maxWidth, int color) {
 		String full = Lang.t(text);
-		int w = font.getWidth(full);
+		int w = font.width(full);
 		if (w <= maxWidth) {
-			context.drawText(font, full, x, y, color, false);
+			context.drawString(font, full, x, y, color, false);
 			return;
 		}
 
 		float scale = Math.max(0.65F, (float) maxWidth / w);
 		String shown = fit(font, text, Math.round(maxWidth / scale));
-		context.getMatrices().pushMatrix();
-		context.getMatrices().translate(x, y + (1.0F - scale) * 4.0F);
-		context.getMatrices().scale(scale, scale);
-		context.drawText(font, shown, 0, 0, color, false);
-		context.getMatrices().popMatrix();
+		context.pose().pushMatrix();
+		context.pose().translate(x, y + (1.0F - scale) * 4.0F);
+		context.pose().scale(scale, scale);
+		context.drawString(font, shown, 0, 0, color, false);
+		context.pose().popMatrix();
 	}
 
 	/** Tekst dopasowany do szerokości, z wielokropkiem. */
-	public static String fit(TextRenderer font, String text, int width) {
+	public static String fit(Font font, String text, int width) {
 		text = Lang.t(text);
-		if (font.getWidth(text) <= width) {
+		if (font.width(text) <= width) {
 			return text;
 		}
 
-		return font.trimToWidth(text, Math.max(0, width - font.getWidth("…"))).stripTrailing() + "…";
+		return font.plainSubstrByWidth(text, Math.max(0, width - font.width("…"))).stripTrailing() + "…";
 	}
 
-	public static void text(DrawContext context, TextRenderer font, String text, int x, int y, int color) {
-		context.drawText(font, Lang.t(text), x, y, color, false);
+	public static void text(GuiGraphics context, Font font, String text, int x, int y, int color) {
+		context.drawString(font, Lang.t(text), x, y, color, false);
 	}
 
-	public static void text(DrawContext context, TextRenderer font, Text text, int x, int y, int color) {
-		context.drawText(font, text, x, y, color, false);
+	public static void text(GuiGraphics context, Font font, Component text, int x, int y, int color) {
+		context.drawString(font, text, x, y, color, false);
 	}
 
 	// --- ikony (rysowane z masek 9x9, w kolorze podanym przez wywołującego) ---
@@ -279,7 +279,7 @@ public final class Draw {
 	}
 
 	/** Ikona 9x9 w lewym górnym rogu (x, y). Kolejne piksele w rzędzie łączone w jedno wypełnienie. */
-	public static void icon(DrawContext context, Icon icon, int x, int y, int color) {
+	public static void icon(GuiGraphics context, Icon icon, int x, int y, int color) {
 		String[] mask = icon.mask;
 		for (int row = 0; row < mask.length; row++) {
 			String line = mask[row];

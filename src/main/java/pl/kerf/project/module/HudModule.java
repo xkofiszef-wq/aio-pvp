@@ -1,9 +1,9 @@
 package pl.kerf.project.module;
 
 import com.google.gson.JsonObject;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.render.RenderTickCounter;
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
 
 /**
  * Element HUD-u, który można przesuwać i skalować.
@@ -49,9 +49,9 @@ public abstract class HudModule extends Module {
 	}
 
 	/** Szerokość treści przed skalowaniem. */
-	public abstract int width(MinecraftClient client, boolean editing);
+	public abstract int width(Minecraft client, boolean editing);
 
-	public abstract int height(MinecraftClient client, boolean editing);
+	public abstract int height(Minecraft client, boolean editing);
 
 	/**
 	 * O ile tło (np. vanillowa ramka slotu) wystaje poza treść, w pikselach przed skalowaniem. Treść jest
@@ -70,12 +70,12 @@ public abstract class HudModule extends Module {
 	 * Rysuje element w podglądzie menu, wyśrodkowany i dopasowany do prostokąta. Używa przykładowych danych
 	 * (tryb edycji), więc coś widać nawet bez zbroi czy efektów. Wymaga świata (czyta dane gracza).
 	 */
-	public void renderPreview(DrawContext context, MinecraftClient client, int x, int y, int width, int height) {
+	public void renderPreview(GuiGraphics context, Minecraft client, int x, int y, int width, int height) {
 		this.renderPreview(context, client, x, y, width, height, 2.0F);
 	}
 
 	/** Jak wyżej, z ograniczeniem powiększenia (małe kafelki pokazują element w naturalnym rozmiarze). */
-	public void renderPreview(DrawContext context, MinecraftClient client, int x, int y, int width, int height, float maxScale) {
+	public void renderPreview(GuiGraphics context, Minecraft client, int x, int y, int width, int height, float maxScale) {
 		int w = this.width(client, true);
 		int h = this.height(client, true);
 		int m = this.margin();
@@ -84,37 +84,37 @@ public abstract class HudModule extends Module {
 		}
 
 		float fit = Math.min(maxScale, Math.min((width - 8.0F) / (w + 2 * m), (height - 8.0F) / (h + 2 * m)));
-		context.getMatrices().pushMatrix();
-		context.getMatrices().translate(x + (width - w * fit) / 2.0F, y + (height - h * fit) / 2.0F);
-		context.getMatrices().scale(fit, fit);
-		this.draw(context, client, client.getRenderTickCounter(), true);
-		context.getMatrices().popMatrix();
+		context.pose().pushMatrix();
+		context.pose().translate(x + (width - w * fit) / 2.0F, y + (height - h * fit) / 2.0F);
+		context.pose().scale(fit, fit);
+		this.draw(context, client, client.getDeltaTracker(), true);
+		context.pose().popMatrix();
 	}
 
 	/** Rysuje treść w lokalnych współrzędnych (0,0 = lewy górny róg). */
-	protected abstract void draw(DrawContext context, MinecraftClient client, RenderTickCounter tickCounter, boolean editing);
+	protected abstract void draw(GuiGraphics context, Minecraft client, DeltaTracker tickCounter, boolean editing);
 
-	public void render(DrawContext context, MinecraftClient client, RenderTickCounter tickCounter, boolean editing) {
+	public void render(GuiGraphics context, Minecraft client, DeltaTracker tickCounter, boolean editing) {
 		int w = this.width(client, editing);
 		int h = this.height(client, editing);
 		this.boundsW = w * this.scale;
 		this.boundsH = h * this.scale;
-		this.boundsX = context.getScaledWindowWidth() * this.ax + this.ox - this.boundsW * this.px;
-		this.boundsY = context.getScaledWindowHeight() * this.ay + this.oy - this.boundsH * this.py - this.lift();
+		this.boundsX = context.guiWidth() * this.ax + this.ox - this.boundsW * this.px;
+		this.boundsY = context.guiHeight() * this.ay + this.oy - this.boundsH * this.py - this.lift();
 		// Przy małym oknie albo dużej skali GUI element (razem z ramką) nie może wyjechać poza ekran.
 		float m = this.margin() * this.scale;
-		this.boundsX = Math.max(m, Math.min(context.getScaledWindowWidth() - this.boundsW - m, this.boundsX));
-		this.boundsY = Math.max(m, Math.min(context.getScaledWindowHeight() - this.boundsH - m, this.boundsY));
+		this.boundsX = Math.max(m, Math.min(context.guiWidth() - this.boundsW - m, this.boundsX));
+		this.boundsY = Math.max(m, Math.min(context.guiHeight() - this.boundsH - m, this.boundsY));
 		if (w <= 0 || h <= 0) {
 			return;
 		}
 
-		context.getMatrices().pushMatrix();
-		context.getMatrices().translate(this.boundsX, this.boundsY);
-		context.getMatrices().scale(this.scale, this.scale);
+		context.pose().pushMatrix();
+		context.pose().translate(this.boundsX, this.boundsY);
+		context.pose().scale(this.scale, this.scale);
 		ownLayer(context);
 		this.draw(context, client, tickCounter, editing);
-		context.getMatrices().popMatrix();
+		context.pose().popMatrix();
 	}
 
 	/**
@@ -122,8 +122,8 @@ public abstract class HudModule extends Module {
 	 * aż do bazowej, szukając czegoś, z czym się nakłada; bez tego każdy przedmiot/napis elementu przeglądał cały HUD
 	 * (vanilla + inne elementy moda). Pomiar JFR: to był główny koszt FPS moda. Rysowanie i kolejność bez zmian.
 	 */
-	protected static void ownLayer(DrawContext context) {
-		context.createNewRootLayer();
+	protected static void ownLayer(GuiGraphics context) {
+		context.nextStratum();
 	}
 
 	/** Elementy przyklejone do dołu ekranu jadą w górę razem z hotbarem (HUD Tweaker -> Podniesienie hotbara). */

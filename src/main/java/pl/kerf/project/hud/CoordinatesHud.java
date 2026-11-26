@@ -1,11 +1,11 @@
 package pl.kerf.project.hud;
 
 import java.util.Locale;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.render.RenderTickCounter;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import pl.kerf.project.config.Setting;
 
 /** Współrzędne gracza: litery osi w kolorach (te same kolory osi używa całe GUI moda). */
@@ -18,7 +18,7 @@ public final class CoordinatesHud extends InfoHud {
 	public final Setting.Color valueColor = this.add(new Setting.Color("value_color", "Kolor liczb", 0xFFFFFFFF, false));
 	public final Setting.Mode layout = this.add(new Setting.Mode("layout", "Układ", 0, "Poziomo", "Pionowo"));
 	/** Pionowo: trzy wiersze X / Y / Z, liczone raz na tick jak tekst w InfoHud. */
-	private final Text[] lines = new Text[3];
+	private final Component[] lines = new Component[3];
 	private int linesW;
 	private int linesAge = -1;
 
@@ -31,38 +31,38 @@ public final class CoordinatesHud extends InfoHud {
 	}
 
 	@Override
-	protected Text text(MinecraftClient client, boolean editing) {
-		Text[] axes = this.axes(client);
-		return Text.empty().append(axes[0]).append("  ").append(axes[1]).append("  ").append(axes[2]);
+	protected Component text(Minecraft client, boolean editing) {
+		Component[] axes = this.axes(client);
+		return Component.empty().append(axes[0]).append("  ").append(axes[1]).append("  ").append(axes[2]);
 	}
 
-	private Text[] axes(MinecraftClient client) {
+	private Component[] axes(Minecraft client) {
 		String format = FORMATS[Math.max(0, Math.min(FORMATS.length - 1, this.decimals.i()))];
-		return new Text[] {
+		return new Component[] {
 			this.axis("X", client.player.getX(), format, this.xColor.rgb()),
 			this.axis("Y", client.player.getY(), format, this.yColor.rgb()),
 			this.axis("Z", client.player.getZ(), format, this.zColor.rgb())
 		};
 	}
 
-	private Text axis(String name, double value, String format, int color) {
-		MutableText text = Text.literal(name).withColor(color);
-		return text.append(Text.literal(": " + String.format(Locale.ROOT, format, value)).withColor(this.valueColor.rgb()));
+	private Component axis(String name, double value, String format, int color) {
+		MutableComponent text = Component.literal(name).withColor(color);
+		return text.append(Component.literal(": " + String.format(Locale.ROOT, format, value)).withColor(this.valueColor.rgb()));
 	}
 
 	@Override
-	public int width(MinecraftClient client, boolean editing) {
+	public int width(Minecraft client, boolean editing) {
 		if (!this.vertical()) {
 			return super.width(client, editing);
 		}
 
-		if (client.player.age != this.linesAge) {
-			this.linesAge = client.player.age;
-			Text[] axes = this.axes(client);
+		if (client.player.tickCount != this.linesAge) {
+			this.linesAge = client.player.tickCount;
+			Component[] axes = this.axes(client);
 			this.linesW = 0;
 			for (int i = 0; i < 3; i++) {
 				this.lines[i] = axes[i];
-				this.linesW = Math.max(this.linesW, client.textRenderer.getWidth(axes[i]));
+				this.linesW = Math.max(this.linesW, client.font.width(axes[i]));
 			}
 		}
 
@@ -70,12 +70,12 @@ public final class CoordinatesHud extends InfoHud {
 	}
 
 	@Override
-	public int height(MinecraftClient client, boolean editing) {
+	public int height(Minecraft client, boolean editing) {
 		return this.vertical() ? 3 * 10 - 2 + 2 * PAD_Y : super.height(client, editing);
 	}
 
 	@Override
-	protected void draw(DrawContext context, MinecraftClient client, RenderTickCounter tickCounter, boolean editing) {
+	protected void draw(GuiGraphics context, Minecraft client, DeltaTracker tickCounter, boolean editing) {
 		if (!this.vertical()) {
 			super.draw(context, client, tickCounter, editing);
 			return;
@@ -86,7 +86,7 @@ public final class CoordinatesHud extends InfoHud {
 		}
 
 		for (int i = 0; i < 3; i++) {
-			context.drawText(client.textRenderer, this.lines[i], PAD_X, PAD_Y + i * 10, 0xFFFFFFFF, this.shadow.on());
+			context.drawString(client.font, this.lines[i], PAD_X, PAD_Y + i * 10, 0xFFFFFFFF, this.shadow.on());
 		}
 	}
 

@@ -2,8 +2,8 @@ package pl.kerf.project.hud;
 
 import pl.kerf.project.Lang;
 import java.util.Locale;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
 import pl.kerf.project.config.Setting;
 
 /**
@@ -33,25 +33,25 @@ public final class LagDetectorHud extends InfoHud {
 	}
 
 	/** Pauza w singleplayerze zatrzymuje serwer celowo, a poza światem nie ma kogo słuchać: to nie lag. */
-	public static void tick(MinecraftClient client) {
-		if (client.world == null || client.isPaused()) {
+	public static void tick(Minecraft client) {
+		if (client.level == null || client.isPaused()) {
 			lastPacket = System.nanoTime();
 		}
 	}
 
 	/** Tekst ostrzeżenia dla danej ciszy; null = wszystko w porządku. Żółty, a od dwukrotności progu czerwony. */
-	public Text message(double gap) {
+	public Component message(double gap) {
 		double limit = this.threshold.get();
 		if (gap < limit) {
 			return null;
 		}
 
-		return Text.literal(String.format(Locale.ROOT, Lang.t("Serwer nie odpowiada: %.1f s"), gap)).withColor(gap >= 2.0 * limit ? DANGER : WARNING);
+		return Component.literal(String.format(Locale.ROOT, Lang.t("Serwer nie odpowiada: %.1f s"), gap)).withColor(gap >= 2.0 * limit ? DANGER : WARNING);
 	}
 
 	@Override
-	protected Text text(MinecraftClient client, boolean editing) {
-		Text message = this.message(gapSeconds());
+	protected Component text(Minecraft client, boolean editing) {
+		Component message = this.message(gapSeconds());
 		return message == null && editing ? this.message(this.threshold.get()) : message;
 	}
 }

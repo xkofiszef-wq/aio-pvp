@@ -1,9 +1,9 @@
 package pl.kerf.project.hud;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.render.RenderTickCounter;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.util.Mth;
 import pl.kerf.project.config.Setting;
 import pl.kerf.project.module.HudModule;
 
@@ -24,21 +24,21 @@ public final class CompassHud extends HudModule {
 	}
 
 	@Override
-	public int width(MinecraftClient client, boolean editing) {
+	public int width(Minecraft client, boolean editing) {
 		return this.width.i();
 	}
 
 	@Override
-	public int height(MinecraftClient client, boolean editing) {
+	public int height(Minecraft client, boolean editing) {
 		return HEIGHT;
 	}
 
 	@Override
-	protected void draw(DrawContext context, MinecraftClient client, RenderTickCounter tickCounter, boolean editing) {
+	protected void draw(GuiGraphics context, Minecraft client, DeltaTracker tickCounter, boolean editing) {
 		int w = this.width.i();
 		float span = this.span.f();
 		// Yaw w grze: 0 = południe, 180 = północ. Kompas: 0 = północ, rośnie zgodnie z ruchem wskazówek zegara.
-		float heading = MathHelper.wrapDegrees(client.player.getYaw(tickCounter.getTickProgress(true)) + 180.0F);
+		float heading = Mth.wrapDegrees(client.player.getViewYRot(tickCounter.getGameTimeDeltaPartialTick(true)) + 180.0F);
 		if (this.backgroundEnabled.on()) {
 			if (this.rounding.i() > 0) {
 				pl.kerf.project.gui.theme.Draw.roundExact(context, 0, 0, w, HEIGHT, this.rounding.i(), this.background.argb());
@@ -48,7 +48,7 @@ public final class CompassHud extends HudModule {
 		}
 		context.enableScissor(0, 0, w, HEIGHT);
 		for (int angle = 0; angle < 360; angle += 15) {
-			float diff = MathHelper.wrapDegrees(angle - heading);
+			float diff = Mth.wrapDegrees(angle - heading);
 			if (Math.abs(diff) > span / 2.0F + 10.0F) {
 				continue;
 			}
@@ -57,7 +57,7 @@ public final class CompassHud extends HudModule {
 			if (angle % 45 == 0) {
 				String name = NAMES[angle / 45];
 				int color = angle == 0 ? 0xFFFF6060 : 0xFFFFFFFF;
-				context.drawText(client.textRenderer, name, x - client.textRenderer.getWidth(name) / 2, 3, color, true);
+				context.drawString(client.font, name, x - client.font.width(name) / 2, 3, color, true);
 				context.fill(x, HEIGHT - 6, x + 1, HEIGHT - 1, 0xFFD0D0D0);
 			} else {
 				context.fill(x, HEIGHT - 4, x + 1, HEIGHT - 1, 0xFF808080);

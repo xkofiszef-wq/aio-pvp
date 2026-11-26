@@ -1,11 +1,11 @@
 package pl.kerf.project.hud;
 
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.RenderPipelines;
 import pl.kerf.project.Lang;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.render.RenderTickCounter;
 import pl.kerf.project.config.Setting;
 import pl.kerf.project.gui.theme.Draw;
 import pl.kerf.project.media.MediaSession;
@@ -49,18 +49,18 @@ public final class MediaHud extends HudModule {
 	}
 
 	@Override
-	public int width(MinecraftClient client, boolean editing) {
+	public int width(Minecraft client, boolean editing) {
 		return this.visible(editing) ? this.width.i() : 0;
 	}
 
 	@Override
-	public int height(MinecraftClient client, boolean editing) {
+	public int height(Minecraft client, boolean editing) {
 		return this.visible(editing) ? HEIGHT : 0;
 	}
 
 	@Override
-	protected void draw(DrawContext context, MinecraftClient client, RenderTickCounter tickCounter, boolean editing) {
-		TextRenderer font = client.textRenderer;
+	protected void draw(GuiGraphics context, Minecraft client, DeltaTracker tickCounter, boolean editing) {
+		Font font = client.font;
 		MediaSession.State state = MediaSession.state();
 		boolean active = state.active();
 		String title = active ? state.title() : Lang.t(MediaSession.supported() ? "Nic nie gra" : "Tylko Windows");
@@ -77,11 +77,11 @@ public final class MediaHud extends HudModule {
 		if (this.showArt.on()) {
 			int ay = (HEIGHT - ART) / 2;
 			if (active && MediaSession.hasArt()) {
-				context.getMatrices().pushMatrix();
-				context.getMatrices().translate(5, ay);
-				context.getMatrices().scale(ART / 64.0F, ART / 64.0F);
-				context.drawTexture(RenderPipelines.GUI_TEXTURED, MediaSession.ART, 0, 0, 0.0F, 0.0F, 64, 64, 64, 64);
-				context.getMatrices().popMatrix();
+				context.pose().pushMatrix();
+				context.pose().translate(5, ay);
+				context.pose().scale(ART / 64.0F, ART / 64.0F);
+				context.blit(RenderPipelines.GUI_TEXTURED, MediaSession.ART, 0, 0, 0.0F, 0.0F, 64, 64, 64, 64);
+				context.pose().popMatrix();
 			} else {
 				context.fill(5, ay, 5 + ART, ay + ART, 0xFF26262E);
 				noteIcon(context, 5 + ART / 2, ay + ART / 2, 0xFF8A8A96);
@@ -92,7 +92,7 @@ public final class MediaHud extends HudModule {
 
 		int textW = w - textX - 5;
 		marquee(context, font, title, textX, 6, textW, this.titleColor.argb());
-		context.drawText(font, ellipsis(font, artist, textW), textX, 17, this.artistColor.argb(), false);
+		context.drawString(font, ellipsis(font, artist, textW), textX, 17, this.artistColor.argb(), false);
 
 		int center = textX + textW / 2;
 		// Przyciski: trzy kafelki 16 x 14 w odstępie 6 px (poprzedni, odtwórz/pauza, następny); klik liczy się na całym kafelku.
@@ -122,8 +122,8 @@ public final class MediaHud extends HudModule {
 		String right = time(duration);
 		float small = 0.75F;
 		int barY = HEIGHT - 7;
-		int leftW = Math.round(font.getWidth(left) * small);
-		int rightW = Math.round(font.getWidth(right) * small);
+		int leftW = Math.round(font.width(left) * small);
+		int rightW = Math.round(font.width(right) * small);
 		smallText(context, font, left, textX, barY - 3, small);
 		smallText(context, font, right, w - 5 - rightW, barY - 3, small);
 		int barX1 = textX + leftW + 4;
@@ -164,35 +164,35 @@ public final class MediaHud extends HudModule {
 	}
 
 	/** Tytuł przewijany w kółko, gdy nie mieści się w szerokości. */
-	private static void marquee(DrawContext context, TextRenderer font, String text, int x, int y, int width, int color) {
-		int textW = font.getWidth(text);
+	private static void marquee(GuiGraphics context, Font font, String text, int x, int y, int width, int color) {
+		int textW = font.width(text);
 		if (textW <= width) {
-			context.drawText(font, text, x, y, color, false);
+			context.drawString(font, text, x, y, color, false);
 			return;
 		}
 
 		int gap = 30;
 		int offset = (int) (System.currentTimeMillis() / 40L % (textW + gap));
 		context.enableScissor(x, y - 1, x + width, y + 9);
-		context.drawText(font, text, x - offset, y, color, false);
-		context.drawText(font, text, x - offset + textW + gap, y, color, false);
+		context.drawString(font, text, x - offset, y, color, false);
+		context.drawString(font, text, x - offset + textW + gap, y, color, false);
 		context.disableScissor();
 	}
 
-	private static String ellipsis(TextRenderer font, String text, int width) {
-		if (font.getWidth(text) <= width) {
+	private static String ellipsis(Font font, String text, int width) {
+		if (font.width(text) <= width) {
 			return text;
 		}
 
-		return font.trimToWidth(text, Math.max(0, width - font.getWidth("..."))).stripTrailing() + "...";
+		return font.plainSubstrByWidth(text, Math.max(0, width - font.width("..."))).stripTrailing() + "...";
 	}
 
-	private static void smallText(DrawContext context, TextRenderer font, String text, int x, int y, float scale) {
-		context.getMatrices().pushMatrix();
-		context.getMatrices().translate(x, y);
-		context.getMatrices().scale(scale, scale);
-		context.drawText(font, text, 0, 0, 0xFFB0B0BA, false);
-		context.getMatrices().popMatrix();
+	private static void smallText(GuiGraphics context, Font font, String text, int x, int y, float scale) {
+		context.pose().pushMatrix();
+		context.pose().translate(x, y);
+		context.pose().scale(scale, scale);
+		context.drawString(font, text, 0, 0, 0xFFB0B0BA, false);
+		context.pose().popMatrix();
 	}
 
 	private static String time(double seconds) {
@@ -202,29 +202,29 @@ public final class MediaHud extends HudModule {
 	}
 
 	/** Trójkąt "w prawo" o połowie wysokości h, z lewym bokiem w x i środkiem w cy. */
-	private static void triangleRight(DrawContext context, int x, int cy, int h, int color) {
+	private static void triangleRight(GuiGraphics context, int x, int cy, int h, int color) {
 		for (int i = 0; i <= h; i++) {
 			context.fill(x + i, cy - (h - i), x + i + 1, cy + (h - i) + 1, color);
 		}
 	}
 
-	private static void triangleLeft(DrawContext context, int x, int cy, int h, int color) {
+	private static void triangleLeft(GuiGraphics context, int x, int cy, int h, int color) {
 		for (int i = 0; i <= h; i++) {
 			context.fill(x - i, cy - (h - i), x - i + 1, cy + (h - i) + 1, color);
 		}
 	}
 
-	private static void prevIcon(DrawContext context, int cx, int cy, int color) {
+	private static void prevIcon(GuiGraphics context, int cx, int cy, int color) {
 		context.fill(cx - 4, cy - 3, cx - 3, cy + 4, color);
 		triangleLeft(context, cx + 3, cy, 3, color);
 	}
 
-	private static void nextIcon(DrawContext context, int cx, int cy, int color) {
+	private static void nextIcon(GuiGraphics context, int cx, int cy, int color) {
 		triangleRight(context, cx - 3, cy, 3, color);
 		context.fill(cx + 3, cy - 3, cx + 4, cy + 4, color);
 	}
 
-	private static void noteIcon(DrawContext context, int cx, int cy, int color) {
+	private static void noteIcon(GuiGraphics context, int cx, int cy, int color) {
 		context.fill(cx + 1, cy - 8, cx + 3, cy + 4, color);
 		context.fill(cx + 3, cy - 8, cx + 7, cy - 6, color);
 		context.fill(cx - 4, cy + 2, cx + 3, cy + 7, color);

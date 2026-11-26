@@ -1,7 +1,7 @@
 package pl.kerf.project.gui;
 
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
 import pl.kerf.project.gui.theme.Draw;
 import pl.kerf.project.gui.theme.Theme;
 
@@ -18,12 +18,12 @@ public final class Ui {
 	}
 
 	/** Okno pomocnicze: mocniej kryjące niż menu, bo bywa nad światem bez rozmycia (edytor HUD). */
-	public static void panel(DrawContext context, int x, int y, int w, int h) {
+	public static void panel(GuiGraphics context, int x, int y, int w, int h) {
 		Draw.shadow(context, x, y, w, h, PANEL_R, 4);
 		Draw.card(context, x, y, w, h, PANEL_R, Theme.GLASS_STRONG, Theme.BORDER_STRONG);
 	}
 
-	public static void inset(DrawContext context, int x, int y, int w, int h) {
+	public static void inset(GuiGraphics context, int x, int y, int w, int h) {
 		Draw.round(context, x, y, w, h, 4, Theme.INSET);
 		Draw.outline(context, x, y, w, h, 4, Theme.BORDER);
 	}
@@ -33,7 +33,7 @@ public final class Ui {
 	}
 
 	/** Szachownica pod kolorami z kryciem, żeby było widać przezroczystość. */
-	public static void checker(DrawContext context, int x, int y, int w, int h) {
+	public static void checker(GuiGraphics context, int x, int y, int w, int h) {
 		int cell = 4;
 		for (int cy = 0; cy < h; cy += cell) {
 			for (int cx = 0; cx < w; cx += cell) {
@@ -43,7 +43,7 @@ public final class Ui {
 		}
 	}
 
-	public static String ellipsis(TextRenderer font, String text, int width) {
+	public static String ellipsis(Font font, String text, int width) {
 		return Draw.fit(font, text, width);
 	}
 }

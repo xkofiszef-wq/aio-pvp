@@ -1,14 +1,15 @@
+//? if <26.1.2 {
 package pl.kerf.project.mixin;
 
 import java.util.Set;
-import net.minecraft.client.render.chunk.SectionBuilder;
-import net.minecraft.client.texture.SpriteContents;
+import net.minecraft.client.renderer.chunk.SectionCompiler;
+import net.minecraft.client.renderer.texture.SpriteContents;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import pl.kerf.project.render.AnimatedSprites;
 
 /** Wynik budowy fragmentu niesie zbiór jego animowanych tekstur (null = zbudowany przy wyłączonej opcji). */
-@Mixin(SectionBuilder.RenderData.class)
+@Mixin(SectionCompiler.Results.class)
 public class RenderDataMixin implements AnimatedSprites.SpritesHolder {
 	@Unique
 	private Set<SpriteContents> aio$sprites;
@@ -23,3 +24,4 @@ public class RenderDataMixin implements AnimatedSprites.SpritesHolder {
 		this.aio$sprites = sprites;
 	}
 }
+//?}

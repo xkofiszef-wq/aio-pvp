@@ -1,27 +1,28 @@
+//? if <26.1.2 {
 package pl.kerf.project.mixin;
 
-import com.mojang.blaze3d.systems.VertexSorter;
+import com.mojang.blaze3d.vertex.VertexSorting;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import net.minecraft.block.BlockRenderType;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.block.BlockRenderManager;
-import net.minecraft.client.render.chunk.BlockBufferAllocatorStorage;
-import net.minecraft.client.render.chunk.ChunkRendererRegion;
-import net.minecraft.client.render.chunk.SectionBuilder;
-import net.minecraft.client.render.model.BakedQuad;
-import net.minecraft.client.render.model.BlockModelPart;
-import net.minecraft.client.render.model.BlockStateModel;
-import net.minecraft.client.texture.SpriteContents;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkSectionPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.random.Random;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.SectionBufferBuilderPack;
+import net.minecraft.client.renderer.block.BlockRenderDispatcher;
+import net.minecraft.client.renderer.block.model.BakedQuad;
+import net.minecraft.client.renderer.block.model.BlockModelPart;
+import net.minecraft.client.renderer.block.model.BlockStateModel;
+import net.minecraft.client.renderer.chunk.RenderSectionRegion;
+import net.minecraft.client.renderer.chunk.SectionCompiler;
+import net.minecraft.client.renderer.texture.SpriteContents;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.SectionPos;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.block.RenderShape;
+import net.minecraft.world.level.block.state.BlockState;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -34,23 +35,23 @@ import pl.kerf.project.render.AnimatedSprites;
  * Bloki fragmentu są czytane z regionu, a tekstury z modeli bloków (z pamięcią podręczną na stan bloku), więc działa
  * niezależnie od tego, jak Fabric API albo inne mody rysują bloki (z nowszym Fabric API stary sposób nie widział tekstur).
  */
-@Mixin(SectionBuilder.class)
+@Mixin(SectionCompiler.class)
 public class SectionBuilderMixin {
 	private static final Direction[] aio$SIDES = {null, Direction.DOWN, Direction.UP, Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST};
 	/** Animowane tekstury modelu danego stanu bloku; czyszczone po przeładowaniu modeli (nowy obiekt modeli bloków). */
 	private static final Map<BlockState, Set<SpriteContents>> aio$cache = new ConcurrentHashMap<>();
 	private static volatile Object aio$cacheOwner;
 
-	private static Set<SpriteContents> aio$spritesOf(BlockRenderManager manager, BlockState state) {
+	private static Set<SpriteContents> aio$spritesOf(BlockRenderDispatcher manager, BlockState state) {
 		return aio$cache.computeIfAbsent(state, key -> {
 			Set<SpriteContents> found = new HashSet<>();
-			BlockStateModel model = manager.getModel(key);
+			BlockStateModel model = manager.getBlockModel(key);
 			List<BlockModelPart> parts = new ArrayList<>();
-			model.addParts(Random.create(42L), parts);
+			model.collectParts(RandomSource.create(42L), parts);
 			for (BlockModelPart part : parts) {
 				for (Direction side : aio$SIDES) {
 					for (BakedQuad quad : part.getQuads(side)) {
-						SpriteContents contents = quad.sprite().getContents();
+						SpriteContents contents = quad.sprite().contents();
 						if (contents.isAnimated()) {
 							found.add(contents);
 						}
@@ -62,28 +63,28 @@ public class SectionBuilderMixin {
 		});
 	}
 
-	@Inject(method = "build", at = @At("RETURN"))
-	private void aio$attach(ChunkSectionPos sectionPos, ChunkRendererRegion region, VertexSorter sorter, BlockBufferAllocatorStorage storage,
-		CallbackInfoReturnable<SectionBuilder.RenderData> cir) {
-		SectionBuilder.RenderData data = cir.getReturnValue();
+	@Inject(method = "compile", at = @At("RETURN"))
+	private void aio$attach(SectionPos sectionPos, RenderSectionRegion region, VertexSorting sorter, SectionBufferBuilderPack storage,
+		CallbackInfoReturnable<SectionCompiler.Results> cir) {
+		SectionCompiler.Results data = cir.getReturnValue();
 		if (!Modules.OPTIMIZATION.active(Modules.OPTIMIZATION.animateOnlyVisible)) {
 			((AnimatedSprites.SpritesHolder) (Object) data).aio$setSprites(null);
 			return;
 		}
 
-		MinecraftClient client = MinecraftClient.getInstance();
-		Object owner = client.getBakedModelManager().getBlockModels();
+		Minecraft client = Minecraft.getInstance();
+		Object owner = client.getModelManager().getBlockModelShaper();
 		if (owner != aio$cacheOwner) {
 			aio$cache.clear();
 			aio$cacheOwner = owner;
 		}
 
-		BlockRenderManager manager = client.getBlockRenderManager();
+		BlockRenderDispatcher manager = client.getBlockRenderer();
 		Set<SpriteContents> set = new HashSet<>();
-		BlockPos min = sectionPos.getMinPos();
-		for (BlockPos pos : BlockPos.iterate(min, min.add(15, 15, 15))) {
+		BlockPos min = sectionPos.origin();
+		for (BlockPos pos : BlockPos.betweenClosed(min, min.offset(15, 15, 15))) {
 			BlockState state = region.getBlockState(pos);
-			if (state.getRenderType() == BlockRenderType.MODEL) {
+			if (state.getRenderShape() == RenderShape.MODEL) {
 				set.addAll(aio$spritesOf(manager, state));
 			}
 		}
@@ -91,3 +92,4 @@ public class SectionBuilderMixin {
 		((AnimatedSprites.SpritesHolder) (Object) data).aio$setSprites(Set.copyOf(set));
 	}
 }
+//?}

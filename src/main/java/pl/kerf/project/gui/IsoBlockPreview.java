@@ -1,11 +1,15 @@
 package pl.kerf.project.gui;
 
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.texture.Sprite;
-import net.minecraft.client.texture.SpriteAtlasTexture;
-import net.minecraft.client.util.SpriteIdentifier;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.texture.TextureAtlas;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+//? if <26.1.2 {
+import net.minecraft.client.resources.model.Material;
+//?} else {
+/*import net.minecraft.client.resources.model.sprite.SpriteId;
+*///?}
+import net.minecraft.resources.Identifier;
 import org.joml.Matrix3x2f;
 import pl.kerf.project.module.Modules;
 import pl.kerf.project.module.Modules.BlockOutline;
@@ -15,29 +19,39 @@ import pl.kerf.project.module.Modules.BlockOutline;
  * i wypełnienie dokładnie według ustawień (tryb, kolory, grubość, wypełnienie wł./wył.).
  */
 final class IsoBlockPreview {
-	private static final SpriteIdentifier TOP = block("block/grass_block_top");
-	private static final SpriteIdentifier SIDE = block("block/grass_block_side");
+	//? if <26.1.2 {
+	private static final Material TOP = block("block/grass_block_top");
+	private static final Material SIDE = block("block/grass_block_side");
+	//?} else {
+	/*private static final SpriteId TOP = block("block/grass_block_top");
+	private static final SpriteId SIDE = block("block/grass_block_side");
+	*///?}
 	/** Domyślny kolor trawy (biom równin), bo tekstura góry jest w odcieniach szarości. */
 	private static final int GRASS_TINT = 0xFF91BD59;
 
 	private IsoBlockPreview() {
 	}
 
-	private static SpriteIdentifier block(String path) {
-		return new SpriteIdentifier(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE, Identifier.ofVanilla(path));
+	//? if <26.1.2 {
+	private static Material block(String path) {
+		return new Material(TextureAtlas.LOCATION_BLOCKS, Identifier.withDefaultNamespace(path));
+	//?} else {
+	/*private static SpriteId block(String path) {
+		return new SpriteId(TextureAtlas.LOCATION_BLOCKS, Identifier.withDefaultNamespace(path));
+	*///?}
 	}
 
 	/**
 	 * Sześcian o połowie szerokości {@code s}, z górnym przednim wierzchołkiem w (cx, cy).
 	 * Wierzchołki: T góra-tył, R prawy, F przód, L lewy, a pod nimi Lb, Fb, Rb.
 	 */
-	static void draw(DrawContext context, int cx, int cy, int s) {
+	static void draw(GuiGraphics context, int cx, int cy, int s) {
 		BlockOutline module = Modules.BLOCK_OUTLINE;
 		float half = s / 2.0F;
 		float lx = cx - s;
 		float ly = cy - half;
-		Sprite top = context.getSprite(TOP);
-		Sprite side = context.getSprite(SIDE);
+		TextureAtlasSprite top = context.getSprite(TOP);
+		TextureAtlasSprite side = context.getSprite(SIDE);
 
 		// Ściany: góra (z odcieniem trawy), lewa jaśniejsza, prawa ciemniejsza, jak cieniowanie w grze.
 		face(context, lx, ly, s, -half, s, half, top, GRASS_TINT, 0);
@@ -78,20 +92,20 @@ final class IsoBlockPreview {
 	 * Równoległobok o początku (ox, oy) i osiach u = (ux, uy), v = (vx, vy): tekstura (gdy sprite != null)
 	 * albo wypełnienie kolorem. Przekształcenie afiniczne zamienia kwadrat 16x16 w ścianę sześcianu.
 	 */
-	private static void face(DrawContext context, float ox, float oy, float ux, float uy, float vx, float vy, Sprite sprite, int tint, int fill) {
-		context.getMatrices().pushMatrix();
-		context.getMatrices().mul(new Matrix3x2f(ux / 16.0F, uy / 16.0F, vx / 16.0F, vy / 16.0F, ox, oy));
+	private static void face(GuiGraphics context, float ox, float oy, float ux, float uy, float vx, float vy, TextureAtlasSprite sprite, int tint, int fill) {
+		context.pose().pushMatrix();
+		context.pose().mul(new Matrix3x2f(ux / 16.0F, uy / 16.0F, vx / 16.0F, vy / 16.0F, ox, oy));
 		if (sprite != null) {
-			context.drawSpriteStretched(RenderPipelines.GUI_TEXTURED, sprite, 0, 0, 16, 16, tint);
+			context.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, 0, 0, 16, 16, tint);
 		} else {
 			context.fill(0, 0, 16, 16, fill);
 		}
 
-		context.getMatrices().popMatrix();
+		context.pose().popMatrix();
 	}
 
 	/** Linia z kwadracików t x t (GUI nie ma linii pod kątem). */
-	private static void line(DrawContext context, float x0, float y0, float x1, float y1, int t, int color) {
+	private static void line(GuiGraphics context, float x0, float y0, float x1, float y1, int t, int color) {
 		float dx = x1 - x0;
 		float dy = y1 - y0;
 		int steps = (int) Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)));

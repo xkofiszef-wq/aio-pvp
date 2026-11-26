@@ -1,9 +1,9 @@
 package pl.kerf.project.mixin;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.Frustum;
-import net.minecraft.client.render.debug.EntityHitboxDebugRenderer;
-import net.minecraft.world.debug.DebugDataStore;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.culling.Frustum;
+import net.minecraft.client.renderer.debug.EntityHitboxDebugRenderer;
+import net.minecraft.util.debug.DebugValueAccess;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -14,10 +14,10 @@ import pl.kerf.project.render.WorldOverlays;
 /** Hitboxy F3+B: gdy moduł jest włączony, rysuje własne (kolory, cel) zamiast vanillowych. */
 @Mixin(EntityHitboxDebugRenderer.class)
 public class EntityHitboxDebugRendererMixin {
-	@Inject(method = "render", at = @At("HEAD"), cancellable = true)
-	private void aio$customHitboxes(double cameraX, double cameraY, double cameraZ, DebugDataStore store, Frustum frustum, float tickProgress, CallbackInfo ci) {
+	@Inject(method = "emitGizmos", at = @At("HEAD"), cancellable = true)
+	private void aio$customHitboxes(double cameraX, double cameraY, double cameraZ, DebugValueAccess store, Frustum frustum, float tickProgress, CallbackInfo ci) {
 		if (Modules.HITBOXES.on()) {
-			WorldOverlays.drawHitboxes(MinecraftClient.getInstance(), tickProgress);
+			WorldOverlays.drawHitboxes(Minecraft.getInstance(), tickProgress);
 			ci.cancel();
 		}
 	}

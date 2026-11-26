@@ -1,11 +1,11 @@
 package pl.kerf.project.render;
 
 import java.util.Locale;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.text.object.AtlasTextObjectContents;
-import net.minecraft.util.Atlases;
-import net.minecraft.util.Identifier;
+import net.minecraft.data.AtlasIds;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.contents.objects.AtlasSprite;
+import net.minecraft.resources.Identifier;
 import pl.kerf.project.module.Modules;
 
 /**
@@ -13,11 +13,11 @@ import pl.kerf.project.module.Modules;
  * więc texture pack, który zmienia serca na pasku, zmienia je też nad głową.
  */
 public final class HealthLabel {
-	private static final Text FULL = sprite("hud/heart/full");
-	private static final Text HALF = sprite("hud/heart/half");
-	private static final Text EMPTY = sprite("hud/heart/container");
-	private static final Text ABSORB_FULL = sprite("hud/heart/absorbing_full");
-	private static final Text ABSORB_HALF = sprite("hud/heart/absorbing_half");
+	private static final Component FULL = sprite("hud/heart/full");
+	private static final Component HALF = sprite("hud/heart/half");
+	private static final Component EMPTY = sprite("hud/heart/container");
+	private static final Component ABSORB_FULL = sprite("hud/heart/absorbing_full");
+	private static final Component ABSORB_HALF = sprite("hud/heart/absorbing_half");
 	private static final int RED = 0xFF5555;
 	private static final int GOLD = 0xFFAA00;
 	private static final int MAX_HEARTS = 10;
@@ -27,23 +27,23 @@ public final class HealthLabel {
 	 * Gotowe etykiety: ten sam stan zdrowia daje zawsze ten sam tekst, więc nie składamy go co klatkę dla każdego gracza.
 	 * Klucz zawiera styl i wszystkie liczby, od których zależy wygląd.
 	 */
-	private static final java.util.Map<Long, Text> CACHE = new java.util.HashMap<>();
+	private static final java.util.Map<Long, Component> CACHE = new java.util.HashMap<>();
 
 	private HealthLabel() {
 	}
 
-	private static Text sprite(String path) {
-		return Text.object(new AtlasTextObjectContents(Atlases.GUI, Identifier.ofVanilla(path)));
+	private static Component sprite(String path) {
+		return Component.object(new AtlasSprite(AtlasIds.GUI, Identifier.withDefaultNamespace(path)));
 	}
 
-	public static Text build(float health, float maxHealth, float absorption) {
+	public static Component build(float health, float maxHealth, float absorption) {
 		// Tak jak pasek vanilla: zaokrąglenie w górę do pełnych punktów (pół serca).
 		int points = Math.max(0, (int) Math.ceil(health));
 		int absorptionPoints = Modules.HEALTH.absorption.on() ? Math.max(0, (int) Math.ceil(absorption)) : 0;
 		int style = Modules.HEALTH.style.get();
 		int max = Math.max(0, (int) Math.ceil(maxHealth));
 		long key = (long) style << 60 | (long) Math.min(points, 0xFFFFF) << 40 | (long) Math.min(max, 0xFFFFF) << 20 | Math.min(absorptionPoints, 0xFFFFF);
-		Text cached = CACHE.get(key);
+		Component cached = CACHE.get(key);
 		if (cached != null) {
 			return cached;
 		}
@@ -53,13 +53,13 @@ public final class HealthLabel {
 			CACHE.clear();
 		}
 
-		Text text = compose(points, maxHealth, absorptionPoints);
+		Component text = compose(points, maxHealth, absorptionPoints);
 		CACHE.put(key, text);
 		return text;
 	}
 
-	private static Text compose(int points, float maxHealth, int absorptionPoints) {
-		MutableText text = Text.empty();
+	private static Component compose(int points, float maxHealth, int absorptionPoints) {
+		MutableComponent text = Component.empty();
 		if (Modules.HEALTH.style.is(0)) {
 			// Jeden rząd jak na pasku: max 10 serc, nadmiar zdrowia (np. z atrybutów) ucinamy.
 			int slots = Math.max(1, Math.min(MAX_HEARTS, (int) Math.ceil(maxHealth / 2.0F)));
@@ -82,10 +82,10 @@ public final class HealthLabel {
 		} else {
 			float fraction = maxHealth > 0.0F ? points / maxHealth : 1.0F;
 			int color = fraction > 0.6F ? 0x55FF55 : fraction > 0.3F ? 0xFFFF55 : RED;
-			text.append(Text.literal(hearts(points) + " ").withColor(color));
+			text.append(Component.literal(hearts(points) + " ").withColor(color));
 			text.append(FULL);
 			if (absorptionPoints > 0) {
-				text.append(Text.literal(" +" + hearts(absorptionPoints) + " ").withColor(GOLD));
+				text.append(Component.literal(" +" + hearts(absorptionPoints) + " ").withColor(GOLD));
 				text.append(ABSORB_FULL);
 			}
 		}
@@ -93,7 +93,7 @@ public final class HealthLabel {
 		return text;
 	}
 
-	private static void repeat(MutableText text, Text part, int count) {
+	private static void repeat(MutableComponent text, Component part, int count) {
 		for (int i = 0; i < count; i++) {
 			text.append(part);
 		}

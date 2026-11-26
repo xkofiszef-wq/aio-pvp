@@ -1,0 +1,8 @@
+plugins {
+    id 'dev.kikugie.stonecutter'
+    // Jeden Loom dla wszystkich wersji: 1.21.11 używa wariantu z przemapowaniem (fabric-loom-remap), 26.x zwykłego.
+    id 'net.fabricmc.fabric-loom' version '1.19.4' apply false
+}
+
+// Wersja, w której stanie jest kod w src/ (tę widzi edytor). Zmiana: ./gradlew "stonecutterSwitchTo26.2".
+stonecutter.active '1.21.11'

@@ -6,17 +6,25 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.DoubleFunction;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.PlayerSkinDrawer;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.entity.player.SkinTextures;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+//? if <26.1.2 {
+import net.minecraft.client.gui.components.PlayerFaceRenderer;
+//?} else {
+/*import net.minecraft.client.gui.components.PlayerFaceExtractor;
+*///?}
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.entity.player.PlayerSkin;
+//? if <26.3 {
 import org.lwjgl.glfw.GLFW;
+//?} else {
+/*import com.mojang.blaze3d.platform.InputConstants;
+*///?}
 import pl.kerf.project.gui.theme.Draw;
 import pl.kerf.project.gui.theme.Theme;
 import pl.kerf.project.module.FightTracker;
@@ -35,7 +43,7 @@ public final class FightReportScreen extends Screen {
 	private static final int HIST_GAP = 8;
 	private static final int HIST_ROW = 24;
 	private static final int HIST_TOP = 26;
-	private static final Identifier HEART = Identifier.ofVanilla("hud/heart/full");
+	private static final Identifier HEART = Identifier.withDefaultNamespace("hud/heart/full");
 
 	/** Wartość wiersza zależy od postępu animacji 0..1 (liczby rosną od zera); hearts = ikona serca za wartością. */
 	private record Row(String label, DoubleFunction<String> value, boolean hearts, DoubleFunction<String> note) {
@@ -52,7 +60,7 @@ public final class FightReportScreen extends Screen {
 	private int historyScroll;
 
 	public FightReportScreen(Screen parent, FightTracker.Report report) {
-		super(Text.literal(Lang.t("Fight Report")));
+		super(Component.literal(Lang.t("Fight Report")));
 		this.parent = parent;
 		this.history = new ArrayList<>(FightTracker.history());
 		this.show(report);
@@ -119,42 +127,50 @@ public final class FightReportScreen extends Screen {
 		return Theme.alpha(color, Math.round((color >>> 24) * alpha));
 	}
 
-	private void text(DrawContext context, String text, float x, float y, int color, float alpha) {
+	private void text(GuiGraphics context, String text, float x, float y, int color, float alpha) {
 		int faded = fade(color, alpha);
 		// Prawie przezroczysty tekst gra rysuje jako pełny albo wcale, więc go pomijamy.
 		if (faded >>> 24 >= 8) {
-			Draw.text(context, this.textRenderer, text, Math.round(x), Math.round(y), faded);
+			Draw.text(context, this.font, text, Math.round(x), Math.round(y), faded);
 		}
 	}
 
 	/** Duży tekst (2x) z lewym górnym rogiem w (x, y). */
-	private void bigText(DrawContext context, String text, float x, float y, int color, float alpha) {
-		context.getMatrices().pushMatrix();
-		context.getMatrices().translate(x, y);
-		context.getMatrices().scale(2.0F, 2.0F);
+	private void bigText(GuiGraphics context, String text, float x, float y, int color, float alpha) {
+		context.pose().pushMatrix();
+		context.pose().translate(x, y);
+		context.pose().scale(2.0F, 2.0F);
 		this.text(context, text, 0, 0, color, alpha);
-		context.getMatrices().popMatrix();
+		context.pose().popMatrix();
 	}
 
-	private static void heart(DrawContext context, int x, int y, float alpha) {
-		context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, HEART, x, y, 9, 9, fade(0xFFFFFFFF, alpha));
+	private static void heart(GuiGraphics context, int x, int y, float alpha) {
+		context.blitSprite(RenderPipelines.GUI_TEXTURED, HEART, x, y, 9, 9, fade(0xFFFFFFFF, alpha));
 	}
 
 	/** Główka: twarz ze skina gracza (ten sam skin co w grze); bez skina szare pole z pierwszą literą nicku. */
-	private void head(DrawContext context, SkinTextures skin, String name, int x, int y, int size, float alpha) {
+	private void head(GuiGraphics context, PlayerSkin skin, String name, int x, int y, int size, float alpha) {
 		if (skin != null) {
-			PlayerSkinDrawer.draw(context, skin, x, y, size, fade(0xFFFFFFFF, alpha));
+			//? if <26.1.2 {
+			PlayerFaceRenderer.draw(context, skin, x, y, size, fade(0xFFFFFFFF, alpha));
+			//?} else {
+			/*PlayerFaceExtractor.extractRenderState(context, skin, x, y, size, fade(0xFFFFFFFF, alpha));
+			*///?}
 			return;
 		}
 
 		Draw.round(context, x, y, size, size, 3, fade(Theme.SURFACE_3, alpha));
 		String letter = name.isEmpty() ? "?" : name.substring(0, 1).toUpperCase(Locale.ROOT);
-		this.text(context, letter, x + (size - this.textRenderer.getWidth(letter)) / 2.0F, y + (size - 8) / 2.0F, Theme.TEXT_2, alpha);
+		this.text(context, letter, x + (size - this.font.width(letter)) / 2.0F, y + (size - 8) / 2.0F, Theme.TEXT_2, alpha);
 	}
 
 	@Override
-	public void render(DrawContext context, int mouseX, int mouseY, float deltaTicks) {
-		TextRenderer font = this.textRenderer;
+	//? if <26.1.2 {
+	public void render(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
+	//?} else {
+	/*public void extractRenderState(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
+	*///?}
+		Font font = this.font;
 		int x = this.cardX();
 		int y = this.cardY();
 		int h = this.cardH();
@@ -165,10 +181,10 @@ public final class FightReportScreen extends Screen {
 		float cx = x + W / 2.0F;
 		float cy = y + h / 2.0F;
 		float scale = 0.94F + 0.06F * appear;
-		context.getMatrices().pushMatrix();
-		context.getMatrices().translate(cx, cy + (1.0F - appear) * 10.0F);
-		context.getMatrices().scale(scale, scale);
-		context.getMatrices().translate(-cx, -cy);
+		context.pose().pushMatrix();
+		context.pose().translate(cx, cy + (1.0F - appear) * 10.0F);
+		context.pose().scale(scale, scale);
+		context.pose().translate(-cx, -cy);
 		if (appear >= 1.0F) {
 			Draw.shadow(context, x, y, W, h, Ui.PANEL_R, 4);
 		}
@@ -189,28 +205,28 @@ public final class FightReportScreen extends Screen {
 		this.bigText(context, this.report.outcome().label, barX - (1.0F - head) * 6.0F, y + 24, accent, head);
 		int seconds = this.report.ticks() / 20;
 		String time = seconds / 60 + (seconds % 60 < 10 ? ":0" : ":") + seconds % 60;
-		this.text(context, time, barX + barW - font.getWidth(time), y + 30, Theme.TEXT_3, head);
+		this.text(context, time, barX + barW - font.width(time), y + 30, Theme.TEXT_3, head);
 
 		// Ty (z lewej, twoja główka) kontra przeciwnik (z prawej, jego główka).
-		String self = this.client.player != null ? this.client.player.getName().getString() : this.client.getSession().getUsername();
-		SkinTextures selfSkin = this.client.player != null ? this.client.player.getSkin() : null;
+		String self = this.minecraft.player != null ? this.minecraft.player.getName().getString() : this.minecraft.getUser().getName();
+		PlayerSkin selfSkin = this.minecraft.player != null ? this.minecraft.player.getSkin() : null;
 		this.head(context, selfSkin, self, barX, y + 44, 12, head);
 		int nameW = barW / 2 - 18;
 		this.text(context, Draw.fit(font, self, nameW), barX + 16, y + 46, Theme.TEXT_2, head);
 		String opponent = Draw.fit(font, this.report.opponent(), nameW);
 		this.head(context, this.report.opponentSkin(), this.report.opponent(), barX + barW - 12, y + 44, 12, head);
-		this.text(context, opponent, barX + barW - 16 - font.getWidth(opponent), y + 46, Theme.TEXT_2, head);
+		this.text(context, opponent, barX + barW - 16 - font.width(opponent), y + 46, Theme.TEXT_2, head);
 
 		// Pojedynek: twoje trafienia kontra przyjęte. Liczby nabijają się od zera.
 		float duel = this.phase(220, 240);
 		float count = this.phase(260, 700);
 		String dealt = String.valueOf(Math.round(this.report.landed() * count));
 		String taken = String.valueOf(Math.round(this.report.taken() * count));
-		int takenW = font.getWidth(taken) * 2;
+		int takenW = font.width(taken) * 2;
 		this.bigText(context, dealt, barX, y + 60, Theme.SUCCESS, duel);
-		this.text(context, "zadane", barX + font.getWidth(dealt) * 2 + 4, y + 68, Theme.TEXT_3, duel);
+		this.text(context, "zadane", barX + font.width(dealt) * 2 + 4, y + 68, Theme.TEXT_3, duel);
 		this.bigText(context, taken, barX + barW - takenW, y + 60, Theme.DANGER, duel);
-		this.text(context, "przyjęte", barX + barW - takenW - 4 - font.getWidth(Lang.t("przyjęte")), y + 68, Theme.TEXT_3, duel);
+		this.text(context, "przyjęte", barX + barW - takenW - 4 - font.width(Lang.t("przyjęte")), y + 68, Theme.TEXT_3, duel);
 
 		// Pasek udziału: zielony rośnie od lewej, czerwony od prawej, spotykają się w proporcji ciosów.
 		int total = this.report.landed() + this.report.taken();
@@ -236,32 +252,36 @@ public final class FightReportScreen extends Screen {
 				right -= 11;
 			}
 
-			this.text(context, value, right - font.getWidth(value), ry, Theme.TEXT, in);
+			this.text(context, value, right - font.width(value), ry, Theme.TEXT, in);
 			String note = row.note == null ? null : row.note.apply(p);
 			if (note != null) {
 				// Podtekst pod wartością, mniejszy i cichszy.
-				int noteW = Math.round(font.getWidth(note) * 0.75F);
-				context.getMatrices().pushMatrix();
-				context.getMatrices().translate(barX + barW - 11 - noteW, ry + 10);
-				context.getMatrices().scale(0.75F, 0.75F);
+				int noteW = Math.round(font.width(note) * 0.75F);
+				context.pose().pushMatrix();
+				context.pose().translate(barX + barW - 11 - noteW, ry + 10);
+				context.pose().scale(0.75F, 0.75F);
 				this.text(context, note, 0, 0, Theme.TEXT_4, in);
-				context.getMatrices().popMatrix();
+				context.pose().popMatrix();
 			}
 
 			ry += row.height();
 		}
 
-		context.getMatrices().popMatrix();
+		context.pose().popMatrix();
 		if (this.showHistory()) {
 			this.renderHistory(context, mouseX, mouseY, appear);
 		}
 
+		//? if <26.1.2 {
 		super.render(context, mouseX, mouseY, deltaTicks);
+		//?} else {
+		/*super.extractRenderState(context, mouseX, mouseY, deltaTicks);
+		*///?}
 	}
 
 	/** Historia walk z sesji: główka przeciwnika, nick i wynik; klik pokazuje tę walkę na karcie. */
-	private void renderHistory(DrawContext context, int mouseX, int mouseY, float appear) {
-		TextRenderer font = this.textRenderer;
+	private void renderHistory(GuiGraphics context, int mouseX, int mouseY, float appear) {
+		Font font = this.font;
 		int x = this.histX();
 		int y = this.cardY();
 		int h = this.cardH();
@@ -272,7 +292,7 @@ public final class FightReportScreen extends Screen {
 		Draw.card(context, x, y, HIST_W, h, Ui.PANEL_R, fade(Theme.GLASS_STRONG, appear), fade(Theme.BORDER_STRONG, appear));
 		this.text(context, "Historia", x + 10, y + 10, Theme.TEXT_3, appear);
 		String count = String.valueOf(this.history.size());
-		this.text(context, count, x + HIST_W - 10 - font.getWidth(count), y + 10, Theme.TEXT_4, appear);
+		this.text(context, count, x + HIST_W - 10 - font.width(count), y + 10, Theme.TEXT_4, appear);
 
 		int visible = this.visibleHistoryRows();
 		this.historyScroll = Math.max(0, Math.min(this.historyScroll, this.history.size() - visible));
@@ -306,11 +326,11 @@ public final class FightReportScreen extends Screen {
 	}
 
 	@Override
-	public boolean mouseClicked(Click click, boolean doubled) {
+	public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
 		double mx = click.x();
 		double my = click.y();
 		if (Ui.inside(mx, my, this.cardX() + W - 20, this.cardY() + 6, 14, 14)) {
-			this.close();
+			this.onClose();
 			return true;
 		}
 
@@ -345,8 +365,12 @@ public final class FightReportScreen extends Screen {
 	}
 
 	@Override
-	public boolean keyPressed(KeyInput input) {
+	public boolean keyPressed(KeyEvent input) {
+		//? if <26.3 {
 		if (input.key() != GLFW.GLFW_KEY_ESCAPE) {
+		//?} else {
+		/*if (input.key() != InputConstants.KEY_ESCAPE) {
+		*///?}
 			this.skipAnimation();
 		}
 
@@ -354,12 +378,16 @@ public final class FightReportScreen extends Screen {
 	}
 
 	@Override
-	public boolean shouldPause() {
+	public boolean isPauseScreen() {
 		return false;
 	}
 
 	@Override
-	public void close() {
-		this.client.setScreen(this.parent);
+	public void onClose() {
+		//? if <26.2 {
+		this.minecraft.setScreen(this.parent);
+		//?} else {
+		/*this.minecraft.gui.setScreen(this.parent);
+		*///?}
 	}
 }

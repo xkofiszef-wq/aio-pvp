@@ -1,9 +1,9 @@
 package pl.kerf.project.module;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.option.Perspective;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
 import pl.kerf.project.config.Setting;
 
 /**
@@ -13,7 +13,7 @@ import pl.kerf.project.config.Setting;
  */
 public final class Freelook extends RiskyModule {
 	/** Klawisz trzymania (Opcje -> Sterowanie, domyślnie lewy Alt); ustawiany przy rejestracji klawiszy. */
-	public static KeyBinding key;
+	public static KeyMapping key;
 	/** Jak w Perspective Mod: klawisz trzymany albo przełączany, i z jakiego widoku się rozglądasz. */
 	public final Setting.Mode keyMode = this.add(new Setting.Mode("key_mode", "Klawisz", 0, "Przytrzymaj", "Przełącz"));
 	public final Setting.Mode view = this.add(new Setting.Mode("view", "Widok", 0, "Trzecia osoba z tyłu", "Trzecia osoba z przodu", "Pierwsza osoba"));
@@ -21,7 +21,7 @@ public final class Freelook extends RiskyModule {
 	private boolean toggled;
 	private float yaw;
 	private float pitch;
-	private Perspective previous;
+	private CameraType previous;
 	/** Odległość kamery w trzeciej osobie (bloki), zmieniana kółkiem myszy; na start jak w vanilli. */
 	private float distance = DEFAULT_DISTANCE;
 	private static final float DEFAULT_DISTANCE = 4.0F;
@@ -49,26 +49,30 @@ public final class Freelook extends RiskyModule {
 	}
 
 	/** Kółko myszy przy Freelooku w trzeciej osobie: pół bloku na ząbek, od 1 do 20 bloków. */
-	public boolean scroll(MinecraftClient client, double amount) {
-		if (!this.active || client.options.getPerspective().isFirstPerson() || amount == 0.0) {
+	public boolean scroll(Minecraft client, double amount) {
+		if (!this.active || client.options.getCameraType().isFirstPerson() || amount == 0.0) {
 			return false;
 		}
 
-		this.distance = MathHelper.clamp(this.distance - (float) Math.signum(amount) * 0.5F, 1.0F, 20.0F);
+		this.distance = Mth.clamp(this.distance - (float) Math.signum(amount) * 0.5F, 1.0F, 20.0F);
 		return true;
 	}
 
-	public void tick(MinecraftClient client) {
-		boolean usable = this.on() && key != null && client.player != null && client.currentScreen == null;
+	public void tick(Minecraft client) {
+		//? if <26.2 {
+		boolean usable = this.on() && key != null && client.player != null && client.screen == null;
+		//?} else {
+		/*boolean usable = this.on() && key != null && client.player != null && client.gui.screen() == null;
+		*///?}
 		boolean want;
 		if (this.keyMode.is(1)) {
-			while (key != null && key.wasPressed()) {
+			while (key != null && key.consumeClick()) {
 				this.toggled = !this.toggled;
 			}
 
 			want = usable && this.toggled;
 		} else {
-			want = usable && key.isPressed();
+			want = usable && key.isDown();
 		}
 
 		if (!usable) {
@@ -78,18 +82,18 @@ public final class Freelook extends RiskyModule {
 		if (want && !this.active) {
 			this.active = true;
 			this.distance = DEFAULT_DISTANCE;
-			this.yaw = client.player.getYaw();
-			this.pitch = client.player.getPitch();
-			this.previous = client.options.getPerspective();
-			client.options.setPerspective(switch (this.view.get()) {
-				case 1 -> Perspective.THIRD_PERSON_FRONT;
-				case 2 -> Perspective.FIRST_PERSON;
-				default -> Perspective.THIRD_PERSON_BACK;
+			this.yaw = client.player.getYRot();
+			this.pitch = client.player.getXRot();
+			this.previous = client.options.getCameraType();
+			client.options.setCameraType(switch (this.view.get()) {
+				case 1 -> CameraType.THIRD_PERSON_FRONT;
+				case 2 -> CameraType.FIRST_PERSON;
+				default -> CameraType.THIRD_PERSON_BACK;
 			});
 		} else if (!want && this.active) {
 			this.active = false;
 			if (this.previous != null) {
-				client.options.setPerspective(this.previous);
+				client.options.setCameraType(this.previous);
 			}
 		}
 	}
@@ -97,6 +101,6 @@ public final class Freelook extends RiskyModule {
 	/** Ruch myszy przy Freelooku: te same przeliczniki co Entity.changeLookDirection, tylko dla kamery. */
 	public void turn(double dx, double dy) {
 		this.yaw += (float) dx * 0.15F;
-		this.pitch = MathHelper.clamp(this.pitch + (float) dy * 0.15F, -90.0F, 90.0F);
+		this.pitch = Mth.clamp(this.pitch + (float) dy * 0.15F, -90.0F, 90.0F);
 	}
 }

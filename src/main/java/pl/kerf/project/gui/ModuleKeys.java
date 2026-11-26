@@ -1,17 +1,25 @@
 package pl.kerf.project.gui;
 
 import pl.kerf.project.Lang;
+import com.mojang.blaze3d.platform.InputConstants;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+//? if <26.1.2 {
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+//?} else {
+/*import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
+*///?}
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+//? if <26.3 {
 import org.lwjgl.glfw.GLFW;
+//?} else {
+/*import com.mojang.blaze3d.platform.InputConstants;
+*///?}
 import pl.kerf.project.config.ConfigManager;
 import pl.kerf.project.gui.theme.Theme;
 import pl.kerf.project.module.Module;
@@ -24,12 +32,12 @@ public final class ModuleKeys {
 	/** Klawisze bindów Command Keys wciśnięte w poprzednim ticku (bind odpala raz na wciśnięcie, nie co tick). */
 	private static final Set<Integer> HELD_BINDS = new HashSet<>();
 	/** No Sign GUI ma też skrót w Opcje -> Sterowanie; domyślnie nieprzypisany, jak wszystkie skróty moda. */
-	private static KeyBinding noSignGui;
+	private static KeyMapping noSignGui;
 	/**
 	 * Klawisz otwierający menu moda. Zwykły klawisz Minecrafta (Opcje -> Sterowanie, zapis w options.txt),
 	 * a menu moda zmienia ten sam obiekt, więc oba miejsca zawsze pokazują to samo.
 	 */
-	private static KeyBinding openMenu;
+	private static KeyMapping openMenu;
 	/** Kody >= MOUSE to przyciski myszy (MOUSE + numer przycisku GLFW); niższe to klawisze klawiatury. */
 	public static final int MOUSE = 1000;
 	/** Wciśnięte przyciski myszy, z MouseMixin (GLFW nie ma prostego "czy wciśnięty" jak dla klawiatury). */
@@ -41,26 +49,55 @@ public final class ModuleKeys {
 	}
 
 	public static void register() {
-		KeyBinding.Category category = KeyBinding.Category.create(Identifier.of("aio_pvp", "main"));
-		openMenu = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.aio_pvp.open_menu", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_RIGHT_SHIFT, category));
-		pl.kerf.project.module.Freelook.key = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.aio_pvp.freelook", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_LEFT_ALT, category));
-		noSignGui = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.aio_pvp.no_sign_gui", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, category));
-		pl.kerf.project.module.Waypoints.key = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.aio_pvp.add_waypoint", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, category));
-		pl.kerf.project.module.Waypoints.menuKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.aio_pvp.waypoint_menu", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, category));
-		pl.kerf.project.module.Markers.key = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.aio_pvp.ping_marker", InputUtil.Type.MOUSE, GLFW.GLFW_MOUSE_BUTTON_MIDDLE, category));
-		pl.kerf.project.module.Party.menuKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.aio_pvp.party_menu", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, category));
-		pl.kerf.project.module.Party.yesKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.aio_pvp.party_vote_yes", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_Y, category));
-		pl.kerf.project.module.Party.noKey = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.aio_pvp.party_vote_no", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_N, category));
+		KeyMapping.Category category = KeyMapping.Category.register(Identifier.fromNamespaceAndPath("aio_pvp", "main"));
+		//? if <26.1.2 {
+		openMenu = KeyBindingHelper.registerKeyBinding(new KeyMapping("key.aio_pvp.open_menu", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_RIGHT_SHIFT, category));
+		pl.kerf.project.module.Freelook.key = KeyBindingHelper.registerKeyBinding(new KeyMapping("key.aio_pvp.freelook", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_LEFT_ALT, category));
+		noSignGui = KeyBindingHelper.registerKeyBinding(new KeyMapping("key.aio_pvp.no_sign_gui", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, category));
+		pl.kerf.project.module.Waypoints.key = KeyBindingHelper.registerKeyBinding(new KeyMapping("key.aio_pvp.add_waypoint", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, category));
+		pl.kerf.project.module.Waypoints.menuKey = KeyBindingHelper.registerKeyBinding(new KeyMapping("key.aio_pvp.waypoint_menu", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, category));
+		pl.kerf.project.module.Markers.key = KeyBindingHelper.registerKeyBinding(new KeyMapping("key.aio_pvp.ping_marker", InputConstants.Type.MOUSE, GLFW.GLFW_MOUSE_BUTTON_MIDDLE, category));
+		pl.kerf.project.module.Party.menuKey = KeyBindingHelper.registerKeyBinding(new KeyMapping("key.aio_pvp.party_menu", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, category));
+		pl.kerf.project.module.Party.yesKey = KeyBindingHelper.registerKeyBinding(new KeyMapping("key.aio_pvp.party_vote_yes", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_Y, category));
+		pl.kerf.project.module.Party.noKey = KeyBindingHelper.registerKeyBinding(new KeyMapping("key.aio_pvp.party_vote_no", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_N, category));
+		//?}
+		//? if >=26.1.2 <26.3 {
+		/*openMenu = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.aio_pvp.open_menu", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_RIGHT_SHIFT, category));
+		pl.kerf.project.module.Freelook.key = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.aio_pvp.freelook", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_LEFT_ALT, category));
+		noSignGui = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.aio_pvp.no_sign_gui", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, category));
+		pl.kerf.project.module.Waypoints.key = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.aio_pvp.add_waypoint", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, category));
+		pl.kerf.project.module.Waypoints.menuKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.aio_pvp.waypoint_menu", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, category));
+		pl.kerf.project.module.Markers.key = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.aio_pvp.ping_marker", InputConstants.Type.MOUSE, GLFW.GLFW_MOUSE_BUTTON_MIDDLE, category));
+		pl.kerf.project.module.Party.menuKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.aio_pvp.party_menu", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, category));
+		pl.kerf.project.module.Party.yesKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.aio_pvp.party_vote_yes", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_Y, category));
+		pl.kerf.project.module.Party.noKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.aio_pvp.party_vote_no", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_N, category));
+		*///?}
+		//? if >=26.3 {
+		/*openMenu = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.aio_pvp.open_menu", InputConstants.Type.KEYBOARD, InputConstants.KEY_RSHIFT, category));
+		pl.kerf.project.module.Freelook.key = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.aio_pvp.freelook", InputConstants.Type.KEYBOARD, InputConstants.KEY_LALT, category));
+		noSignGui = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.aio_pvp.no_sign_gui", InputConstants.Type.KEYBOARD, InputConstants.UNKNOWN.getValue(), category));
+		pl.kerf.project.module.Waypoints.key = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.aio_pvp.add_waypoint", InputConstants.Type.KEYBOARD, InputConstants.UNKNOWN.getValue(), category));
+		pl.kerf.project.module.Waypoints.menuKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.aio_pvp.waypoint_menu", InputConstants.Type.KEYBOARD, InputConstants.UNKNOWN.getValue(), category));
+		pl.kerf.project.module.Markers.key = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.aio_pvp.ping_marker", InputConstants.Type.MOUSE, InputConstants.MOUSE_BUTTON_MIDDLE, category));
+		pl.kerf.project.module.Party.menuKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.aio_pvp.party_menu", InputConstants.Type.KEYBOARD, InputConstants.UNKNOWN.getValue(), category));
+		pl.kerf.project.module.Party.yesKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.aio_pvp.party_vote_yes", InputConstants.Type.KEYBOARD, InputConstants.KEY_Y, category));
+		pl.kerf.project.module.Party.noKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.aio_pvp.party_vote_no", InputConstants.Type.KEYBOARD, InputConstants.KEY_N, category));
+		*///?}
 	}
 
-	public static void tick(MinecraftClient client) {
-		while (openMenu != null && openMenu.wasPressed()) {
-			if (client.currentScreen == null) {
+	public static void tick(Minecraft client) {
+		while (openMenu != null && openMenu.consumeClick()) {
+			//? if <26.2 {
+			if (client.screen == null) {
 				client.setScreen(new SettingsScreen(null));
+			//?} else {
+			/*if (client.gui.screen() == null) {
+				client.gui.setScreen(new SettingsScreen(null));
+			*///?}
 			}
 		}
 
-		while (noSignGui != null && noSignGui.wasPressed()) {
+		while (noSignGui != null && noSignGui.consumeClick()) {
 			toggle(Modules.NO_SIGN_GUI);
 		}
 
@@ -70,7 +107,11 @@ public final class ModuleKeys {
 				continue;
 			}
 
-			boolean down = client.currentScreen == null && down(client, module.key);
+			//? if <26.2 {
+			boolean down = client.screen == null && down(client, module.key);
+			//?} else {
+			/*boolean down = client.gui.screen() == null && down(client, module.key);
+			*///?}
 			boolean wasDown = HELD.getOrDefault(module, false);
 			HELD.put(module, down);
 			if (down && !wasDown) {
@@ -82,9 +123,13 @@ public final class ModuleKeys {
 	}
 
 	/** Command Keys: wciśnięty klawisz bindu wysyła komendę ("/spawn") albo wiadomość. Tylko w grze, bez otwartego ekranu. */
-	private static void commandKeys(MinecraftClient client) {
+	private static void commandKeys(Minecraft client) {
 		Set<Integer> down = new HashSet<>();
-		boolean active = Modules.COMMAND_KEYS.on() && client.currentScreen == null && client.player != null;
+		//? if <26.2 {
+		boolean active = Modules.COMMAND_KEYS.on() && client.screen == null && client.player != null;
+		//?} else {
+		/*boolean active = Modules.COMMAND_KEYS.on() && client.gui.screen() == null && client.player != null;
+		*///?}
 		for (Modules.CommandKeys.Bind bind : Modules.COMMAND_KEYS.binds) {
 			if (!active || bind.key < 0 || !down(client, bind.key)) {
 				continue;
@@ -98,6 +143,27 @@ public final class ModuleKeys {
 
 		HELD_BINDS.clear();
 		HELD_BINDS.addAll(down);
+	//? if >=26.3 {
+	/*}
+
+	/^* 26.3 (SDL) numeruje przyciski myszy od 1 (1 lewy, 2 środkowy, 3 prawy); mod liczy po staremu (0 lewy, 1 prawy, 2 środkowy, 3+ boczne). ^/
+	public static int button(int sdl) {
+		return switch (sdl) {
+			case 1 -> 0;
+			case 3 -> 1;
+			case 2 -> 2;
+			default -> sdl - 1;
+		};
+	}
+
+	private static int sdlButton(int button) {
+		return switch (button) {
+			case 0 -> 1;
+			case 1 -> 3;
+			case 2 -> 2;
+			default -> button + 1;
+		};
+	*///?}
 	}
 
 	public static void mouseButton(int button, boolean pressed) {
@@ -110,27 +176,35 @@ public final class ModuleKeys {
 	}
 
 	/** Czy klawisz albo przycisk myszy (kod >= MOUSE) jest wciśnięty. */
-	private static boolean down(MinecraftClient client, int code) {
+	private static boolean down(Minecraft client, int code) {
 		if (code >= MOUSE) {
 			return MOUSE_DOWN.contains(code - MOUSE) || MOUSE_CLICKED.contains(code - MOUSE);
 		}
 
-		return InputUtil.isKeyPressed(client.getWindow(), code);
+		//? if <26.3 {
+		return InputConstants.isKeyDown(client.getWindow(), code);
+		//?} else {
+		/*return InputConstants.isKeyDown(code);
+		*///?}
 	}
 
 	/** Klawisz Minecrafta dla kodu moda (klawiatura albo mysz). */
-	private static InputUtil.Key key(int code) {
-		return code >= MOUSE ? InputUtil.Type.MOUSE.createFromCode(code - MOUSE) : InputUtil.Type.KEYSYM.createFromCode(code);
+	private static InputConstants.Key key(int code) {
+		//? if <26.3 {
+		return code >= MOUSE ? InputConstants.Type.MOUSE.getOrCreate(code - MOUSE) : InputConstants.Type.KEYSYM.getOrCreate(code);
+		//?} else {
+		/*return code >= MOUSE ? InputConstants.Type.MOUSE.getOrCreate(sdlButton(code - MOUSE)) : InputConstants.Type.KEYBOARD.getOrCreate(code);
+		*///?}
 	}
 
 	/** Wysyła tekst bindu tak, jakby gracz wpisał go na czacie. Pusty bind (albo samo "/") nic nie robi. */
-	public static void run(MinecraftClient client, String text) {
+	public static void run(Minecraft client, String text) {
 		if (text.startsWith("/")) {
 			if (text.length() > 1) {
-				client.player.networkHandler.sendChatCommand(text.substring(1));
+				client.player.connection.sendCommand(text.substring(1));
 			}
 		} else if (!text.isEmpty()) {
-			client.player.networkHandler.sendChatMessage(text);
+			client.player.connection.sendChat(text);
 		}
 	}
 
@@ -147,7 +221,7 @@ public final class ModuleKeys {
 
 	/** Nazwa klawisza menu, jak w Sterowaniu ("Brak", gdy nieprzypisany). */
 	public static String menuKeyName() {
-		return openMenu.isUnbound() ? Lang.t("Brak") : openMenu.getBoundKeyLocalizedText().getString();
+		return openMenu.isUnbound() ? Lang.t("Brak") : openMenu.getTranslatedKeyMessage().getString();
 	}
 
 	/** Ustawia klawisz menu (-1 = brak, kod >= MOUSE = przycisk myszy) i zapisuje options.txt, jak zrobiłoby to Sterowanie. */
@@ -156,10 +230,10 @@ public final class ModuleKeys {
 	}
 
 	/** To samo dla dowolnego klawisza ze Sterowania (np. klawisze waypointów). */
-	public static void setBinding(KeyBinding binding, int key) {
-		binding.setBoundKey(key < 0 ? InputUtil.UNKNOWN_KEY : key(key));
-		KeyBinding.updateKeysByCode();
-		MinecraftClient.getInstance().options.write();
+	public static void setBinding(KeyMapping binding, int key) {
+		binding.setKey(key < 0 ? InputConstants.UNKNOWN : key(key));
+		KeyMapping.resetMapping();
+		Minecraft.getInstance().options.save();
 	}
 
 	/** Nazwa klawisza do wyświetlenia ("Brak", gdy nieprzypisany). */
@@ -168,7 +242,7 @@ public final class ModuleKeys {
 			return Lang.t("Brak");
 		}
 
-		Text text = key(key).getLocalizedText();
+		Component text = key(key).getDisplayName();
 		return text.getString();
 	}
 }

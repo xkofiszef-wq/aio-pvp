@@ -4,9 +4,13 @@ import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+//? if <26.3 {
 import org.lwjgl.glfw.GLFW;
+//?} else {
+/*import com.mojang.blaze3d.platform.InputConstants;
+*///?}
 import pl.kerf.project.gui.theme.Theme;
 import pl.kerf.project.AioPvp;
 import pl.kerf.project.gui.ColorScreen;
@@ -26,11 +30,15 @@ public class AioPvpClientTest implements FabricClientGameTest {
 	 */
 	private static void profile(ClientGameTestContext context) {
 		context.runOnClient(client -> {
-			client.options.getMaxFps().setValue(260);
-			client.options.getEnableVsync().setValue(false);
+			client.options.framerateLimit().set(260);
+			client.options.enableVsync().set(false);
 			// Vanilla po 60 s bez ruchu myszą/klawiaturą tnie FPS do 30 (opcja "Inactivity FPS Limit: AFK").
-			client.options.getInactivityFpsLimit().setValue(net.minecraft.client.option.InactivityFpsLimit.MINIMIZED);
+			client.options.inactivityFpsLimit().set(net.minecraft.client.InactivityFpsLimit.MINIMIZED);
+			//? if <26.2 {
 			client.getToastManager().clear();
+			//?} else {
+			/*client.gui.toastManager().clear();
+			*///?}
 		});
 		context.waitTicks(40);
 		jdk.jfr.Recording recording = new jdk.jfr.Recording();
@@ -47,7 +55,7 @@ public class AioPvpClientTest implements FabricClientGameTest {
 		}
 
 		// FPS w oknie testu pływa między minutami, więc porównanie na przemian: 3x10 s z modułami i 3x10 s bez.
-		java.util.List<Module> enabled = context.computeOnClient(client -> Modules.ALL.stream().filter(Module::on).toList());
+		java.util.List<pl.kerf.project.module.Module> enabled = context.computeOnClient(client -> Modules.ALL.stream().filter(pl.kerf.project.module.Module::on).toList());
 		double sumOn = 0.0;
 		double sumOff = 0.0;
 		for (int round = 0; round < 3; round++) {
@@ -63,6 +71,7 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			Math.round(on), Math.round(sumOn / 3), Math.round(sumOff / 3));
 	}
 
+	//? if <26.1.2 {
 	/**
 	 * Pomiar FPS opcji Optimization (tylko z -Daio.bench=true): stała scena, każda opcja osobno i wszystkie razem, 3 rundy na przemian.
 	 * Czasy klatek pochodzą z logu wykresu F3 (zapisuje każdą klatkę). Wynik trafia do aio_bench.md w katalogu gry testowej.
@@ -70,18 +79,18 @@ public class AioPvpClientTest implements FabricClientGameTest {
 	private static void bench(ClientGameTestContext context) {
 		// Opcje przed stworzeniem świata: serwer w grze bierze zasięg widzenia z opcji przy starcie i później go nie zmienia.
 		context.runOnClient(client -> {
-			client.options.getMaxFps().setValue(260);
-			client.options.getEnableVsync().setValue(false);
-			client.options.getInactivityFpsLimit().setValue(net.minecraft.client.option.InactivityFpsLimit.MINIMIZED);
-			client.options.getViewDistance().setValue(12);
+			client.options.framerateLimit().set(260);
+			client.options.enableVsync().set(false);
+			client.options.inactivityFpsLimit().set(net.minecraft.client.InactivityFpsLimit.MINIMIZED);
+			client.options.renderDistance().set(12);
 			// Okno testu ma domyślnie 854x480; pomiar w Full HD jest bliżej prawdziwej gry (faktyczny rozmiar trafia do wyniku).
-			client.getWindow().setWindowedSize(1920, 1080);
+			client.getWindow().setWindowed(1920, 1080);
 		});
 		// Zwykły świat (nie płaski świat testowy) ze stałym seedem, żeby scena była za każdym razem ta sama.
 		try (TestSingleplayerContext singleplayer = context.worldBuilder().setUseConsistentSettings(false).adjustSettings(creator -> {
 			creator.setSeed("aio-pvp-bench");
-			creator.setCheatsEnabled(true);
-			creator.setGameMode(net.minecraft.client.gui.screen.world.WorldCreator.Mode.CREATIVE);
+			creator.setAllowCommands(true);
+			creator.setGameMode(net.minecraft.client.gui.screens.worldselection.WorldCreationUiState.SelectedGameMode.CREATIVE);
 		}).create()) {
 			// Sprawdzenie "wszystkie fragmenty pobrane" bierze pełny kwadrat zasięgu, a serwer przy 12 nie wysyła rogów, więc najpierw stały czas na pobranie.
 			context.waitTicks(200);
@@ -114,10 +123,10 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			client.getToastManager().clear();
 			// Lot w kreatywnym trzyma gracza w miejscu (także w wodzie), więc widok jest taki sam w każdej rundzie.
 			client.player.getAbilities().flying = true;
-			client.player.setYaw(30.0F);
-			client.player.setPitch(5.0F);
+			client.player.setYRot(30.0F);
+			client.player.setXRot(5.0F);
 			// HUD jak u gracza PvP: elementy moda włączone (to one są w zapamiętanej teksturze przy HUD Caching).
-			for (Module module : Modules.HUD) {
+			for (pl.kerf.project.module.Module module : Modules.HUD) {
 				if (module != Modules.MEDIA && module != Modules.PARTY_VOTE) {
 					module.setEnabled(true);
 				}
@@ -134,7 +143,7 @@ public class AioPvpClientTest implements FabricClientGameTest {
 		String mods = net.fabricmc.loader.api.FabricLoader.getInstance().getAllMods().stream().map(mod -> mod.getMetadata().getId())
 			.filter(id -> id.equals("sodium") || id.equals("lithium") || id.equals("ferritecore") || id.equals("immediatelyfast") || id.equals("iris"))
 			.sorted().collect(java.util.stream.Collectors.joining(", "));
-		int[] size = context.computeOnClient(client -> new int[] {client.getWindow().getFramebufferWidth(), client.getWindow().getFramebufferHeight()});
+		int[] size = context.computeOnClient(client -> new int[] {client.getWindow().getWidth(), client.getWindow().getHeight()});
 		out.append("GPU: ").append(gpu).append("\nOther mods: ").append(mods.isEmpty() ? "none" : mods).append("\nWindow: ").append(size[0]).append('x').append(size[1])
 			.append(", render distance 12, VSync off, FPS limit off\n");
 		for (String scene : new String[] {"surface", "underwater"}) {
@@ -170,18 +179,18 @@ public class AioPvpClientTest implements FabricClientGameTest {
 						continue;
 					}
 
-					context.runOnClient(client -> frameLog(client).clear());
+					context.runOnClient(client -> frameLog(client).reset());
 					java.util.List<Long> measured = new java.util.ArrayList<>();
 					for (int tick = 0; tick < 120; tick++) {
 						context.waitTick();
 						measured.addAll(context.computeOnClient(client -> {
-							net.minecraft.util.profiler.MultiValueDebugSampleLogImpl log = frameLog(client);
-							java.util.List<Long> part = new java.util.ArrayList<>(log.getLength());
-							for (int i = 0; i < log.getLength(); i++) {
+							net.minecraft.util.debugchart.LocalSampleLogger log = frameLog(client);
+							java.util.List<Long> part = new java.util.ArrayList<>(log.size());
+							for (int i = 0; i < log.size(); i++) {
 								part.add(log.get(i));
 							}
 
-							log.clear();
+							log.reset();
 							return part;
 						}));
 					}
@@ -221,24 +230,25 @@ public class AioPvpClientTest implements FabricClientGameTest {
 		return sorted.length % 2 == 1 ? sorted[sorted.length / 2] : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2.0;
 	}
 
-	/** Log czasów klatek z wykresu F3 (DebugHud.frameNanosLog, bez publicznego gettera). */
-	private static net.minecraft.util.profiler.MultiValueDebugSampleLogImpl frameLog(net.minecraft.client.MinecraftClient client) {
+	/** Log czasów klatek z wykresu F3 (DebugScreenOverlay.frameTimeLogger, bez publicznego gettera). */
+	private static net.minecraft.util.debugchart.LocalSampleLogger frameLog(net.minecraft.client.Minecraft client) {
 		try {
-			java.lang.reflect.Field field = net.minecraft.client.gui.hud.DebugHud.class.getDeclaredField("frameNanosLog");
+			java.lang.reflect.Field field = net.minecraft.client.gui.components.DebugScreenOverlay.class.getDeclaredField("frameTimeLogger");
 			field.setAccessible(true);
-			return (net.minecraft.util.profiler.MultiValueDebugSampleLogImpl) field.get(client.getDebugHud());
+			return (net.minecraft.util.debugchart.LocalSampleLogger) field.get(client.getDebugOverlay());
 		} catch (ReflectiveOperationException e) {
 			throw new AssertionError(e);
 		}
 	}
 
+	//?}
 	/** Dwa ciosy (z przerwą na pełne naładowanie) w encje spełniające warunek, w świecie klienta. */
-	private static void attackTwice(ClientGameTestContext context, java.util.function.Predicate<net.minecraft.entity.Entity> target) {
+	private static void attackTwice(ClientGameTestContext context, java.util.function.Predicate<net.minecraft.world.entity.Entity> target) {
 		for (int hit = 0; hit < 2; hit++) {
 			context.runOnClient(client -> {
-				for (net.minecraft.entity.Entity entity : client.world.getEntities()) {
+				for (net.minecraft.world.entity.Entity entity : client.level.entitiesForRendering()) {
 					if (target.test(entity)) {
-						client.interactionManager.attackEntity(client.player, entity);
+						client.gameMode.attack(client.player, entity);
 					}
 				}
 			});
@@ -251,18 +261,19 @@ public class AioPvpClientTest implements FabricClientGameTest {
 		double sum = 0.0;
 		for (int i = 0; i < seconds; i++) {
 			context.waitTicks(20);
-			sum += context.computeOnClient(client -> client.getCurrentFps());
+			sum += context.computeOnClient(client -> client.getFps());
 		}
 
 		return sum / seconds;
 	}
 
+	//? if <26.1.2 {
 	/** Tylko z AIO_MAKE_SAVE: tworzy świat "AIO Test" (creative, cheaty, ekwipunek i cele do ręcznego testowania) i kończy. */
 	private static void makeSave(ClientGameTestContext context) {
 		try (TestSingleplayerContext singleplayer = context.worldBuilder().adjustSettings(creator -> {
-			creator.setWorldName("AIO Test");
-			creator.setCheatsEnabled(true);
-			creator.setGameMode(net.minecraft.client.gui.screen.world.WorldCreator.Mode.CREATIVE);
+			creator.setName("AIO Test");
+			creator.setAllowCommands(true);
+			creator.setGameMode(net.minecraft.client.gui.screens.worldselection.WorldCreationUiState.SelectedGameMode.CREATIVE);
 		}).create()) {
 			singleplayer.getClientWorld().waitForChunksRender();
 			TestServerContext server = singleplayer.getServer();
@@ -292,8 +303,10 @@ public class AioPvpClientTest implements FabricClientGameTest {
 		}
 	}
 
+	//?}
 	@Override
 	public void runTest(ClientGameTestContext context) {
+		//? if <26.1.2 {
 		if (System.getenv("AIO_MAKE_SAVE") != null) {
 			makeSave(context);
 			return;
@@ -304,13 +317,14 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			return;
 		}
 
+		//?}
 		// Zapis i odczyt configu: wartości wracają po load(), a nie domyślne.
 		context.runOnClient(client -> {
 			Modules.HIT_COLOR.color.set(0xFF123456);
 			Modules.FAST_XP.setEnabled(false);
 			Modules.CROSSHAIR.pixels.set("7,7,FFFF0000");
 			pl.kerf.project.config.ConfigManager.save();
-			Modules.ALL.forEach(Module::reset);
+			Modules.ALL.forEach(pl.kerf.project.module.Module::reset);
 			pl.kerf.project.config.ConfigManager.load();
 			if (Modules.HIT_COLOR.color.get() != 0xFF123456 || Modules.FAST_XP.on() || !"7,7,FFFF0000".equals(Modules.CROSSHAIR.pixels.get())) {
 				throw new AssertionError("Config nie przetrwal zapisu i odczytu");
@@ -330,7 +344,7 @@ public class AioPvpClientTest implements FabricClientGameTest {
 				throw new java.io.UncheckedIOException(e);
 			}
 
-			Modules.ALL.forEach(Module::reset);
+			Modules.ALL.forEach(pl.kerf.project.module.Module::reset);
 			pl.kerf.project.config.ConfigManager.load();
 			Modules.Shield shield = Modules.SHIELD;
 			if (!shield.on() || !shield.position.on() || shield.animFix.on() || !shield.delayFix.on() || Math.abs(shield.transform.y.get() + 0.3) > 1e-6) {
@@ -341,7 +355,7 @@ public class AioPvpClientTest implements FabricClientGameTest {
 		});
 
 		context.runOnClient(client -> {
-			Modules.ALL.forEach(Module::reset);
+			Modules.ALL.forEach(pl.kerf.project.module.Module::reset);
 			Modules.ALL.forEach(module -> module.setEnabled(true));
 			Modules.HEALTH.style.set(0);
 			Modules.HITBOXES.mobColor.set(0xFF55FF55);
@@ -437,18 +451,36 @@ public class AioPvpClientTest implements FabricClientGameTest {
 		context.setScreen(() -> new SettingsScreen(null));
 		// Pasek przewijania bez kółka myszy: chwyć uchwyt u góry, przeciągnij na dół toru, lista ma się przewinąć do końca.
 		double[] bar = context.computeOnClient(client -> {
-			double[] b = ((SettingsScreen) client.currentScreen).cardScrollbarForTest();
-			double scale = client.getWindow().getScaleFactor();
+			//? if <26.2 {
+			double[] b = ((SettingsScreen) client.screen).cardScrollbarForTest();
+			//?} else {
+			/*double[] b = ((SettingsScreen) client.gui.screen()).cardScrollbarForTest();
+			*///?}
+			double scale = client.getWindow().getGuiScale();
 			return new double[] {(b[0] + 1) * scale, (b[1] + 4) * scale, (b[2] - 1) * scale};
 		});
 		context.getInput().setCursorPos(bar[0], bar[1]);
+		//? if <26.3 {
 		context.getInput().holdMouse(GLFW.GLFW_MOUSE_BUTTON_LEFT);
+		//?} else {
+		/*context.getInput().holdMouse(InputConstants.MOUSE_BUTTON_LEFT);
+		*///?}
 		context.waitTick();
 		context.getInput().setCursorPos(bar[0], bar[2]);
 		context.waitTicks(3);
 		context.takeScreenshot("01b_menu_scrollbar_dragged");
+		//? if <26.3 {
 		context.getInput().releaseMouse(GLFW.GLFW_MOUSE_BUTTON_LEFT);
-		double scrolled = context.computeOnClient(client -> ((SettingsScreen) client.currentScreen).cardScrollbarForTest()[3]);
+		//?}
+		//? if <26.2 {
+		double scrolled = context.computeOnClient(client -> ((SettingsScreen) client.screen).cardScrollbarForTest()[3]);
+		//?}
+		//? if >=26.3 {
+		/*context.getInput().releaseMouse(InputConstants.MOUSE_BUTTON_LEFT);
+		*///?}
+		//? if >=26.2 {
+		/*double scrolled = context.computeOnClient(client -> ((SettingsScreen) client.gui.screen()).cardScrollbarForTest()[3]);
+		*///?}
 		if (scrolled <= 0.0) {
 			throw new AssertionError("Pasek przewijania: przeciągnięcie nie przewinęło listy (" + scrolled + ")");
 		}
@@ -467,18 +499,30 @@ public class AioPvpClientTest implements FabricClientGameTest {
 		context.takeScreenshot("05b_hit_color_picker");
 
 		// Wejście przez Mod Menu: przycisk "Mods" na ekranie tytułowym.
-		context.setScreen(() -> new net.minecraft.client.gui.screen.TitleScreen());
+		context.setScreen(() -> new net.minecraft.client.gui.screens.TitleScreen());
 		context.clickScreenButton("modmenu.title");
 		context.waitTicks(2);
 		context.takeScreenshot("05c_modmenu");
-		context.setScreen(() -> new net.minecraft.client.gui.screen.TitleScreen());
+		context.setScreen(() -> new net.minecraft.client.gui.screens.TitleScreen());
 
 		try (TestSingleplayerContext singleplayer = context.worldBuilder().create()) {
+			//? if <26.1.2 {
 			singleplayer.getClientWorld().waitForChunksRender();
+			//?}
+			//? if >=26.2 {
+			/*singleplayer.getConnection().waitForChunksRender();
+			*///?}
+			//? if =26.1.2 {
+			/*singleplayer.getClientLevel().waitForChunksRender();
+			*///?}
 			// Tryb "smoke" (-Daio.smoke=true): tylko start gry z innymi modami, wszystkie moduly wlaczone, krotki zrzut.
 			if (Boolean.getBoolean("aio.smoke")) {
 				context.runOnClient(client -> {
-					for (Module module : Modules.ALL) {
+					//? if <26.1.2 {
+					for (pl.kerf.project.module.Module module : Modules.ALL) {
+					//?} else {
+					/*for (Module module : Modules.ALL) {
+					*///?}
 						module.setEnabled(true);
 					}
 
@@ -514,7 +558,11 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			server.runCommand("execute at @p run summon mannequin ^2 ^ ^4 {CustomName:\"Kerfuss_\",CustomNameVisible:1b}");
 			context.waitTicks(30);
 			// Toasty zasłaniają prawy górny róg, a tam mają NIE być ikony efektów vanilla (Potion Status je zastępuje).
+			//? if <26.2 {
 			context.runOnClient(client -> client.getToastManager().clear());
+			//?} else {
+			/*context.runOnClient(client -> client.gui.toastManager().clear());
+			*///?}
 			context.waitTick();
 			context.takeScreenshot("06_world_hud_combat");
 			if (System.getenv("AIO_PROFILE") != null) {
@@ -538,7 +586,7 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			context.takeScreenshot("06f_health_below_label");
 			context.runOnClient(client -> Modules.HEALTH.position.set(0));
 			// Waypoint: dodany komendą, potem odejście na bok - wiązka, nazwa i dystans mają być widoczne.
-			context.runOnClient(client -> client.player.networkHandler.sendChatCommand("waypoint add Baza"));
+			context.runOnClient(client -> client.player.connection.sendCommand("waypoint add Baza"));
 			context.waitTick();
 			server.runCommand("execute at @p run tp @p ~9 ~ ~9");
 			server.runCommand("execute at @p run tp @p ~ ~ ~ facing ~-9 ~ ~-9");
@@ -599,17 +647,21 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			});
 			context.waitTick();
 			context.takeScreenshot("06j_hud_style");
-			context.getInput().pressKey(options -> options.chatKey);
+			context.getInput().pressKey(options -> options.keyChat);
 			context.waitTicks(5);
 			for (int i = 0; i < 3; i++) {
 				int index = i;
 				double[] at = context.computeOnClient(client -> {
 					float[] b = Modules.MEDIA.buttonRect(index);
-					double scale = client.getWindow().getScaleFactor();
+					double scale = client.getWindow().getGuiScale();
 					return new double[] {(b[0] + b[2] / 2.0) * scale, (b[1] + b[3] / 2.0) * scale};
 				});
 				context.getInput().setCursorPos(at[0], at[1]);
+				//? if <26.3 {
 				context.getInput().pressMouse(GLFW.GLFW_MOUSE_BUTTON_LEFT);
+				//?} else {
+				/*context.getInput().pressMouse(com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT);
+				*///?}
 				context.waitTicks(2);
 				String sent = pl.kerf.project.media.MediaSession.lastCommand;
 				String expected = new String[] {"prev", "toggle", "next"}[index];
@@ -619,35 +671,51 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			}
 
 			context.takeScreenshot("06k_media_buttons");
+			//? if <26.3 {
 			context.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+			//?} else {
+			/*context.getInput().pressKey(com.mojang.blaze3d.platform.InputConstants.KEY_ESCAPE);
+			*///?}
 			// Ten sam odtwarzacz ma zostać widoczny i klikalny w ekwipunku.
 			context.runOnClient(client -> pl.kerf.project.media.MediaSession.lastCommand = null);
-			context.getInput().pressKey(options -> options.inventoryKey);
+			context.getInput().pressKey(options -> options.keyInventory);
 			context.waitTicks(5);
 			context.takeScreenshot("06l_media_in_inventory");
 			double[] play = context.computeOnClient(client -> {
 				float[] b = Modules.MEDIA.buttonRect(1);
-				double scale = client.getWindow().getScaleFactor();
+				double scale = client.getWindow().getGuiScale();
 				return new double[] {(b[0] + b[2] / 2.0) * scale, (b[1] + b[3] / 2.0) * scale};
 			});
 			context.getInput().setCursorPos(play[0], play[1]);
+			//? if <26.3 {
 			context.getInput().pressMouse(GLFW.GLFW_MOUSE_BUTTON_LEFT);
+			//?} else {
+			/*context.getInput().pressMouse(com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT);
+			*///?}
 			context.waitTicks(2);
 			if (!"toggle".equals(pl.kerf.project.media.MediaSession.lastCommand)) {
 				throw new AssertionError("Odtwarzacz nie reaguje na klik w ekwipunku");
 			}
 
+			//? if <26.3 {
 			context.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+			//?} else {
+			/*context.getInput().pressKey(com.mojang.blaze3d.platform.InputConstants.KEY_ESCAPE);
+			*///?}
 			// Marker: środkowy przycisk myszy w ziemię przed sobą; ma się pojawić (i wysłać się do party, której tu nie ma).
 			server.runCommand("execute at @p run tp @p ~ ~ ~ ~ 25");
 			context.waitTicks(5);
+			//? if <26.3 {
 			context.getInput().pressMouse(GLFW.GLFW_MOUSE_BUTTON_MIDDLE);
+			//?} else {
+			/*context.getInput().pressMouse(com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_MIDDLE);
+			*///?}
 			context.waitTicks(10);
 			context.takeScreenshot("06m_marker");
 			// Sounds: głośność jednego dźwięku po nazwie i ekran z listą.
 			context.runOnClient(client -> {
 				Modules.SOUNDS.set("minecraft:entity.player.hurt", 50);
-				if (Math.abs(Modules.SOUNDS.multiplier(net.minecraft.util.Identifier.of("minecraft:entity.player.hurt")) - 0.5F) > 1e-6) {
+				if (Math.abs(Modules.SOUNDS.multiplier(net.minecraft.resources.Identifier.parse("minecraft:entity.player.hurt")) - 0.5F) > 1e-6) {
 					throw new AssertionError("Sounds: mnoznik glosnosci nie dziala");
 				}
 			});
@@ -686,7 +754,7 @@ public class AioPvpClientTest implements FabricClientGameTest {
 					throw new AssertionError("Wiadomosc moda powinna byc ukryta w czacie");
 				}
 
-				client.player.networkHandler.sendChatCommand("mparty accept Alice");
+				client.player.connection.sendCommand("mparty accept Alice");
 			});
 			context.waitTicks(3);
 			context.runOnClient(client -> {
@@ -776,24 +844,28 @@ public class AioPvpClientTest implements FabricClientGameTest {
 				}
 			});
 			double[] ahead = context.computeOnClient(client -> {
-				net.minecraft.util.math.Vec3d p = client.player.getEntityPos().add(client.player.getRotationVec(1.0F).multiply(1.0, 0.0, 1.0).normalize().multiply(6.0));
+				net.minecraft.world.phys.Vec3 p = client.player.position().add(client.player.getViewVector(1.0F).multiply(1.0, 0.0, 1.0).normalize().scale(6.0));
 				return new double[] {p.x, p.y, p.z};
 			});
 			server.runCommand(String.format(java.util.Locale.ROOT, "summon pig %.1f %.1f %.1f {NoAI:1b,Tags:[\"aio_target\"]}", ahead[0], ahead[1], ahead[2]));
 			context.waitTicks(10);
 			// Klient nie zna tagów komend, więc świnię (tę przy punkcie ahead) szukamy po typie i odległości.
 			java.util.UUID pigId = context.computeOnClient(client -> {
-				net.minecraft.entity.Entity best = null;
+				net.minecraft.world.entity.Entity best = null;
 				double bestDistance = Double.MAX_VALUE;
-				for (net.minecraft.entity.Entity entity : client.world.getEntities()) {
-					double distance = entity.squaredDistanceTo(ahead[0], ahead[1], ahead[2]);
-					if (entity.getType() == net.minecraft.entity.EntityType.PIG && distance < bestDistance) {
+				for (net.minecraft.world.entity.Entity entity : client.level.entitiesForRendering()) {
+					double distance = entity.distanceToSqr(ahead[0], ahead[1], ahead[2]);
+					//? if <26.2 {
+					if (entity.getType() == net.minecraft.world.entity.EntityType.PIG && distance < bestDistance) {
+					//?} else {
+					/*if (net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).getPath().equals("pig") && distance < bestDistance) {
+					*///?}
 						best = entity;
 						bestDistance = distance;
 					}
 				}
 
-				return best.getUuid();
+				return best.getUUID();
 			});
 			context.runOnClient(client -> Modules.PARTY.receive(client, "[aio]m 0.0 -59.0 0.0 overworld minecraft:pig " + pigId, "Alice"));
 			context.waitTicks(5);
@@ -806,7 +878,7 @@ public class AioPvpClientTest implements FabricClientGameTest {
 				throw new AssertionError("Marker na mobie powinien zniknac razem z mobem: " + withPig + " -> " + afterKill);
 			}
 
-			context.runOnClient(client -> client.player.networkHandler.sendChatCommand("mparty leave"));
+			context.runOnClient(client -> client.player.connection.sendCommand("mparty leave"));
 			context.waitTicks(3);
 			context.runOnClient(client -> {
 				var party = Modules.PARTY;
@@ -872,9 +944,17 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			});
 			// Jak wyglada czat: widok osoby BEZ moda (surowa wiadomosc) oraz komunikaty moda u zapraszajacego i zaproszonego.
 			context.runOnClient(client -> {
-				var chat = client.inGameHud.getChatHud();
-				chat.clear(false);
-				chat.addMessage(net.minecraft.text.Text.literal("[Gracz bez moda widzi:] Player0 whispers to you: [aio]inv 1 1.0.31 AIO PvP mod: party invite (install the AIO PvP mod to accept)"));
+				//? if <26.2 {
+				var chat = client.gui.getChat();
+				//?} else {
+				/*var chat = client.gui.hud.getChat();
+				*///?}
+				chat.clearMessages(false);
+				//? if <26.1.2 {
+				chat.addMessage(net.minecraft.network.chat.Component.literal("[Gracz bez moda widzi:] Player0 whispers to you: [aio]inv 1 1.0.31 AIO PvP mod: party invite (install the AIO PvP mod to accept)"));
+				//?} else {
+				/*chat.addClientSystemMessage(net.minecraft.network.chat.Component.literal("[Gracz bez moda widzi:] Player0 whispers to you: [aio]inv 1 1.0.31 AIO PvP mod: party invite (install the AIO PvP mod to accept)"));
+				*///?}
 				Modules.PARTY.invite("Qux");
 				Modules.PARTY.receive(client, "[aio]ack 1 1.0.31 on", "Qux");
 				Modules.PARTY.receive(client, "Alice whispers to you: [aio]inv 1 1.0.31 AIO PvP mod: party invite (install the AIO PvP mod to accept)", "Alice");
@@ -897,18 +977,25 @@ public class AioPvpClientTest implements FabricClientGameTest {
 				throw new AssertionError("Party: blad komendy z serwera nie jest zaproszeniem");
 			}
 		});
+			//? if <26.1.2 {
 			// Marker ma stac na bloku przy kazdym FOV (np. zoomie): zloty blok i marker na jego srodku, zrzut przy FOV 70 i 30.
 			double[] gold = context.computeOnClient(client -> {
-				net.minecraft.util.math.Vec3d f = client.player.getRotationVec(1.0F);
+				net.minecraft.world.phys.Vec3 f = client.player.getViewVector(1.0F);
 				double fl = Math.sqrt(f.x * f.x + f.z * f.z);
 				double fx = f.x / fl;
 				double fz = f.z / fl;
 				return new double[] {Math.floor(client.player.getX() + fx * 8 - fz * 1.5), Math.floor(client.player.getY()), Math.floor(client.player.getZ() + fz * 8 + fx * 1.5)};
+			//?} else {
+			/*context.runOnClient(client -> {
+				Modules.FPS.rounding.set(0.0);
+				Modules.FPS.brackets.set(false);
+			*///?}
 			});
+			//? if <26.1.2 {
 			server.runCommand(String.format(java.util.Locale.ROOT, "setblock %d %d %d gold_block", (int) gold[0], (int) gold[1], (int) gold[2]));
 			context.waitTicks(10);
 			context.runOnClient(client -> {
-				client.player.setPitch(5.0F);
+				client.player.setXRot(5.0F);
 				Modules.MARKERS.receive("Tester", new String[] {"m", String.valueOf(gold[0] + 0.5), String.valueOf(gold[1] + 0.5), String.valueOf(gold[2] + 0.5), "overworld", "minecraft:gold_block", "-"});
 				Modules.MARKERS.showCoordinates.set(2);
 				Modules.MARKERS.showDescription.set(2);
@@ -916,13 +1003,14 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			});
 			context.waitTicks(5);
 			context.takeScreenshot("06s_marker_fov70");
-			context.runOnClient(client -> client.options.getFov().setValue(30));
+			context.runOnClient(client -> client.options.fov().set(30));
 			context.waitTicks(5);
 			context.takeScreenshot("06s2_marker_fov30");
-			context.runOnClient(client -> client.options.getFov().setValue(70));
+			context.runOnClient(client -> client.options.fov().set(70));
+			//?}
 			// Glowy czlonkow party na ekranie: Bob 30 blokow przed graczem (z koordynat party), glowa i odleglosc pod nia.
 			context.runOnClient(client -> {
-				net.minecraft.util.math.Vec3d f = client.player.getRotationVec(1.0F);
+				net.minecraft.world.phys.Vec3 f = client.player.getViewVector(1.0F);
 				double fl = Math.sqrt(f.x * f.x + f.z * f.z);
 				try {
 					var names = pl.kerf.project.module.Party.class.getDeclaredField("rejoinNames");
@@ -938,7 +1026,7 @@ public class AioPvpClientTest implements FabricClientGameTest {
 				Modules.PARTY.receive(client, "[aio]state 1 Alice:L Player0:M Bob:I", "Alice");
 				Modules.PARTY.receive(client, String.format(java.util.Locale.ROOT, "[aio]pos %.1f %.1f %.1f overworld",
 					client.player.getX() + f.x / fl * 30, client.player.getY(), client.player.getZ() + f.z / fl * 30), "Bob");
-				client.player.setPitch(0.0F);
+				client.player.setXRot(0.0F);
 			});
 			context.waitTicks(10);
 			context.takeScreenshot("06u_party_head");
@@ -955,7 +1043,11 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			context.takeScreenshot("06x_hud_cache_world_3");
 			context.runOnClient(client -> Modules.OPTIMIZATION.hudCaching.set(false));
 			context.waitTicks(3);
+			//? if >=26.1.2 {
+			/*context.takeScreenshot("06x_hud_cache_off");
+			*///?}
 			context.runOnClient(client -> Modules.PARTY.leave());
+			//? if <26.1.2 {
 			// HUD Caching: HUD ma wygladac tak samo (zrzut), a gra nie moze sie wywrocic.
 			context.runOnClient(client -> Modules.OPTIMIZATION.hudCaching.set(true));
 			context.waitTicks(20);
@@ -963,13 +1055,23 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			context.runOnClient(client -> Modules.OPTIMIZATION.hudCaching.set(false));
 			context.waitTicks(5);
 			context.takeScreenshot("06w2_hud_cache_off");
+			//?}
 			// Locator Bar: waypoint przed graczem, kierunek na srodku, nick, w obu trybach (pasek lokalizacji i na pasku XP).
 			context.runOnClient(client -> {
-				var config = new net.minecraft.world.waypoint.Waypoint.Config();
+				//? if <26.1.2 {
+				var config = new net.minecraft.world.waypoints.Waypoint.Icon();
 				config.color = java.util.Optional.of(0x55FF55);
-				float yaw = client.player.getYaw();
-				client.player.networkHandler.getWaypointHandler().onTrack(
-					net.minecraft.world.waypoint.TrackedWaypoint.ofAzimuth(java.util.UUID.nameUUIDFromBytes("aio-test".getBytes()), config, (float) Math.toRadians(yaw + 20.0F)));
+				//?} else {
+				/*var icon = new net.minecraft.world.waypoints.Waypoint.Icon();
+				icon.color = java.util.Optional.of(0x55FF55);
+				*///?}
+				float yaw = client.player.getYRot();
+				client.player.connection.getWaypointManager().trackWaypoint(
+					//? if <26.1.2 {
+					net.minecraft.world.waypoints.TrackedWaypoint.setAzimuth(java.util.UUID.nameUUIDFromBytes("aio-test".getBytes()), config, (float) Math.toRadians(yaw + 20.0F)));
+					//?} else {
+					/*net.minecraft.world.waypoints.TrackedWaypoint.setAzimuth(java.util.UUID.nameUUIDFromBytes("aio-test".getBytes()), icon, (float) Math.toRadians(yaw + 20.0F)));
+					*///?}
 				Modules.LOCATOR_BAR.setEnabled(true);
 				Modules.LOCATOR_BAR.direction.set(true);
 				Modules.LOCATOR_BAR.names.set(2);
@@ -986,7 +1088,7 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			// Beacon na markerze: slup swiatla o grubosci hitboxa gracza, widoczny z bliska i z daleka.
 			context.runOnClient(client -> {
 				Modules.MARKERS.beacon.set(true);
-				client.player.setPitch(-10.0F);
+				client.player.setXRot(-10.0F);
 			});
 			context.waitTicks(5);
 			context.takeScreenshot("06s3_marker_beacon");
@@ -1021,20 +1123,33 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			// Animate Only Visible Textures: animowana tekstura (magma) jest "widoczna" tylko, gdy patrzysz na jej blok.
 			context.runOnClient(client -> Modules.OPTIMIZATION.animateOnlyVisible.set(true));
 			double[] magma = context.computeOnClient(client -> {
-				net.minecraft.util.math.Vec3d f = client.player.getRotationVec(1.0F);
+				net.minecraft.world.phys.Vec3 f = client.player.getViewVector(1.0F);
 				double fl = Math.sqrt(f.x * f.x + f.z * f.z);
 				return new double[] {Math.floor(client.player.getX() + f.x / fl * 70), Math.floor(client.player.getY()), Math.floor(client.player.getZ() + f.z / fl * 70)};
 			});
 			server.runCommand(String.format(java.util.Locale.ROOT, "setblock %d %d %d magma_block", (int) magma[0], (int) magma[1], (int) magma[2]));
 			// Opcja wlaczona w tym tescie przebudowuje swiat; czekamy, az fragmenty beda gotowe.
 			context.waitTicks(80);
+			//? if <26.1.2 {
 			singleplayer.getClientWorld().waitForChunksRender();
+			//?}
+			//? if >=26.2 {
+			/*singleplayer.getConnection().waitForChunksRender();
+			*///?}
+			//? if =26.1.2 {
+			/*singleplayer.getClientLevel().waitForChunksRender();
+			*///?}
 			java.util.Set<String> inView = context.computeOnClient(client -> pl.kerf.project.render.AnimatedSprites.visiblePaths());
 			if (inView == null || !inView.contains("block/magma")) {
+				//? if =1.21.11 || =26.1.2 || =26.3 {
 				throw new AssertionError("Animate Only Visible: magma przed graczem powinno byc widoczne: " + inView);
+				//?} else {
+				/*throw new 
+				AssertionError("Animate Only Visible: magma przed graczem powinno byc widoczne: " + inView);
+				*///?}
 			}
 
-			context.runOnClient(client -> client.player.setYaw(client.player.getYaw() + 180.0F));
+			context.runOnClient(client -> client.player.setYRot(client.player.getYRot() + 180.0F));
 			context.waitTicks(30);
 			int skippedBefore = pl.kerf.project.render.AnimatedSprites.skipped;
 			context.waitTicks(40);
@@ -1048,15 +1163,17 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			}
 
 			context.runOnClient(client -> {
-				client.player.setYaw(client.player.getYaw() + 180.0F);
+				client.player.setYRot(client.player.getYRot() + 180.0F);
 				Modules.OPTIMIZATION.animateOnlyVisible.set(false);
 			});
 			context.waitTicks(20);
 			context.runOnClient(client -> {
+				//? if <26.1.2 {
 				Modules.FPS.rounding.set(0.0);
 				Modules.FPS.brackets.set(false);
 			});
 			context.runOnClient(client -> {
+				//?}
 				Modules.HUD_TWEAKER.lift.set(0.0);
 				Modules.HUD_TWEAKER.setEnabled(false);
 			});
@@ -1066,18 +1183,26 @@ public class AioPvpClientTest implements FabricClientGameTest {
 				Modules.CLOCK_12H.set(0);
 			});
 			// Sprint/Sneak Status z włączonym Toggle Sprint.
-			context.runOnClient(client -> client.options.getSprintToggled().setValue(true));
-			context.getInput().pressKey(options -> options.sprintKey);
+			context.runOnClient(client -> client.options.toggleSprint().set(true));
+			context.getInput().pressKey(options -> options.keySprint);
 			context.waitTicks(2);
 			context.takeScreenshot("06g_sprint_status");
-			context.getInput().pressKey(options -> options.sprintKey);
-			context.runOnClient(client -> client.options.getSprintToggled().setValue(false));
+			context.getInput().pressKey(options -> options.keySprint);
+			context.runOnClient(client -> client.options.toggleSprint().set(false));
 
 			// HUD moda nie może świecić nad otwartym ekranem (ekwipunek) - powinien zniknąć.
-			context.runOnClient(client -> client.setScreen(new net.minecraft.client.gui.screen.ingame.InventoryScreen(client.player)));
+			//? if <26.2 {
+			context.runOnClient(client -> client.setScreen(new net.minecraft.client.gui.screens.inventory.InventoryScreen(client.player)));
+			//?} else {
+			/*context.runOnClient(client -> client.gui.setScreen(new net.minecraft.client.gui.screens.inventory.InventoryScreen(client.player)));
+			*///?}
 			context.waitTicks(2);
 			context.takeScreenshot("06a_inventory_no_mod_hud");
+			//? if <26.2 {
 			context.runOnClient(client -> client.setScreen(null));
+			//?} else {
+			/*context.runOnClient(client -> client.gui.setScreen(null));
+			*///?}
 
 			// Drugi styl: zbroja i liczniki zwykłe, mikstury w panelach z ekwipunku.
 			context.runOnClient(client -> {
@@ -1104,8 +1229,12 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			// HUD moda skaluje się razem z GUI Scale gry.
 			for (int scale : new int[] {1, 3}) {
 				context.runOnClient(client -> {
-					client.options.getGuiScale().setValue(scale);
-					client.onResolutionChanged();
+					client.options.guiScale().set(scale);
+					//? if <26.1.2 {
+					client.resizeDisplay();
+					//?} else {
+					/*client.resizeGui();
+					*///?}
 				});
 				context.waitTick();
 				context.takeScreenshot("06c_gui_scale_" + scale);
@@ -1117,16 +1246,28 @@ public class AioPvpClientTest implements FabricClientGameTest {
 					context.takeScreenshot("06d_menu_large_settings");
 					// Po zamknięciu panelu (Esc) i bez najechania prawy panel ma pokazać podpowiedź, nie ostatni moduł.
 					context.getInput().setCursorPos(0, 0);
+					//? if <26.3 {
 					context.getInput().pressKey(org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE);
+					//?} else {
+					/*context.getInput().pressKey(InputConstants.KEY_ESCAPE);
+					*///?}
 					context.waitTicks(2);
 					context.takeScreenshot("06e_menu_large_no_hover");
+					//? if <26.2 {
 					context.runOnClient(client -> client.setScreen(null));
+					//?} else {
+					/*context.runOnClient(client -> client.gui.setScreen(null));
+					*///?}
 				}
 			}
 
 			context.runOnClient(client -> {
-				client.options.getGuiScale().setValue(0);
-				client.onResolutionChanged();
+				client.options.guiScale().set(0);
+				//? if <26.1.2 {
+				client.resizeDisplay();
+				//?} else {
+				/*client.resizeGui();
+				*///?}
 			});
 
 			server.runCommand("damage @e[type=husk,limit=1] 1");
@@ -1137,7 +1278,7 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			// nie może dać raportu.
 			server.runCommand("execute at @p run summon iron_golem ^ ^ ^-2 {NoAI:1b,DeathLootTable:\"minecraft:empty\"}");
 			context.waitTicks(10);
-			attackTwice(context, entity -> entity instanceof net.minecraft.entity.passive.IronGolemEntity);
+			attackTwice(context, entity -> entity instanceof net.minecraft.world.entity.animal.golem.IronGolem);
 			server.runCommand("kill @e[type=iron_golem]");
 			context.waitTicks(10);
 			if (context.computeOnClient(client -> pl.kerf.project.module.FightTracker.last()) != null) {
@@ -1146,8 +1287,8 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			// Fight Report: zabojstwo bez statusu smierci i bez zdrowia (serwery praktyk) rozpoznane z komunikatu na czacie.
 			int fightsBefore = context.computeOnClient(client -> pl.kerf.project.module.FightTracker.history().size());
 			context.runOnClient(client -> {
-				for (net.minecraft.entity.Entity entity : client.world.getEntities()) {
-					if (entity.getName().getString().equals("Kerfuss_") && entity instanceof net.minecraft.entity.LivingEntity) {
+				for (net.minecraft.world.entity.Entity entity : client.level.entitiesForRendering()) {
+					if (entity.getName().getString().equals("Kerfuss_") && entity instanceof net.minecraft.world.entity.LivingEntity) {
 						pl.kerf.project.module.FightTracker.attack(client, entity);
 						break;
 					}
@@ -1180,7 +1321,7 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			context.waitTicks(10);
 			attackTwice(context, entity -> "Rywal2_".equals(entity.getName().getString()));
 			context.runOnClient(client -> {
-				for (net.minecraft.entity.Entity entity : client.world.getEntities()) {
+				for (net.minecraft.world.entity.Entity entity : client.level.entitiesForRendering()) {
 					if ("Rywal2_".equals(entity.getName().getString())) {
 						pl.kerf.project.module.FightTracker.died(entity);
 					}
@@ -1195,9 +1336,13 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			}
 
 			context.takeScreenshot("07h_fight_report_chat");
-			context.runOnClient(client -> client.player.networkHandler.sendChatCommand(pl.kerf.project.module.FightTracker.COMMAND));
+			context.runOnClient(client -> client.player.connection.sendCommand(pl.kerf.project.module.FightTracker.COMMAND));
 			context.waitTicks(3);
-			if (!context.computeOnClient(client -> client.currentScreen instanceof pl.kerf.project.gui.FightReportScreen)) {
+			//? if <26.2 {
+			if (!context.computeOnClient(client -> client.screen instanceof pl.kerf.project.gui.FightReportScreen)) {
+			//?} else {
+			/*if (!context.computeOnClient(client -> client.gui.screen() instanceof pl.kerf.project.gui.FightReportScreen)) {
+			*///?}
 				throw new AssertionError("Fight Report: komenda /fightreport nie otworzyla karty");
 			}
 
@@ -1232,7 +1377,11 @@ public class AioPvpClientTest implements FabricClientGameTest {
 
 			// Nowe menu w świecie: podgląd elementu HUD i podgląd koloru trafienia.
 			context.runOnClient(client -> {
+				//? if <26.2 {
 				client.getToastManager().clear();
+				//?} else {
+				/*client.gui.toastManager().clear();
+				*///?}
 				SettingsScreen.select(Modules.ARMOR_HUD);
 			});
 			context.setScreen(() -> new SettingsScreen(null));
@@ -1252,7 +1401,7 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			context.waitTick();
 			context.takeScreenshot("07g_crosshair_editor");
 
-			for (Module module : new Module[] {
+			for (pl.kerf.project.module.Module module : new pl.kerf.project.module.Module[] {
 				Modules.HIT_COLOR, Modules.CROSSHAIR, Modules.HITBOXES, Modules.HEALTH, Modules.ARMOR_HUD,
 				Modules.BLOCK_OUTLINE, Modules.KEY_OVERLAY, Modules.VIEW_MODEL, Modules.SHIELD, Modules.COORDINATES, Modules.MEDIA
 			}) {
@@ -1270,9 +1419,13 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			context.waitTicks(2);
 			context.takeScreenshot("08_hud_editor");
 			// Zaznaczony element (Title na środku): cienkie narożniki zamiast kwadratów, bez podpisu, gdy nic się nie dzieje.
-			int[] window = context.computeOnClient(client -> new int[] {client.getWindow().getWidth(), client.getWindow().getHeight()});
+			int[] window = context.computeOnClient(client -> new int[] {client.getWindow().getScreenWidth(), client.getWindow().getScreenHeight()});
 			context.getInput().setCursorPos(window[0] / 2.0, window[1] / 2.0);
+			//? if <26.3 {
 			context.getInput().pressMouse(org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT);
+			//?} else {
+			/*context.getInput().pressMouse(InputConstants.MOUSE_BUTTON_LEFT);
+			*///?}
 			context.getInput().setCursorPos(window[0] * 0.8, window[1] * 0.62);
 			context.waitTicks(2);
 			context.takeScreenshot("08d_hud_selected");
@@ -1284,16 +1437,20 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			context.setScreen(() -> null);
 
 			// Hitboxy F3+B: zastąpione własnymi, husk na celowniku ma kolor celu.
-			context.runOnClient(client -> client.debugHudEntryList.toggleVisibility(net.minecraft.client.gui.hud.debug.DebugHudEntries.ENTITY_HITBOXES));
+			context.runOnClient(client -> client.debugEntries.toggleStatus(net.minecraft.client.gui.components.debug.DebugScreenEntries.ENTITY_HITBOXES));
 			context.waitTicks(2);
 			context.takeScreenshot("08b_hitboxes_f3b");
 			context.runOnClient(client -> Modules.HITBOXES.setEnabled(false));
 			context.waitTicks(2);
 			context.takeScreenshot("08c_hitboxes_vanilla");
 			context.runOnClient(client -> Modules.HITBOXES.setEnabled(true));
-			context.runOnClient(client -> client.debugHudEntryList.toggleVisibility(net.minecraft.client.gui.hud.debug.DebugHudEntries.ENTITY_HITBOXES));
+			context.runOnClient(client -> client.debugEntries.toggleStatus(net.minecraft.client.gui.components.debug.DebugScreenEntries.ENTITY_HITBOXES));
 
-			context.runOnClient(client -> client.gameRenderer.showFloatingItem(new ItemStack(Items.TOTEM_OF_UNDYING)));
+			//? if <26.3 {
+			context.runOnClient(client -> client.gameRenderer.displayItemActivation(new ItemStack(Items.TOTEM_OF_UNDYING)));
+			//?} else {
+			/*context.runOnClient(client -> client.player.displayItemActivation(new ItemStack(Items.TOTEM_OF_UNDYING)));
+			*///?}
 			context.waitTicks(12);
 			context.takeScreenshot("09_totem");
 			context.waitTicks(40);
@@ -1315,10 +1472,10 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			server.runCommand("item replace entity @p weapon.mainhand with experience_bottle 64");
 			server.runCommand("clear @p shield");
 			context.waitTicks(5);
-			int before = context.computeOnClient(client -> client.player.getMainHandStack().getCount());
-			context.getInput().holdKeyFor(options -> options.useKey, 20);
+			int before = context.computeOnClient(client -> client.player.getMainHandItem().getCount());
+			context.getInput().holdKeyFor(options -> options.keyUse, 20);
 			context.waitTicks(5);
-			int after = context.computeOnClient(client -> client.player.getMainHandStack().getCount());
+			int after = context.computeOnClient(client -> client.player.getMainHandItem().getCount());
 			AioPvp.LOGGER.info("[test] Fast XP: rzucono {} butelek w 20 tickow", before - after);
 			if (before - after <= 6) {
 				throw new AssertionError("Fast XP nie przyspieszylo rzucania: " + (before - after) + " butelek w 20 tickow");
@@ -1330,8 +1487,12 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			server.runCommand("item replace entity @p weapon.mainhand with diamond_sword");
 			context.waitTicks(30);
 			float cooldown = context.computeOnClient(client -> {
-				client.player.swingHand(net.minecraft.util.Hand.MAIN_HAND);
-				return client.player.getAttackCooldownProgress(0.0F);
+				//? if <26.3 {
+				client.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+				//?} else {
+				/*client.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND, net.minecraft.world.item.component.SwingAnimation.DEFAULT, false);
+				*///?}
+				return client.player.getAttackStrengthScale(0.0F);
 			});
 			if (cooldown >= 1.0F) {
 				throw new AssertionError("Cooldown Fix nie wyzerowal ladowania ataku po machnieciu: " + cooldown);
@@ -1341,13 +1502,23 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			server.runCommand("execute at @p run setblock ~2 ~ ~ oak_sign");
 			context.waitTicks(5);
 			boolean signScreen = context.computeOnClient(client -> {
-				net.minecraft.util.math.BlockPos pos = client.player.getBlockPos().add(2, 0, 0);
-				if (!(client.world.getBlockEntity(pos) instanceof net.minecraft.block.entity.SignBlockEntity sign)) {
+				net.minecraft.core.BlockPos pos = client.player.blockPosition().offset(2, 0, 0);
+				if (!(client.level.getBlockEntity(pos) instanceof net.minecraft.world.level.block.entity.SignBlockEntity sign)) {
 					throw new AssertionError("Brak tabliczki do testu No Sign GUI");
 				}
 
-				client.player.openEditSignScreen(sign, true);
-				return client.currentScreen instanceof net.minecraft.client.gui.screen.ingame.AbstractSignEditScreen;
+				//? if <26.3 {
+				client.player.openTextEdit(sign, true);
+				//?}
+				//? if <26.2 {
+				return client.screen instanceof net.minecraft.client.gui.screens.inventory.AbstractSignEditScreen;
+				//?}
+				//? if >=26.3 {
+				/*client.player.openTextEdit(sign, net.minecraft.world.level.block.entity.SignTextSlot.FRONT);
+				*///?}
+				//? if >=26.2 {
+				/*return client.gui.screen() instanceof net.minecraft.client.gui.screens.inventory.AbstractSignEditScreen;
+				*///?}
 			});
 			if (signScreen) {
 				throw new AssertionError("No Sign GUI nie zablokowalo okna tabliczki");
@@ -1361,18 +1532,22 @@ public class AioPvpClientTest implements FabricClientGameTest {
 				Modules.OLD_ANIMATIONS.setEnabled(true);
 			});
 			context.waitTicks(10);
-			context.getInput().holdKey(options -> options.useKey);
+			context.getInput().holdKey(options -> options.keyUse);
 			context.waitTicks(10);
 			context.takeScreenshot("13b_old_animations_sword_block");
 			context.runOnClient(client -> Modules.OLD_ANIMATIONS.setEnabled(false));
 			context.waitTicks(2);
 			context.takeScreenshot("13c_vanilla_shield_block");
-			context.getInput().releaseKey(options -> options.useKey);
+			context.getInput().releaseKey(options -> options.keyUse);
 			// Bez opadania po ciosie: zrzut tuż po machnięciu (vanilla: miecz opada, z modułem zostaje w miejscu).
 			context.runOnClient(client -> Modules.OLD_ANIMATIONS.setEnabled(true));
 			context.waitTicks(10);
-			context.runOnClient(client -> client.player.swingHand(net.minecraft.util.Hand.MAIN_HAND));
-			context.runOnClient(client -> client.player.resetTicksSince());
+			//? if <26.3 {
+			context.runOnClient(client -> client.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND));
+			//?} else {
+			/*context.runOnClient(client -> client.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND, net.minecraft.world.item.component.SwingAnimation.DEFAULT, false));
+			*///?}
+			context.runOnClient(client -> client.player.resetAttackStrengthTicker());
 			context.waitTicks(3);
 			context.takeScreenshot("13d_old_animations_no_dip");
 			context.runOnClient(client -> {
@@ -1381,8 +1556,12 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			});
 			context.waitTicks(15);
 			context.runOnClient(client -> {
-				client.player.swingHand(net.minecraft.util.Hand.MAIN_HAND);
-				client.player.resetTicksSince();
+				//? if <26.3 {
+				client.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+				//?} else {
+				/*client.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND, net.minecraft.world.item.component.SwingAnimation.DEFAULT, false);
+				*///?}
+				client.player.resetAttackStrengthTicker();
 			});
 			context.waitTicks(3);
 			context.takeScreenshot("13e_vanilla_attack_dip");
@@ -1395,11 +1574,11 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			context.takeScreenshot("14_invisible_hand");
 
 			// Name in 3rd Person: własny nick nad głową.
-			context.runOnClient(client -> client.options.setPerspective(net.minecraft.client.option.Perspective.THIRD_PERSON_BACK));
+			context.runOnClient(client -> client.options.setCameraType(net.minecraft.client.CameraType.THIRD_PERSON_BACK));
 			server.runCommand("effect clear @p invisibility");
 			context.waitTicks(10);
 			context.takeScreenshot("15_own_name_third_person");
-			context.runOnClient(client -> client.options.setPerspective(net.minecraft.client.option.Perspective.FIRST_PERSON));
+			context.runOnClient(client -> client.options.setCameraType(net.minecraft.client.CameraType.FIRST_PERSON));
 
 			// Clear View: nakładka dyni na głowie znika (z modułem), a wraca po wyłączeniu.
 			server.runCommand("item replace entity @p armor.head with carved_pumpkin");
@@ -1465,18 +1644,18 @@ public class AioPvpClientTest implements FabricClientGameTest {
 
 			// Saturation: 7 punktów = 3 pełne złote obwódki + połówka na pasku głodu (od prawej).
 			server.runOnServer(s -> {
-				net.minecraft.entity.player.HungerManager hunger = s.getPlayerManager().getPlayerList().get(0).getHungerManager();
+				net.minecraft.world.food.FoodData hunger = s.getPlayerList().getPlayers().get(0).getFoodData();
 				hunger.setFoodLevel(20);
-				hunger.setSaturationLevel(7.0F);
+				hunger.setSaturation(7.0F);
 			});
 			context.runOnClient(client -> Modules.SATURATION.setEnabled(true));
 			context.waitTicks(5);
 			context.takeScreenshot("16g_saturation");
 			// Podgląd jedzenia: złota marchewka (6 głodu, 14,4 saturacji) przy głodzie 10 i saturacji 2 mruga do 16 i 16.
 			server.runOnServer(s -> {
-				net.minecraft.entity.player.HungerManager hunger = s.getPlayerManager().getPlayerList().get(0).getHungerManager();
+				net.minecraft.world.food.FoodData hunger = s.getPlayerList().getPlayers().get(0).getFoodData();
 				hunger.setFoodLevel(10);
-				hunger.setSaturationLevel(2.0F);
+				hunger.setSaturation(2.0F);
 			});
 			server.runCommand("item replace entity @p weapon.mainhand with golden_carrot");
 			context.waitTicks(5);
@@ -1491,15 +1670,23 @@ public class AioPvpClientTest implements FabricClientGameTest {
 				Modules.INSTANT_HIT.toggle();
 			});
 			context.waitTicks(2);
-			if (Modules.INSTANT_HIT.on() || !context.computeOnClient(client -> client.currentScreen instanceof net.minecraft.client.gui.screen.ConfirmScreen)) {
+			//? if <26.2 {
+			if (Modules.INSTANT_HIT.on() || !context.computeOnClient(client -> client.screen instanceof net.minecraft.client.gui.screens.ConfirmScreen)) {
+			//?} else {
+			/*if (Modules.INSTANT_HIT.on() || !context.computeOnClient(client -> client.gui.screen() instanceof net.minecraft.client.gui.screens.ConfirmScreen)) {
+			*///?}
 				throw new AssertionError("Instant Hit: wlaczyl sie bez okna ostrzezenia");
 			}
 
 			context.takeScreenshot("19_instant_hit_warning");
 			double[] confirm = context.computeOnClient(client -> {
-				double scale = client.getWindow().getScaleFactor();
-				for (net.minecraft.client.gui.Element element : client.currentScreen.children()) {
-					if (element instanceof net.minecraft.client.gui.widget.ClickableWidget widget && widget.getMessage().getString().startsWith("Enable for this session")) {
+				double scale = client.getWindow().getGuiScale();
+				//? if <26.2 {
+				for (net.minecraft.client.gui.components.events.GuiEventListener element : client.screen.children()) {
+				//?} else {
+				/*for (net.minecraft.client.gui.components.events.GuiEventListener element : client.gui.screen().children()) {
+				*///?}
+					if (element instanceof net.minecraft.client.gui.components.AbstractWidget widget && widget.getMessage().getString().startsWith("Enable for this session")) {
 						return new double[] {(widget.getX() + widget.getWidth() / 2.0) * scale, (widget.getY() + widget.getHeight() / 2.0) * scale};
 					}
 				}
@@ -1507,7 +1694,11 @@ public class AioPvpClientTest implements FabricClientGameTest {
 				throw new AssertionError("Instant Hit: brak przycisku potwierdzenia");
 			});
 			context.getInput().setCursorPos(confirm[0], confirm[1]);
+			//? if <26.3 {
 			context.getInput().pressMouse(GLFW.GLFW_MOUSE_BUTTON_LEFT);
+			//?} else {
+			/*context.getInput().pressMouse(InputConstants.MOUSE_BUTTON_LEFT);
+			*///?}
 			context.waitTicks(2);
 			String locked = context.computeOnClient(client -> {
 				boolean afterConfirm = Modules.INSTANT_HIT.on() && Modules.INSTANT_HIT.locked();
@@ -1540,16 +1731,40 @@ public class AioPvpClientTest implements FabricClientGameTest {
 
 			// Freelook (jak Perspective Mod): trzymany klawisz + ruch myszy obraca kamerę, a postać nie; po puszczeniu widok wraca.
 			context.runOnClient(client -> Modules.FREELOOK.setEnabled(true));
-			float yawBefore = context.computeOnClient(client -> client.player.getYaw());
+			float yawBefore = context.computeOnClient(client -> client.player.getYRot());
 			context.getInput().holdKey(options -> pl.kerf.project.module.Freelook.key);
 			context.waitTicks(2);
 			// Prawdziwy ruch myszy: okno testu nie ma fokusu, więc dajemy mu go i łapiemy kursor jak w grze.
 			context.runOnClient(client -> {
-				client.onWindowFocusChanged(true);
-				client.mouse.lockCursor();
+				//? if <26.1.2 {
+				client.setWindowActive(true);
+				//?} else {
+				/*try {
+				*///?}
+					//? if >=26.1.2 <26.3 {
+					/*java.lang.reflect.Method focus = com.mojang.blaze3d.platform.Window.class.getDeclaredMethod("onFocus", long.class, boolean.class);
+					*///?}
+					//? if >=26.3 {
+					/*java.lang.reflect.Method focus = com.mojang.blaze3d.platform.Window.class.getDeclaredMethod("onFocus", boolean.class);
+					*///?}
+					//? if >=26.1.2 {
+					/*focus.setAccessible(true);
+					*///?}
+					//? if >=26.1.2 <26.3 {
+					/*focus.invoke(client.getWindow(), client.getWindow().handle(), true);
+					*///?}
+					//? if >=26.3 {
+					/*focus.invoke(client.getWindow(), true);
+					*///?}
+				//? if >=26.1.2 {
+				/*} catch (ReflectiveOperationException e) {
+					throw new IllegalStateException(e);
+				}
+				*///?}
+				client.mouseHandler.grabMouse();
 			});
 			context.waitTick();
-			double[] cursor = context.computeOnClient(client -> new double[] {client.mouse.getX(), client.mouse.getY()});
+			double[] cursor = context.computeOnClient(client -> new double[] {client.mouseHandler.xpos(), client.mouseHandler.ypos()});
 			for (int step = 1; step <= 10; step++) {
 				context.getInput().setCursorPos(cursor[0] + step * 40.0, cursor[1]);
 				context.waitTick();
@@ -1559,7 +1774,11 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			context.takeScreenshot("21_freelook");
 			// Kółko myszy oddala kamerę (w dół = dalej), a slot w hotbarze się nie zmienia.
 			double[] zoom = context.computeOnClient(client -> new double[] {
-				client.gameRenderer.getCamera().getCameraPos().distanceTo(client.player.getEyePos()), client.player.getInventory().getSelectedSlot()
+				//? if <26.2 {
+				client.gameRenderer.getMainCamera().position().distanceTo(client.player.getEyePosition()), client.player.getInventory().getSelectedSlot()
+				//?} else {
+				/*client.gameRenderer.mainCamera().position().distanceTo(client.player.getEyePosition()), client.player.getInventory().getSelectedSlot()
+				*///?}
 			});
 			for (int notch = 0; notch < 6; notch++) {
 				context.getInput().scroll(-1.0);
@@ -1568,16 +1787,24 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			context.waitTicks(3);
 			context.takeScreenshot("21b_freelook_zoom_out");
 			double[] zoomed = context.computeOnClient(client -> new double[] {
-				client.gameRenderer.getCamera().getCameraPos().distanceTo(client.player.getEyePos()), client.player.getInventory().getSelectedSlot()
+				//? if <26.2 {
+				client.gameRenderer.getMainCamera().position().distanceTo(client.player.getEyePosition()), client.player.getInventory().getSelectedSlot()
+				//?} else {
+				/*client.gameRenderer.mainCamera().position().distanceTo(client.player.getEyePosition()), client.player.getInventory().getSelectedSlot()
+				*///?}
 			});
 			if (zoomed[0] < zoom[0] + 2.0 || zoomed[1] != zoom[1]) {
 				throw new AssertionError("Freelook: kolko nie oddala kamery (odleglosc " + zoom[0] + " -> " + zoomed[0] + ", slot " + zoom[1] + " -> " + zoomed[1] + ")");
 			}
 			String look = context.computeOnClient(client -> Modules.FREELOOK.active() + "/"
-				+ (Math.abs(client.player.getYaw() - yawBefore) < 0.01F) + "/" + (Math.abs(client.gameRenderer.getCamera().getYaw() - yawBefore) > 5.0F));
+				//? if <26.2 {
+				+ (Math.abs(client.player.getYRot() - yawBefore) < 0.01F) + "/" + (Math.abs(client.gameRenderer.getMainCamera().yRot() - yawBefore) > 5.0F));
+				//?} else {
+				/*+ (Math.abs(client.player.getYRot() - yawBefore) < 0.01F) + "/" + (Math.abs(client.gameRenderer.mainCamera().yRot() - yawBefore) > 5.0F));
+				*///?}
 			context.getInput().releaseKey(options -> pl.kerf.project.module.Freelook.key);
 			context.waitTicks(2);
-			boolean restored = context.computeOnClient(client -> !Modules.FREELOOK.active() && client.options.getPerspective().isFirstPerson());
+			boolean restored = context.computeOnClient(client -> !Modules.FREELOOK.active() && client.options.getCameraType().isFirstPerson());
 			context.runOnClient(client -> Modules.FREELOOK.setEnabled(false));
 			if (!"true/true/true".equals(look) || !restored) {
 				throw new AssertionError("Freelook: (aktywny/postac stoi/kamera obrocona) = " + look + ", widok wrocil = " + restored);
@@ -1600,7 +1827,7 @@ public class AioPvpClientTest implements FabricClientGameTest {
 				throw new AssertionError("/calc: " + calc + ", odrzuca bledne = " + rejected);
 			}
 
-			context.runOnClient(client -> client.player.networkHandler.sendChatCommand("calc 2+2*3"));
+			context.runOnClient(client -> client.player.connection.sendCommand("calc 2+2*3"));
 			context.waitTicks(3);
 			context.takeScreenshot("22_calc_chat");
 
@@ -1617,7 +1844,11 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			// Układy menu: pływający (wyszukiwarka nad panelami) i jego lustro; ekran przebudowuje się sam po zmianie.
 			context.runOnClient(client -> Modules.GUI_THEME.theme.set(0));
 			// Escape zamyka panel ustawień GUI Theme, żeby było widać listę modułów i wyszukiwarkę.
+			//? if <26.3 {
 			context.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+			//?} else {
+			/*context.getInput().pressKey(InputConstants.KEY_ESCAPE);
+			*///?}
 			context.waitTicks(10);
 			for (int layout = 1; layout <= 2; layout++) {
 				int value = layout;
@@ -1687,26 +1918,26 @@ public class AioPvpClientTest implements FabricClientGameTest {
 
 			// MC-263293 (wbudowane): Toggle Sprint i Toggle Sneak zostają włączone po śmierci i respawnie.
 			context.runOnClient(client -> {
-				client.options.getSprintToggled().setValue(true);
-				client.options.getSneakToggled().setValue(true);
+				client.options.toggleSprint().set(true);
+				client.options.toggleCrouch().set(true);
 			});
-			context.getInput().pressKey(options -> options.sprintKey);
-			context.getInput().pressKey(options -> options.sneakKey);
+			context.getInput().pressKey(options -> options.keySprint);
+			context.getInput().pressKey(options -> options.keyShift);
 			context.waitTick();
 			server.runCommand("kill @p");
 			context.waitTicks(30);
 			context.clickScreenButton("deathScreen.respawn");
 			context.waitTicks(20);
-			String toggles = context.computeOnClient(client -> client.options.sprintKey.isPressed() + "/" + client.options.sneakKey.isPressed());
+			String toggles = context.computeOnClient(client -> client.options.keySprint.isDown() + "/" + client.options.keyShift.isDown());
 			// To samo bez ekranu śmierci (natychmiastowy respawn, częsty na serwerach PvP): tu vanilla zawsze gubiła toggle.
 			server.runCommand("gamerule immediate_respawn true");
 			server.runCommand("kill @p");
 			context.waitTicks(30);
-			toggles += " | " + context.computeOnClient(client -> client.options.sprintKey.isPressed() + "/" + client.options.sneakKey.isPressed());
+			toggles += " | " + context.computeOnClient(client -> client.options.keySprint.isDown() + "/" + client.options.keyShift.isDown());
 			server.runCommand("gamerule immediate_respawn false");
 			context.runOnClient(client -> {
-				client.options.getSprintToggled().setValue(false);
-				client.options.getSneakToggled().setValue(false);
+				client.options.toggleSprint().set(false);
+				client.options.toggleCrouch().set(false);
 			});
 			if (!"true/true | true/true".equals(toggles)) {
 				throw new AssertionError("Toggle sprint/sneak po respawnie (sprint/sneak): " + toggles);
@@ -1714,17 +1945,29 @@ public class AioPvpClientTest implements FabricClientGameTest {
 
 			// Klawisz menu: domyślnie prawy Shift otwiera menu moda.
 			context.waitTicks(5);
+			//? if <26.3 {
 			context.getInput().pressKey(GLFW.GLFW_KEY_RIGHT_SHIFT);
+			//?} else {
+			/*context.getInput().pressKey(InputConstants.KEY_RSHIFT);
+			*///?}
 			context.waitTicks(2);
-			if (!context.computeOnClient(client -> client.currentScreen instanceof SettingsScreen)) {
+			//? if <26.2 {
+			if (!context.computeOnClient(client -> client.screen instanceof SettingsScreen)) {
+			//?} else {
+			/*if (!context.computeOnClient(client -> client.gui.screen() instanceof SettingsScreen)) {
+			*///?}
 				throw new AssertionError("Prawy Shift nie otworzyl menu moda");
 			}
 
 			// Zmiana klawisza w samym menu: klik w "Menu: ...", potem K. Ten sam klawisz ma być w Sterowaniu.
 			double[] button = context.computeOnClient(client -> {
-				double scale = client.getWindow().getScaleFactor();
-				for (net.minecraft.client.gui.Element element : client.currentScreen.children()) {
-					if (element instanceof net.minecraft.client.gui.widget.ClickableWidget widget && widget.getMessage().getString().startsWith("Menu:")) {
+				double scale = client.getWindow().getGuiScale();
+				//? if <26.2 {
+				for (net.minecraft.client.gui.components.events.GuiEventListener element : client.screen.children()) {
+				//?} else {
+				/*for (net.minecraft.client.gui.components.events.GuiEventListener element : client.gui.screen().children()) {
+				*///?}
+					if (element instanceof net.minecraft.client.gui.components.AbstractWidget widget && widget.getMessage().getString().startsWith("Menu:")) {
 						return new double[] {(widget.getX() + widget.getWidth() / 2.0) * scale, (widget.getY() + widget.getHeight() / 2.0) * scale};
 					}
 				}
@@ -1732,27 +1975,47 @@ public class AioPvpClientTest implements FabricClientGameTest {
 				throw new AssertionError("Brak przycisku klawisza menu w menu moda");
 			});
 			context.getInput().setCursorPos(button[0], button[1]);
+			//? if <26.3 {
 			context.getInput().pressMouse(GLFW.GLFW_MOUSE_BUTTON_LEFT);
+			//?} else {
+			/*context.getInput().pressMouse(InputConstants.MOUSE_BUTTON_LEFT);
+			*///?}
 			context.waitTick();
 			context.takeScreenshot("17_menu_key_capture");
+			//? if <26.3 {
 			context.getInput().pressKey(GLFW.GLFW_KEY_K);
+			//?} else {
+			/*context.getInput().pressKey(InputConstants.KEY_K);
+			*///?}
 			context.waitTick();
 			context.takeScreenshot("17b_menu_key_set");
 			String bound = context.computeOnClient(client -> {
-				for (net.minecraft.client.option.KeyBinding key : client.options.allKeys) {
-					if (key.getId().equals("key.aio_pvp.open_menu")) {
-						return key.getBoundKeyTranslationKey();
+				for (net.minecraft.client.KeyMapping key : client.options.keyMappings) {
+					if (key.getName().equals("key.aio_pvp.open_menu")) {
+						return key.saveString();
 					}
 				}
 
 				return "brak";
 			});
 			context.setScreen(() -> null);
+			//? if <26.3 {
 			context.getInput().pressKey(GLFW.GLFW_KEY_K);
+			//?} else {
+			/*context.getInput().pressKey(InputConstants.KEY_K);
+			*///?}
 			context.waitTicks(2);
-			boolean opened = context.computeOnClient(client -> client.currentScreen instanceof SettingsScreen);
+			//? if <26.2 {
+			boolean opened = context.computeOnClient(client -> client.screen instanceof SettingsScreen);
+			//?} else {
+			/*boolean opened = context.computeOnClient(client -> client.gui.screen() instanceof SettingsScreen);
+			*///?}
 			context.setScreen(() -> null);
+			//? if <26.3 {
 			context.runOnClient(client -> pl.kerf.project.gui.ModuleKeys.setMenuKey(GLFW.GLFW_KEY_RIGHT_SHIFT));
+			//?} else {
+			/*context.runOnClient(client -> pl.kerf.project.gui.ModuleKeys.setMenuKey(InputConstants.KEY_RSHIFT));
+			*///?}
 			if (!"key.keyboard.k".equals(bound) || !opened) {
 				throw new AssertionError("Zmiana klawisza menu nie zadzialala: " + bound + ", otwarte=" + opened);
 			}
@@ -1763,28 +2026,36 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			context.runOnClient(client -> {
 				Modules.COMMAND_KEYS.setEnabled(true);
 				Modules.COMMAND_KEYS.binds.clear();
+				//? if <26.3 {
 				Modules.COMMAND_KEYS.binds.add(new Modules.CommandKeys.Bind(GLFW.GLFW_KEY_J, "/trigger aio_bind set 7"));
+				//?} else {
+				/*Modules.COMMAND_KEYS.binds.add(new Modules.CommandKeys.Bind(InputConstants.KEY_J, "/trigger aio_bind set 7"));
+				*///?}
 				Modules.COMMAND_KEYS.binds.add(new Modules.CommandKeys.Bind(-1, "gg"));
 				SettingsScreen.select(Modules.COMMAND_KEYS);
 			});
 			context.setScreen(() -> new SettingsScreen(null));
 			context.waitTicks(2);
 			// Przewinięcie panelu w dół, żeby na zrzucie były wiersze bindów (nad nimi jest duży podgląd).
-			int[] win = context.computeOnClient(client -> new int[] {client.getWindow().getWidth(), client.getWindow().getHeight()});
+			int[] win = context.computeOnClient(client -> new int[] {client.getWindow().getScreenWidth(), client.getWindow().getScreenHeight()});
 			context.getInput().setCursorPos(win[0] * 0.6, win[1] * 0.6);
 			context.getInput().scroll(-10);
 			context.waitTicks(10);
 			context.takeScreenshot("18_command_keys");
 			context.setScreen(() -> null);
 			context.waitTicks(5);
+			//? if <26.3 {
 			context.getInput().holdKeyFor(GLFW.GLFW_KEY_J, 3);
+			//?} else {
+			/*context.getInput().holdKeyFor(InputConstants.KEY_J, 3);
+			*///?}
 			context.waitTicks(10);
 			int score = server.computeOnServer(s -> {
-				net.minecraft.scoreboard.Scoreboard scoreboard = s.getScoreboard();
-				net.minecraft.scoreboard.ReadableScoreboardScore value = scoreboard.getScore(
-					s.getPlayerManager().getPlayerList().get(0), scoreboard.getNullableObjective("aio_bind")
+				net.minecraft.world.scores.Scoreboard scoreboard = s.getScoreboard();
+				net.minecraft.world.scores.ReadOnlyScoreInfo value = scoreboard.getPlayerScoreInfo(
+					s.getPlayerList().getPlayers().get(0), scoreboard.getObjective("aio_bind")
 				);
-				return value == null ? 0 : value.getScore();
+				return value == null ? 0 : value.value();
 			});
 			if (score != 7) {
 				throw new AssertionError("Command Keys: J nie wyslal /trigger (wynik " + score + ")");
@@ -1793,16 +2064,24 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			// Bind na bocznym przycisku myszy (Mouse 4), krótkie kliknięcie (wciśnięcie i puszczenie w jednym ticku).
 			server.runCommand("scoreboard players enable @a aio_bind");
 			context.runOnClient(client -> Modules.COMMAND_KEYS.binds.add(
+				//? if <26.3 {
 				new Modules.CommandKeys.Bind(pl.kerf.project.gui.ModuleKeys.MOUSE + GLFW.GLFW_MOUSE_BUTTON_4, "/trigger aio_bind set 9")
+				//?} else {
+				/*new Modules.CommandKeys.Bind(pl.kerf.project.gui.ModuleKeys.MOUSE + pl.kerf.project.gui.ModuleKeys.button(InputConstants.MOUSE_BUTTON_4), "/trigger aio_bind set 9")
+				*///?}
 			));
+			//? if <26.3 {
 			context.getInput().pressMouse(GLFW.GLFW_MOUSE_BUTTON_4);
+			//?} else {
+			/*context.getInput().pressMouse(InputConstants.MOUSE_BUTTON_4);
+			*///?}
 			context.waitTicks(10);
 			int mouseScore = server.computeOnServer(s -> {
-				net.minecraft.scoreboard.Scoreboard scoreboard = s.getScoreboard();
-				net.minecraft.scoreboard.ReadableScoreboardScore value = scoreboard.getScore(
-					s.getPlayerManager().getPlayerList().get(0), scoreboard.getNullableObjective("aio_bind")
+				net.minecraft.world.scores.Scoreboard scoreboard = s.getScoreboard();
+				net.minecraft.world.scores.ReadOnlyScoreInfo value = scoreboard.getPlayerScoreInfo(
+					s.getPlayerList().getPlayers().get(0), scoreboard.getObjective("aio_bind")
 				);
-				return value == null ? 0 : value.getScore();
+				return value == null ? 0 : value.value();
 			});
 			context.runOnClient(client -> Modules.COMMAND_KEYS.binds.clear());
 			if (mouseScore != 9) {

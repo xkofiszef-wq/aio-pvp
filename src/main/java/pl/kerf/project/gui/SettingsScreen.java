@@ -9,17 +9,20 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.function.BooleanSupplier;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.ConfirmScreen;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.text.OrderedText;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.ConfirmScreen;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.network.chat.Component;
+//? if <26.3 {
 import org.lwjgl.glfw.GLFW;
+//?} else {
+/*import com.mojang.blaze3d.platform.InputConstants;
+*///?}
 import pl.kerf.project.config.ConfigManager;
 import pl.kerf.project.config.Setting;
 import pl.kerf.project.gui.theme.Anim;
@@ -82,7 +85,7 @@ public class SettingsScreen extends Screen {
 	private FlatButton defaultsButton;
 
 	// Widgety.
-	private TextFieldWidget search;
+	private EditBox search;
 	private FlatButton hudEditor;
 	private FlatButton menuKey;
 	/** Czeka na klawisz otwierający to menu (przycisk nad "Resetuj"). */
@@ -112,7 +115,7 @@ public class SettingsScreen extends Screen {
 	private int panelR;
 
 	public SettingsScreen(Screen parent) {
-		super(Text.literal(Lang.t("AIO PvP")));
+		super(Component.literal(Lang.t("AIO PvP")));
 		this.parent = parent;
 	}
 
@@ -168,27 +171,31 @@ public class SettingsScreen extends Screen {
 		this.rightX = this.contentX + this.contentW + GAP;
 
 		this.search = this.floating
-			? new TextFieldWidget(this.textRenderer, this.contentX + 14, this.searchY + 6, this.mainW() - 28, 12, Text.literal(Lang.t("Szukaj")))
-			: new TextFieldWidget(this.textRenderer, this.contentX + 15, this.wy + 46, this.contentW - 30, 12, Text.literal(Lang.t("Szukaj")));
-		this.search.setDrawsBackground(false);
-		this.search.setPlaceholder(Text.literal(Lang.t("Szukaj funkcji…")).withColor(Theme.TEXT_4 & 0xFFFFFF));
-		this.search.setText(query);
-		this.search.setChangedListener(text -> {
+			? new EditBox(this.font, this.contentX + 14, this.searchY + 6, this.mainW() - 28, 12, Component.literal(Lang.t("Szukaj")))
+			: new EditBox(this.font, this.contentX + 15, this.wy + 46, this.contentW - 30, 12, Component.literal(Lang.t("Szukaj")));
+		this.search.setBordered(false);
+		this.search.setHint(Component.literal(Lang.t("Szukaj funkcji…")).withColor(Theme.TEXT_4 & 0xFFFFFF));
+		this.search.setValue(query);
+		this.search.setResponder(text -> {
 			query = text;
 			this.cardScrollTarget = 0.0;
 			this.refresh();
 		});
-		this.addDrawableChild(this.search);
+		this.addRenderableWidget(this.search);
 
 		int bw = this.sideW - 12;
-		this.hudEditor = this.addDrawableChild(FlatButton.builder(Text.literal(Lang.t("Edytor HUD")), button -> this.client.setScreen(new HudEditorScreen(this)))
+		//? if <26.2 {
+		this.hudEditor = this.addRenderableWidget(FlatButton.builder(Component.literal(Lang.t("Edytor HUD")), button -> this.minecraft.setScreen(new HudEditorScreen(this)))
+		//?} else {
+		/*this.hudEditor = this.addRenderableWidget(FlatButton.builder(Component.literal(Lang.t("Edytor HUD")), button -> this.minecraft.gui.setScreen(new HudEditorScreen(this)))
+		*///?}
 			.dimensions(this.sideX + 6, this.sideY + 38, bw, 20)
 			.style(FlatButton.Style.SECONDARY)
 			.build()
 			.icon(Draw.Icon.LAYOUT)
-			.tip(this.client.player != null ? "Przesuwaj i skaluj elementy HUD-u" : "Dostępny w świecie"));
-		this.hudEditor.active = this.client.player != null;
-		this.menuKey = this.addDrawableChild(FlatButton.builder(this.menuKeyLabel(), button -> {
+			.tip(this.minecraft.player != null ? "Przesuwaj i skaluj elementy HUD-u" : "Dostępny w świecie"));
+		this.hudEditor.active = this.minecraft.player != null;
+		this.menuKey = this.addRenderableWidget(FlatButton.builder(this.menuKeyLabel(), button -> {
 				this.capturingMenuKey = true;
 				this.menuKey.setMessage(this.menuKeyLabel());
 			})
@@ -197,14 +204,14 @@ public class SettingsScreen extends Screen {
 			.build()
 			.tip("Klawisz otwierający to menu (ten sam co w Opcje -> Sterowanie). Kliknij i naciśnij klawisz albo boczny/środkowy przycisk myszy, Backspace usuwa."));
 		// Ustawienia samego moda (motyw, układ, język, reset wszystkiego) otwierają się jak panel modułu.
-		this.addDrawableChild(FlatButton.builder(Text.literal(Lang.t("Ustawienia")), button -> this.buildPanel(Modules.GUI_THEME))
+		this.addRenderableWidget(FlatButton.builder(Component.literal(Lang.t("Ustawienia")), button -> this.buildPanel(Modules.GUI_THEME))
 			.dimensions(this.sideX + 6, this.sideY + this.sideH - 26, bw, 20)
 			.style(FlatButton.Style.SECONDARY)
 			.build()
 			.icon(Draw.Icon.GEAR)
 			.tip("Motyw, układ i język menu oraz reset wszystkich ustawień."));
 
-		this.defaultsButton = this.addDrawableChild(FlatButton.builder(Text.literal(Lang.t("Przywróć domyślne")), button -> {
+		this.defaultsButton = this.addRenderableWidget(FlatButton.builder(Component.literal(Lang.t("Przywróć domyślne")), button -> {
 			if (this.panelModule != null) {
 				this.panelModule.reset();
 				Notifications.push(this.panelModule.name, "Przywrócono domyślne ustawienia", Theme.ACCENT);
@@ -254,23 +261,31 @@ public class SettingsScreen extends Screen {
 		return false;
 	}
 
-	private Text menuKeyLabel() {
-		return this.capturingMenuKey ? Text.literal(Lang.t("Naciśnij…")).withColor(Theme.ACCENT & 0xFFFFFF) : Text.literal("Menu: " + ModuleKeys.menuKeyName());
+	private Component menuKeyLabel() {
+		return this.capturingMenuKey ? Component.literal(Lang.t("Naciśnij…")).withColor(Theme.ACCENT & 0xFFFFFF) : Component.literal("Menu: " + ModuleKeys.menuKeyName());
 	}
 
 	/** Reset wszystkiego (z panelu Settings) dopiero po potwierdzeniu w osobnym oknie. */
 	private void resetAll() {
-		this.client.setScreen(new ConfirmScreen(confirmed -> {
+		//? if <26.2 {
+		this.minecraft.setScreen(new ConfirmScreen(confirmed -> {
+		//?} else {
+		/*this.minecraft.gui.setScreen(new ConfirmScreen(confirmed -> {
+		*///?}
 			if (confirmed) {
 				Modules.ALL.forEach(Module::reset);
 				ConfigManager.save();
 				Notifications.push("Ustawienia zresetowane", "Wszystkie funkcje mają wartości domyślne", Theme.WARNING);
 			}
 
-			this.client.setScreen(this);
-		}, Text.literal(Lang.t("Zresetować wszystkie ustawienia?")),
-			Text.literal(Lang.t("Wszystkie funkcje wrócą do ustawień domyślnych, a elementy HUD na swoje miejsca.")),
-			Text.literal(Lang.t("Tak, resetuj")).formatted(Formatting.RED), Text.literal(Lang.t("Anuluj"))));
+			//? if <26.2 {
+			this.minecraft.setScreen(this);
+			//?} else {
+			/*this.minecraft.gui.setScreen(this);
+			*///?}
+		}, Component.literal(Lang.t("Zresetować wszystkie ustawienia?")),
+			Component.literal(Lang.t("Wszystkie funkcje wrócą do ustawień domyślnych, a elementy HUD na swoje miejsca.")),
+			Component.literal(Lang.t("Tak, resetuj")).withStyle(ChatFormatting.RED), Component.literal(Lang.t("Anuluj"))));
 	}
 
 	// --- geometria kafelków ---
@@ -419,9 +434,9 @@ public class SettingsScreen extends Screen {
 	private void buildPanel(Module module) {
 		for (Control control : this.controls) {
 			if (control instanceof TextControl text) {
-				this.remove(text.field);
+				this.removeWidget(text.field);
 			} else if (control instanceof BindControl bind) {
-				this.remove(bind.field);
+				this.removeWidget(bind.field);
 			}
 		}
 
@@ -436,24 +451,40 @@ public class SettingsScreen extends Screen {
 
 		// Settings nie da się wyłączyć ani przypisać mu skrótu: to ustawienia samego menu.
 		if (module != Modules.GUI_THEME) {
-			this.controls.add(new ToggleControl(Text.literal(Lang.t("Włączona")), module::on, module::toggle));
+			this.controls.add(new ToggleControl(Component.literal(Lang.t("Włączona")), module::on, module::toggle));
 			this.controls.add(new KeybindControl(module));
 		}
 
 		if (module == Modules.CROSSHAIR) {
-			this.controls.add(new ActionControl("Rysuj celownik: bez celu i na celu", () -> this.client.setScreen(new CrosshairEditorScreen(this))));
+			//? if <26.2 {
+			this.controls.add(new ActionControl("Rysuj celownik: bez celu i na celu", () -> this.minecraft.setScreen(new CrosshairEditorScreen(this))));
+			//?} else {
+			/*this.controls.add(new ActionControl("Rysuj celownik: bez celu i na celu", () -> this.minecraft.gui.setScreen(new CrosshairEditorScreen(this))));
+			*///?}
 		}
 
 		if (module == Modules.PARTY) {
-			this.controls.add(new ActionControl("Otwórz menu party", () -> this.client.setScreen(new PartyScreen(this))));
+			//? if <26.2 {
+			this.controls.add(new ActionControl("Otwórz menu party", () -> this.minecraft.setScreen(new PartyScreen(this))));
+			//?} else {
+			/*this.controls.add(new ActionControl("Otwórz menu party", () -> this.minecraft.gui.setScreen(new PartyScreen(this))));
+			*///?}
 		}
 
 		if (module == Modules.SOUNDS) {
-			this.controls.add(new ActionControl("Otwórz listę dźwięków", () -> this.client.setScreen(new SoundsScreen(this))));
+			//? if <26.2 {
+			this.controls.add(new ActionControl("Otwórz listę dźwięków", () -> this.minecraft.setScreen(new SoundsScreen(this))));
+			//?} else {
+			/*this.controls.add(new ActionControl("Otwórz listę dźwięków", () -> this.minecraft.gui.setScreen(new SoundsScreen(this))));
+			*///?}
 		}
 
 		if (module == Modules.WAYPOINTS) {
-			this.controls.add(new ActionControl("Otwórz menu waypointów", () -> this.client.setScreen(new WaypointScreen(this))));
+			//? if <26.2 {
+			this.controls.add(new ActionControl("Otwórz menu waypointów", () -> this.minecraft.setScreen(new WaypointScreen(this))));
+			//?} else {
+			/*this.controls.add(new ActionControl("Otwórz menu waypointów", () -> this.minecraft.gui.setScreen(new WaypointScreen(this))));
+			*///?}
 			this.controls.add(new KeybindControl(module, pl.kerf.project.module.Waypoints.key, "Klawisz: dodaj waypoint tutaj"));
 			this.controls.add(new KeybindControl(module, pl.kerf.project.module.Waypoints.menuKey, "Klawisz: menu waypointów"));
 		}
@@ -463,7 +494,11 @@ public class SettingsScreen extends Screen {
 				if (FightTracker.last() == null) {
 					Notifications.push("Fight Report", "Jeszcze nie było żadnej walki", Theme.WARNING);
 				} else {
-					this.client.setScreen(new FightReportScreen(this, FightTracker.last()));
+					//? if <26.2 {
+					this.minecraft.setScreen(new FightReportScreen(this, FightTracker.last()));
+					//?} else {
+					/*this.minecraft.gui.setScreen(new FightReportScreen(this, FightTracker.last()));
+					*///?}
 				}
 			}));
 		}
@@ -477,7 +512,7 @@ public class SettingsScreen extends Screen {
 				continue;
 			}
 
-			Text label = label(setting);
+			Component label = label(setting);
 			if (setting instanceof Setting.Bool bool) {
 				if (bool.lockReason() != null) {
 					this.controls.add(new LockedControl(label, bool.lockReason()));
@@ -494,7 +529,7 @@ public class SettingsScreen extends Screen {
 				this.controls.add(new ColorControl(label, color, module));
 			} else if (setting instanceof Setting.Str str) {
 				TextControl control = new TextControl(label, str);
-				this.addDrawableChild(control.field);
+				this.addRenderableWidget(control.field);
 				this.controls.add(control);
 			}
 		}
@@ -504,7 +539,7 @@ public class SettingsScreen extends Screen {
 			this.controls.add(new NoteControl("Z / komenda, bez / czat"));
 			for (Modules.CommandKeys.Bind bind : Modules.COMMAND_KEYS.binds) {
 				BindControl control = new BindControl(bind);
-				this.addDrawableChild(control.field);
+				this.addRenderableWidget(control.field);
 				this.controls.add(control);
 			}
 
@@ -546,23 +581,27 @@ public class SettingsScreen extends Screen {
 	}
 
 	/** Etykieta ustawienia; dla osi X/Y/Z ostatnia litera w kolorze osi. */
-	private static Text label(Setting<?> setting) {
+	private static Component label(Setting<?> setting) {
 		if (setting instanceof Setting.Num num && num.axis != 0 && !num.label.isEmpty()) {
 			String prefix = Lang.t(num.label.substring(0, num.label.length() - 1));
 			String letter = num.label.substring(num.label.length() - 1);
-			return Text.literal(prefix).append(Text.literal(letter).withColor(Modules.COORDINATES.axisColor(num.axis) & 0xFFFFFF));
+			return Component.literal(prefix).append(Component.literal(letter).withColor(Modules.COORDINATES.axisColor(num.axis) & 0xFFFFFF));
 		}
 
-		return Text.literal(Lang.t(setting.label));
+		return Component.literal(Lang.t(setting.label));
 	}
 
 	// --- wejście ---
 
 	@Override
-	public boolean mouseClicked(Click click, boolean doubled) {
+	public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
 		double mx = click.x();
 		double my = click.y();
+		//? if <26.3 {
 		int button = click.button();
+		//?} else {
+		/*int button = ModuleKeys.button(click.button());
+		*///?}
 
 		if (this.dropdown != null) {
 			if (!this.dropdown.clickList(mx, my)) {
@@ -617,7 +656,7 @@ public class SettingsScreen extends Screen {
 
 		// Zamknięcie (X w nagłówku środkowego panelu).
 		if (this.panel.get() < 0.05F && inside(mx, my, this.contentX + this.contentW - 22, this.wy + 8, 16, 16)) {
-			this.close();
+			this.onClose();
 			return true;
 		}
 
@@ -637,13 +676,17 @@ public class SettingsScreen extends Screen {
 
 		int row = this.sideRowAt(mx, my);
 		if (row == Module.Category.values().length) {
-			this.client.setScreen(new PartyScreen(this));
+			//? if <26.2 {
+			this.minecraft.setScreen(new PartyScreen(this));
+			//?} else {
+			/*this.minecraft.gui.setScreen(new PartyScreen(this));
+			*///?}
 			return true;
 		}
 
 		if (row != -2) {
 			category = row == -1 ? null : Module.Category.values()[row];
-			this.search.setText("");
+			this.search.setValue("");
 			this.cardScrollTarget = 0.0;
 			this.refresh();
 			return true;
@@ -708,7 +751,7 @@ public class SettingsScreen extends Screen {
 	}
 
 	@Override
-	public boolean mouseDragged(Click click, double offsetX, double offsetY) {
+	public boolean mouseDragged(MouseButtonEvent click, double offsetX, double offsetY) {
 		if (this.draggingSlider != null) {
 			this.draggingSlider.drag(click.x());
 			return true;
@@ -723,7 +766,7 @@ public class SettingsScreen extends Screen {
 	}
 
 	@Override
-	public boolean mouseReleased(Click click) {
+	public boolean mouseReleased(MouseButtonEvent click) {
 		this.draggingSlider = null;
 		this.draggingBar = 0;
 		return super.mouseReleased(click);
@@ -803,13 +846,21 @@ public class SettingsScreen extends Screen {
 	}
 
 	@Override
-	public boolean keyPressed(KeyInput input) {
+	public boolean keyPressed(KeyEvent input) {
 		if (this.capturing != null) {
 			Module module = this.capturing.module;
+			//? if <26.3 {
 			if (input.key() == GLFW.GLFW_KEY_ESCAPE) {
+			//?} else {
+			/*if (input.key() == InputConstants.KEY_ESCAPE) {
+			*///?}
 				this.capturing = null;
 			} else {
+				//? if <26.3 {
 				boolean clear = input.key() == GLFW.GLFW_KEY_BACKSPACE || input.key() == GLFW.GLFW_KEY_DELETE;
+				//?} else {
+				/*boolean clear = input.key() == InputConstants.KEY_BACKSPACE || input.key() == InputConstants.KEY_DELETE;
+				*///?}
 				KeybindControl captured = this.capturing;
 				captured.assign(clear ? -1 : input.key());
 				this.capturing = null;
@@ -823,8 +874,13 @@ public class SettingsScreen extends Screen {
 		if (this.capturingBind != null) {
 			Modules.CommandKeys.Bind bind = this.capturingBind.bind;
 			this.capturingBind = null;
+			//? if <26.3 {
 			if (input.key() != GLFW.GLFW_KEY_ESCAPE) {
 				boolean clear = input.key() == GLFW.GLFW_KEY_BACKSPACE || input.key() == GLFW.GLFW_KEY_DELETE;
+			//?} else {
+			/*if (input.key() != InputConstants.KEY_ESCAPE) {
+				boolean clear = input.key() == InputConstants.KEY_BACKSPACE || input.key() == InputConstants.KEY_DELETE;
+			*///?}
 				bind.key = clear ? -1 : input.key();
 				ConfigManager.save();
 			}
@@ -834,8 +890,13 @@ public class SettingsScreen extends Screen {
 
 		if (this.capturingMenuKey) {
 			this.capturingMenuKey = false;
+			//? if <26.3 {
 			if (input.key() != GLFW.GLFW_KEY_ESCAPE) {
 				boolean clear = input.key() == GLFW.GLFW_KEY_BACKSPACE || input.key() == GLFW.GLFW_KEY_DELETE;
+			//?} else {
+			/*if (input.key() != InputConstants.KEY_ESCAPE) {
+				boolean clear = input.key() == InputConstants.KEY_BACKSPACE || input.key() == InputConstants.KEY_DELETE;
+			*///?}
 				ModuleKeys.setMenuKey(clear ? -1 : input.key());
 				Notifications.push("Menu AIO PvP", clear ? "Klawisz usunięty (zostaje Mod Menu)" : Lang.t("Klawisz: ") + ModuleKeys.menuKeyName(), Theme.ACCENT);
 			}
@@ -844,7 +905,11 @@ public class SettingsScreen extends Screen {
 			return true;
 		}
 
+		//? if <26.3 {
 		if (input.key() == GLFW.GLFW_KEY_ESCAPE) {
+		//?} else {
+		/*if (input.key() == InputConstants.KEY_ESCAPE) {
+		*///?}
 			if (this.dropdown != null) {
 				this.dropdown = null;
 				return true;
@@ -862,13 +927,18 @@ public class SettingsScreen extends Screen {
 	// --- rysowanie ---
 
 	@Override
-	public void renderBackground(DrawContext context, int mouseX, int mouseY, float deltaTicks) {
+	//? if <26.1.2 {
+	public void renderBackground(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
 		super.renderBackground(context, mouseX, mouseY, deltaTicks);
+	//?} else {
+	/*public void extractBackground(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
+		super.extractBackground(context, mouseX, mouseY, deltaTicks);
+	*///?}
 		context.fill(0, 0, this.width, this.height, 0x38000000);
 	}
 
 	/** Panel jak w Shine: granatowe półprzezroczyste szkło, kwadratowe rogi, cienka chłodna ramka. */
-	private static void glassPanel(DrawContext context, int x, int y, int w, int h, int r) {
+	private static void glassPanel(GuiGraphics context, int x, int y, int w, int h, int r) {
 		Draw.shadow(context, x, y, w, h, r, 4);
 		Draw.card(context, x, y, w, h, r, Theme.BASE, Theme.BORDER_STRONG);
 	}
@@ -884,21 +954,25 @@ public class SettingsScreen extends Screen {
 	}
 
 	/** Szary przycisk/karta z ramką: wskazany jaśniejszy, aktywny z lawendową ramką. */
-	private static void frameButton(DrawContext context, int x, int y, int w, int h, boolean active, float hover) {
+	private static void frameButton(GuiGraphics context, int x, int y, int w, int h, boolean active, float hover) {
 		// Ten sam kształt co FlatButton (rogi 4 px, projekt z Figmy), żeby wszystkie przyciski paska wyglądały jednakowo.
 		Draw.roundExact(context, x, y, w, h, 4, Theme.mix(Theme.CARD, Theme.CARD_HOVER, active ? 1.0F : hover));
 		Draw.outlineExact(context, x, y, w, h, 4, active ? Theme.BORDER_ACTIVE : Theme.mix(Theme.BORDER, Theme.BORDER_STRONG, hover));
 	}
 
 	@Override
-	public void render(DrawContext context, int mouseX, int mouseY, float deltaTicks) {
+	//? if <26.1.2 {
+	public void render(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
+	//?} else {
+	/*public void extractRenderState(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
+	*///?}
 		Anim.frame();
 		this.cardScroll.to((float) this.cardScrollTarget);
 		this.panelScroll.to((float) this.panelScrollTarget);
 		this.panel.to(this.panelOpen());
 
 		if (layoutSetting() != this.layout || Lang.english() != this.english) {
-			this.clearAndInit();
+			this.rebuildWidgets();
 		}
 
 		this.hoveredCard = this.dropdown == null ? this.cardAt(mouseX, mouseY) : null;
@@ -934,7 +1008,11 @@ public class SettingsScreen extends Screen {
 		this.renderPanel(context, mouseX, mouseY);
 		this.layoutPanelWidgets();
 
+		//? if <26.1.2 {
 		super.render(context, mouseX, mouseY, deltaTicks);
+		//?} else {
+		/*super.extractRenderState(context, mouseX, mouseY, deltaTicks);
+		*///?}
 		if (this.dropdown != null) {
 			this.dropdown.renderList(context, mouseX, mouseY);
 		}
@@ -942,8 +1020,8 @@ public class SettingsScreen extends Screen {
 		Tip.render(context, mouseX, mouseY);
 	}
 
-	private void renderSidebar(DrawContext context, int mouseX, int mouseY) {
-		TextRenderer font = this.textRenderer;
+	private void renderSidebar(GuiGraphics context, int mouseX, int mouseY) {
+		Font font = this.font;
 		int x = this.sideX + 6;
 		int w = this.sideW - 12;
 		// Nagłówek jak "Active preset" w Shine: co to jest i ile jest włączone.
@@ -973,13 +1051,13 @@ public class SettingsScreen extends Screen {
 			Draw.icon(context, icon, x + 9, textY - 1, active ? color : Theme.mix(color, Theme.TEXT_3, 0.35F));
 			String name = entry == null ? Lang.t("Wszystkie") : entry.label;
 			// "› " tylko gdy się mieści; przy wąskim pasku aktywność widać po tle, ramce i pasku.
-			String label = active && font.getWidth("› " + name) <= w - 28 ? "› " + name : name;
+			String label = active && font.width("› " + name) <= w - 28 ? "› " + name : name;
 			Draw.text(context, font, Draw.fit(font, label, w - 28), x + 23, textY, active ? Theme.TEXT : Theme.TEXT_2);
 		}
 	}
 
-	private void renderCenter(DrawContext context, int mouseX, int mouseY) {
-		TextRenderer font = this.textRenderer;
+	private void renderCenter(GuiGraphics context, int mouseX, int mouseY) {
+		Font font = this.font;
 		int hx = this.contentX + 9;
 		String heading = !query.isBlank() ? "Wyniki wyszukiwania" : category == null ? "Wszystkie funkcje" : category.label;
 		Draw.text(context, font, heading, hx, this.wy + 9, Theme.TEXT);
@@ -1008,7 +1086,11 @@ public class SettingsScreen extends Screen {
 
 		if (this.visible.isEmpty()) {
 			String empty = Lang.t("Nic nie pasuje do \"") + query.trim() + "\"";
-			context.drawCenteredTextWithShadow(font, Draw.fit(font, empty, this.contentW - 20), this.contentX + this.contentW / 2, this.cardsTop() + 24, Theme.TEXT_3);
+			//? if <26.1.2 {
+			context.drawCenteredString(font, Draw.fit(font, empty, this.contentW - 20), this.contentX + this.contentW / 2, this.cardsTop() + 24, Theme.TEXT_3);
+			//?} else {
+			/*context.centeredText(font, Draw.fit(font, empty, this.contentW - 20), this.contentX + this.contentW / 2, this.cardsTop() + 24, Theme.TEXT_3);
+			*///?}
 			return;
 		}
 
@@ -1030,19 +1112,23 @@ public class SettingsScreen extends Screen {
 	}
 
 	/** Karta modułu z Figmy: ikona, nazwa, opis; przełącznik w prawym dolnym rogu. */
-	private void renderCard(DrawContext context, Module module, int x, int y, int w, boolean hovered) {
+	private void renderCard(GuiGraphics context, Module module, int x, int y, int w, boolean hovered) {
 		if (Modules.GUI_THEME.cardStyle.is(1)) {
 			this.renderTile(context, module, x, y, w, hovered);
 			return;
 		}
 
-		TextRenderer font = this.textRenderer;
+		Font font = this.font;
 		float hover = this.cardHover.computeIfAbsent(module, m -> new Anim(0.0F, 16.0F)).to(hovered);
 		float on = this.cardSwitch.computeIfAbsent(module, m -> new Anim(m.on() ? 1.0F : 0.0F, 16.0F)).to(module.on());
 		// Rogi 4 px jak przyciski (projekt w Figmie, komponent "Karta modułu").
 		Draw.round(context, x, y, w, CARD_H, 4, Theme.mix(Theme.CARD, Theme.CARD_HOVER, hover));
 		Draw.outline(context, x, y, w, CARD_H, 4, Theme.mix(Theme.BORDER, Theme.BORDER_ACTIVE, hover));
-		context.drawItem(Previews.icon(module), x + 10, y + (CARD_H - 16) / 2);
+		//? if <26.1.2 {
+		context.renderItem(Previews.icon(module), x + 10, y + (CARD_H - 16) / 2);
+		//?} else {
+		/*context.item(Previews.icon(module), x + 10, y + (CARD_H - 16) / 2);
+		*///?}
 
 		int textX = x + 34;
 		Draw.text(context, font, Draw.fit(font, module.name, w - 34 - 24), textX, y + 12, Theme.mix(Theme.TEXT_2, Theme.TEXT, Math.max(on, hover)));
@@ -1075,8 +1161,12 @@ public class SettingsScreen extends Screen {
 	 * Kafelek w stylu OneConfig: szary prostokąt z dużą ikoną, a na dole pasek w kolorze akcentu z nazwą i małym przełącznikiem.
 	 * Wyłączony moduł ma szary pasek. Opis pokazuje się po najechaniu.
 	 */
-	private void renderTile(DrawContext context, Module module, int x, int y, int w, boolean hovered) {
-		TextRenderer font = this.textRenderer;
+	private void renderTile(GuiGraphics context, Module module, int x, int y, int w, boolean hovered) {
+		//? if <26.1.2 {
+		Font font = this.font;
+		//?} else {
+		/*var font = this.font;
+		*///?}
 		float hover = this.cardHover.computeIfAbsent(module, m -> new Anim(0.0F, 16.0F)).to(hovered);
 		float on = this.cardSwitch.computeIfAbsent(module, m -> new Anim(m.on() ? 1.0F : 0.0F, 16.0F)).to(module.on());
 		int bar = TILE_BAR_H;
@@ -1087,11 +1177,15 @@ public class SettingsScreen extends Screen {
 		context.fill(x, y + TILE_H - bar, x + w, y + TILE_H - bar + 6, barColor);
 		Draw.outline(context, x, y, w, TILE_H, 4, Theme.mix(Theme.BORDER, Theme.BORDER_ACTIVE, hover));
 		// Duża ikona (2x) w prawej części górnego pola.
-		context.getMatrices().pushMatrix();
-		context.getMatrices().translate(x + w - 52, y + 8);
-		context.getMatrices().scale(2.0F, 2.0F);
-		context.drawItem(Previews.icon(module), 0, 0);
-		context.getMatrices().popMatrix();
+		context.pose().pushMatrix();
+		context.pose().translate(x + w - 52, y + 8);
+		context.pose().scale(2.0F, 2.0F);
+		//? if <26.1.2 {
+		context.renderItem(Previews.icon(module), 0, 0);
+		//?} else {
+		/*context.item(Previews.icon(module), 0, 0);
+		*///?}
+		context.pose().popMatrix();
 		Draw.text(context, font, Draw.fit(font, module.name, w - 20 - TILE_SWITCH_W), x + 10, y + TILE_H - bar + 7, 0xFFFFFFFF);
 		// Mały przełącznik na pasku: ciemny tor, żeby było go widać na kolorowym tle; kółko po prawej = włączony.
 		int sx = x + w - 28;
@@ -1136,14 +1230,18 @@ public class SettingsScreen extends Screen {
 	}
 
 	/** Przycisk sortowania (zmienia tryb po kliknięciu) i gwiazdka "tylko ulubione" po prawej stronie podtytułu. */
-	private void renderHeaderControls(DrawContext context) {
-		TextRenderer font = this.textRenderer;
+	private void renderHeaderControls(GuiGraphics context) {
+		//? if <26.1.2 {
+		Font font = this.font;
+		//?} else {
+		/*var font = this.font;
+		*///?}
 		int y = this.controlsY();
 		boolean sortHot = this.onSortButton(this.tileMx, this.tileMy);
 		Draw.round(context, this.sortBtnX(), y, this.sortBtnW(), 14, 4, sortHot ? Theme.SURFACE_HOVER : Theme.INSET);
 		Draw.outline(context, this.sortBtnX(), y, this.sortBtnW(), 14, 4, sortHot ? Theme.BORDER_ACTIVE : Theme.BORDER_STRONG);
 		String label = sortLabel();
-		Draw.text(context, font, label, this.sortBtnX() + (this.sortBtnW() - font.getWidth(label)) / 2, y + 3, Theme.TEXT_2);
+		Draw.text(context, font, label, this.sortBtnX() + (this.sortBtnW() - font.width(label)) / 2, y + 3, Theme.TEXT_2);
 		boolean starHot = this.onFavoritesButton(this.tileMx, this.tileMy);
 		Draw.round(context, this.starBtnX(), y, 20, 14, 4, favoritesOnly ? Theme.alpha(0xFFFFD25E, 0x30) : starHot ? Theme.SURFACE_HOVER : Theme.INSET);
 		Draw.outline(context, this.starBtnX(), y, 20, 14, 4, favoritesOnly ? 0xFFFFD25E : starHot ? Theme.BORDER_ACTIVE : Theme.BORDER_STRONG);
@@ -1160,7 +1258,7 @@ public class SettingsScreen extends Screen {
 		return inside(mx, my, this.cardX(i) + this.cardW() - 17, this.cardY(i) + 2, 15, 14);
 	}
 
-	private void drawCardStar(DrawContext context, Module module, int x, int y) {
+	private void drawCardStar(GuiGraphics context, Module module, int x, int y) {
 		boolean favorite = Modules.GUI_THEME.isFavorite(module);
 		boolean hot = inside(this.tileMx, this.tileMy, x - 2, y - 2, 15, 15);
 		int color = favorite ? 0xFFFFD25E : hot ? Theme.TEXT_2 : Theme.alpha(Theme.TEXT_3, 0xA0);
@@ -1168,8 +1266,12 @@ public class SettingsScreen extends Screen {
 	}
 
 	/** Osobny przycisk "Party" pod kategoriami: konfetti z pikseli, od razu otwiera menu party. */
-	private void renderPartyRow(DrawContext context, int x, int w, int y, int h, boolean hovered) {
-		TextRenderer font = this.textRenderer;
+	private void renderPartyRow(GuiGraphics context, int x, int w, int y, int h, boolean hovered) {
+		//? if <26.1.2 {
+		Font font = this.font;
+		//?} else {
+		/*var font = this.font;
+		*///?}
 		frameButton(context, x, y, w, h, false, hovered ? 1.0F : 0.0F);
 		int textY = y + (h - 8) / 2;
 		PartyIcon.draw(context, x + 8, textY - 1);
@@ -1177,8 +1279,8 @@ public class SettingsScreen extends Screen {
 	}
 
 	/** Prawy panel: duży podgląd z podpisem na dole, pod nim krótkie informacje. */
-	private void renderRight(DrawContext context) {
-		TextRenderer font = this.textRenderer;
+	private void renderRight(GuiGraphics context) {
+		Font font = this.font;
 		Module module = this.hoveredCard != null ? this.hoveredCard : this.panelOpen() ? this.panelModule : null;
 		int x = this.rightX + 6;
 		int w = this.rightW - 12;
@@ -1189,13 +1291,13 @@ public class SettingsScreen extends Screen {
 		if (module == null) {
 			// Bez najechania nie pokazujemy ostatniego modułu, tylko podpowiedź.
 			String hint = Draw.fit(font, "Najedź na moduł", w - 10);
-			Draw.text(context, font, hint, x + (w - font.getWidth(hint)) / 2, by + boxH / 2 - 4, Theme.TEXT_4);
+			Draw.text(context, font, hint, x + (w - font.width(hint)) / 2, by + boxH / 2 - 4, Theme.TEXT_4);
 			Draw.outline(context, x, by, w, boxH, 0, Theme.BORDER_STRONG);
 			return;
 		}
 
 		context.enableScissor(x + 1, by + 1, x + w - 1, by + boxH - 1);
-		Previews.draw(context, this.client, module, x, by, w, boxH - 34);
+		Previews.draw(context, this.minecraft, module, x, by, w, boxH - 34);
 		context.disableScissor();
 		// Podpis na dole podglądu, na ciemnym przejściu.
 		int capY = by + boxH - 34;
@@ -1215,13 +1317,13 @@ public class SettingsScreen extends Screen {
 		this.infoRow(context, x + 1, infoTop + 36, w - 2, "Ustawienia", String.valueOf(settings), Theme.TEXT_2);
 	}
 
-	private void infoRow(DrawContext context, int x, int y, int w, String label, String value, int color) {
-		Draw.text(context, this.textRenderer, label, x, y, Theme.TEXT_3);
-		String shown = Draw.fit(this.textRenderer, value, w / 2);
-		Draw.text(context, this.textRenderer, shown, x + w - this.textRenderer.getWidth(shown), y, color);
+	private void infoRow(GuiGraphics context, int x, int y, int w, String label, String value, int color) {
+		Draw.text(context, this.font, label, x, y, Theme.TEXT_3);
+		String shown = Draw.fit(this.font, value, w / 2);
+		Draw.text(context, this.font, shown, x + w - this.font.width(shown), y, color);
 	}
 
-	private void renderScrollbar(DrawContext context, int x, int top, int bottom, int content, float scroll) {
+	private void renderScrollbar(GuiGraphics context, int x, int top, int bottom, int content, float scroll) {
 		int view = bottom - top;
 		if (content <= view) {
 			return;
@@ -1234,13 +1336,13 @@ public class SettingsScreen extends Screen {
 		Draw.roundExact(context, x, barY, 3, barH, 1, this.draggingBar != 0 ? Theme.alpha(Theme.TEXT_2, 0xD0) : Theme.alpha(Theme.TEXT_3, 0x90));
 	}
 
-	private void renderPanel(DrawContext context, int mouseX, int mouseY) {
+	private void renderPanel(GuiGraphics context, int mouseX, int mouseY) {
 		float t = this.panel.get();
 		if (t <= 0.01F || this.panelModule == null) {
 			return;
 		}
 
-		TextRenderer font = this.textRenderer;
+		Font font = this.font;
 		Module module = this.panelModule;
 		int clipX1 = this.contentX + 1;
 		int clipX2 = this.contentX + this.contentW - 1;
@@ -1260,7 +1362,11 @@ public class SettingsScreen extends Screen {
 		}
 
 		Draw.icon(context, Draw.Icon.BACK, px + 8, top + 10, backHover ? Theme.TEXT : Theme.TEXT_3);
-		context.drawItem(Previews.icon(module), px + 24, top + 6);
+		//? if <26.1.2 {
+		context.renderItem(Previews.icon(module), px + 24, top + 6);
+		//?} else {
+		/*context.item(Previews.icon(module), px + 24, top + 6);
+		*///?}
 		Draw.text(context, font, Draw.fit(font, module.name, pw - 60), px + 44, top + 7, Theme.TEXT);
 		Draw.text(context, font, module.category.label, px + 44, top + 17, Theme.alpha(Theme.category(module.category), 0xC8));
 		context.fill(px + 1, top + 29, px + pw - 1, top + 30, Theme.DIVIDER);
@@ -1274,7 +1380,7 @@ public class SettingsScreen extends Screen {
 			Draw.round(context, bx, by, bw, preview, 4, 0x70000000);
 			Draw.outline(context, bx, by, bw, preview, 4, Theme.BORDER);
 			context.enableScissor(bx + 1, by + 1, bx + bw - 1, by + preview - 1);
-			Previews.draw(context, this.client, module, bx, by, bw, preview);
+			Previews.draw(context, this.minecraft, module, bx, by, bw, preview);
 			context.disableScissor();
 		}
 
@@ -1331,9 +1437,13 @@ public class SettingsScreen extends Screen {
 	}
 
 	@Override
-	public void close() {
+	public void onClose() {
 		ConfigManager.save();
-		this.client.setScreen(this.parent);
+		//? if <26.2 {
+		this.minecraft.setScreen(this.parent);
+		//?} else {
+		/*this.minecraft.gui.setScreen(this.parent);
+		*///?}
 	}
 
 	// --- kontrolki panelu ---
@@ -1346,7 +1456,7 @@ public class SettingsScreen extends Screen {
 			return ROW;
 		}
 
-		abstract void render(DrawContext context, int x, int y, int w, boolean hover, int mouseX, int mouseY);
+		abstract void render(GuiGraphics context, int x, int y, int w, boolean hover, int mouseX, int mouseY);
 
 		void click(double mx, double my, int button, int x, int y, int w) {
 		}
@@ -1356,17 +1466,17 @@ public class SettingsScreen extends Screen {
 			return Math.max(84, Math.min(130, w * 48 / 100));
 		}
 
-		void row(DrawContext context, int x, int y, int w, boolean hover, Text label) {
+		void row(GuiGraphics context, int x, int y, int w, boolean hover, Component label) {
 			if (hover) {
 				Draw.round(context, x, y + 1, w, ROW - 2, 4, Theme.SURFACE_2);
 			}
 
 			int maxLabel = w - this.controlW(w) - 14;
 			String plain = label.getString();
-			if (SettingsScreen.this.textRenderer.getWidth(plain) <= maxLabel) {
-				context.drawText(SettingsScreen.this.textRenderer, label, x + 6, y + 6, Theme.TEXT_2, false);
+			if (SettingsScreen.this.font.width(plain) <= maxLabel) {
+				context.drawString(SettingsScreen.this.font, label, x + 6, y + 6, Theme.TEXT_2, false);
 			} else {
-				Draw.text(context, SettingsScreen.this.textRenderer, Draw.fit(SettingsScreen.this.textRenderer, plain, maxLabel), x + 6, y + 6, Theme.TEXT_2);
+				Draw.text(context, SettingsScreen.this.font, Draw.fit(SettingsScreen.this.font, plain, maxLabel), x + 6, y + 6, Theme.TEXT_2);
 				if (hover) {
 					Tip.offer(plain);
 				}
@@ -1387,9 +1497,9 @@ public class SettingsScreen extends Screen {
 		}
 
 		@Override
-		void render(DrawContext context, int x, int y, int w, boolean hover, int mouseX, int mouseY) {
-			Draw.text(context, SettingsScreen.this.textRenderer, Lang.t(this.title).toUpperCase(Locale.ROOT), x + 6, y + 6, Theme.TEXT_4);
-			context.fill(x + 12 + SettingsScreen.this.textRenderer.getWidth(Lang.t(this.title).toUpperCase(Locale.ROOT)), y + 12, x + w - 6, y + 13, Theme.DIVIDER);
+		void render(GuiGraphics context, int x, int y, int w, boolean hover, int mouseX, int mouseY) {
+			Draw.text(context, SettingsScreen.this.font, Lang.t(this.title).toUpperCase(Locale.ROOT), x + 6, y + 6, Theme.TEXT_4);
+			context.fill(x + 12 + SettingsScreen.this.font.width(Lang.t(this.title).toUpperCase(Locale.ROOT)), y + 12, x + w - 6, y + 13, Theme.DIVIDER);
 		}
 	}
 
@@ -1401,8 +1511,8 @@ public class SettingsScreen extends Screen {
 		}
 
 		@Override
-		void render(DrawContext context, int x, int y, int w, boolean hover, int mouseX, int mouseY) {
-			Draw.text(context, SettingsScreen.this.textRenderer, Draw.fit(SettingsScreen.this.textRenderer, this.text, w - 12), x + 6, y + 6, Theme.TEXT_4);
+		void render(GuiGraphics context, int x, int y, int w, boolean hover, int mouseX, int mouseY) {
+			Draw.text(context, SettingsScreen.this.font, Draw.fit(SettingsScreen.this.font, this.text, w - 12), x + 6, y + 6, Theme.TEXT_4);
 		}
 	}
 
@@ -1415,24 +1525,32 @@ public class SettingsScreen extends Screen {
 			return;
 		}
 
-		this.client.setScreen(new ConfirmScreen(confirmed -> {
+		//? if <26.2 {
+		this.minecraft.setScreen(new ConfirmScreen(confirmed -> {
+		//?} else {
+		/*this.minecraft.gui.setScreen(new ConfirmScreen(confirmed -> {
+		*///?}
 			if (confirmed) {
 				option.set(true);
 				ConfigManager.save();
 			}
 
-			this.client.setScreen(this);
-		}, Text.literal(Lang.t("Ryzykowne moduły zostaną zapamiętane")).formatted(net.minecraft.util.Formatting.RED),
-			Text.literal(Lang.t("Freelook i Instant Hit zostaną włączone po każdym uruchomieniu gry, jeśli je włączysz. Na części serwerów możesz za to dostać bana. Robisz to na własne ryzyko.")),
-			Text.literal(Lang.t("Biorę ryzyko")).formatted(net.minecraft.util.Formatting.RED), Text.literal(Lang.t("Anuluj"))));
+			//? if <26.2 {
+			this.minecraft.setScreen(this);
+			//?} else {
+			/*this.minecraft.gui.setScreen(this);
+			*///?}
+		}, Component.literal(Lang.t("Ryzykowne moduły zostaną zapamiętane")).withStyle(net.minecraft.ChatFormatting.RED),
+			Component.literal(Lang.t("Freelook i Instant Hit zostaną włączone po każdym uruchomieniu gry, jeśli je włączysz. Na części serwerów możesz za to dostać bana. Robisz to na własne ryzyko.")),
+			Component.literal(Lang.t("Biorę ryzyko")).withStyle(net.minecraft.ChatFormatting.RED), Component.literal(Lang.t("Anuluj"))));
 	}
 
 	/** Zablokowana opcja (robi to już inny mod): przyciemniony wiersz bez przełącznika i powód w drugiej linii. */
 	private final class LockedControl extends Control {
-		private final Text label;
+		private final Component label;
 		private final String reason;
 
-		LockedControl(Text label, String reason) {
+		LockedControl(Component label, String reason) {
 			this.label = label;
 			this.reason = reason;
 		}
@@ -1443,21 +1561,21 @@ public class SettingsScreen extends Screen {
 		}
 
 		@Override
-		void render(DrawContext context, int x, int y, int w, boolean hover, int mouseX, int mouseY) {
-			context.drawText(SettingsScreen.this.textRenderer, this.label, x + 6, y + 6, Theme.TEXT_4, false);
+		void render(GuiGraphics context, int x, int y, int w, boolean hover, int mouseX, int mouseY) {
+			context.drawString(SettingsScreen.this.font, this.label, x + 6, y + 6, Theme.TEXT_4, false);
 			String status = Lang.t("Zablokowane");
-			Draw.text(context, SettingsScreen.this.textRenderer, status, x + w - 6 - SettingsScreen.this.textRenderer.getWidth(status), y + 6, Theme.TEXT_4);
-			context.drawText(SettingsScreen.this.textRenderer, Draw.fit(SettingsScreen.this.textRenderer, this.reason, w - 12), x + 6, y + ROW - 2, Theme.WARNING, false);
+			Draw.text(context, SettingsScreen.this.font, status, x + w - 6 - SettingsScreen.this.font.width(status), y + 6, Theme.TEXT_4);
+			context.drawString(SettingsScreen.this.font, Draw.fit(SettingsScreen.this.font, this.reason, w - 12), x + 6, y + ROW - 2, Theme.WARNING, false);
 		}
 	}
 
 	private final class ToggleControl extends Control {
-		private final Text label;
+		private final Component label;
 		private final BooleanSupplier state;
 		private final Runnable toggle;
 		private final Anim anim;
 
-		ToggleControl(Text label, BooleanSupplier state, Runnable toggle) {
+		ToggleControl(Component label, BooleanSupplier state, Runnable toggle) {
 			this.label = label;
 			this.state = state;
 			this.toggle = toggle;
@@ -1465,12 +1583,12 @@ public class SettingsScreen extends Screen {
 		}
 
 		@Override
-		void render(DrawContext context, int x, int y, int w, boolean hover, int mouseX, int mouseY) {
+		void render(GuiGraphics context, int x, int y, int w, boolean hover, int mouseX, int mouseY) {
 			this.row(context, x, y, w, hover, this.label);
 			float t = this.anim.to(this.state.getAsBoolean());
 			String status = this.state.getAsBoolean() ? "Wł." : "Wył.";
 			int sx = x + w - 28;
-			Draw.text(context, SettingsScreen.this.textRenderer, status, sx - 4 - SettingsScreen.this.textRenderer.getWidth(status), y + 6,
+			Draw.text(context, SettingsScreen.this.font, status, sx - 4 - SettingsScreen.this.font.width(status), y + 6,
 				this.state.getAsBoolean() ? Theme.TEXT_2 : Theme.TEXT_4);
 			Draw.toggle(context, sx, y + 5, t);
 		}
@@ -1486,22 +1604,22 @@ public class SettingsScreen extends Screen {
 	private final class KeybindControl extends Control {
 		private final Module module;
 		/** Klawisz ze Sterowania Minecrafta (ten sam obiekt co tam) albo null dla skrótu włączającego moduł. */
-		private final net.minecraft.client.option.KeyBinding vanilla;
+		private final net.minecraft.client.KeyMapping vanilla;
 		private final String label;
 
 		KeybindControl(Module module) {
 			this(module, null, "Skrót klawiszowy");
 		}
 
-		KeybindControl(Module module, net.minecraft.client.option.KeyBinding vanilla, String label) {
+		KeybindControl(Module module, net.minecraft.client.KeyMapping vanilla, String label) {
 			this.vanilla = vanilla;
 			this.label = label;
 			this.module = module;
 		}
 
 		@Override
-		void render(DrawContext context, int x, int y, int w, boolean hover, int mouseX, int mouseY) {
-			this.row(context, x, y, w, hover, Text.literal(Lang.t(this.label)));
+		void render(GuiGraphics context, int x, int y, int w, boolean hover, int mouseX, int mouseY) {
+			this.row(context, x, y, w, hover, Component.literal(Lang.t(this.label)));
 			int cw = this.controlW(w);
 			int bx = x + w - cw - 4;
 			boolean capturing = SettingsScreen.this.capturing == this;
@@ -1520,8 +1638,8 @@ public class SettingsScreen extends Screen {
 				color = this.unbound() ? Theme.TEXT_4 : Theme.TEXT;
 			}
 
-			text = Draw.fit(SettingsScreen.this.textRenderer, text, cw - 10);
-			Draw.text(context, SettingsScreen.this.textRenderer, text, bx + (cw - SettingsScreen.this.textRenderer.getWidth(text)) / 2, y + 6, color);
+			text = Draw.fit(SettingsScreen.this.font, text, cw - 10);
+			Draw.text(context, SettingsScreen.this.font, text, bx + (cw - SettingsScreen.this.font.width(text)) / 2, y + 6, color);
 			if (hover && !capturing) {
 				Tip.offer("Kliknij i naciśnij klawisz albo boczny/środkowy przycisk myszy. Backspace usuwa skrót, PPM też.");
 			}
@@ -1540,7 +1658,7 @@ public class SettingsScreen extends Screen {
 		}
 
 		String current() {
-			return this.vanilla != null ? (this.vanilla.isUnbound() ? Lang.t("Brak") : this.vanilla.getBoundKeyLocalizedText().getString()) : ModuleKeys.name(this.module.key);
+			return this.vanilla != null ? (this.vanilla.isUnbound() ? Lang.t("Brak") : this.vanilla.getTranslatedKeyMessage().getString()) : ModuleKeys.name(this.module.key);
 		}
 
 		@Override
@@ -1556,13 +1674,13 @@ public class SettingsScreen extends Screen {
 	}
 
 	private final class SliderControl extends Control {
-		private final Text label;
+		private final Component label;
 		private final Setting.Num setting;
 		private final Anim anim;
 		private int trackX;
 		private int trackW;
 
-		SliderControl(Text label, Setting.Num setting) {
+		SliderControl(Component label, Setting.Num setting) {
 			this.label = label;
 			this.setting = setting;
 			this.anim = new Anim(this.fraction(), 22.0F);
@@ -1573,12 +1691,12 @@ public class SettingsScreen extends Screen {
 		}
 
 		@Override
-		void render(DrawContext context, int x, int y, int w, boolean hover, int mouseX, int mouseY) {
+		void render(GuiGraphics context, int x, int y, int w, boolean hover, int mouseX, int mouseY) {
 			this.row(context, x, y, w, hover, this.label);
-			TextRenderer font = SettingsScreen.this.textRenderer;
+			Font font = SettingsScreen.this.font;
 			int cw = this.controlW(w);
 			String value = this.setting.format();
-			int valueW = Math.max(30, font.getWidth(value));
+			int valueW = Math.max(30, font.width(value));
 			this.trackX = x + w - cw - 4;
 			this.trackW = cw - valueW - 8;
 			float t = this.anim.to(this.fraction());
@@ -1595,7 +1713,7 @@ public class SettingsScreen extends Screen {
 			int ky = ty + track / 2 - knob / 2;
 			Draw.round(context, kx, ky, knob, knob, knob / 2, 0xFFF2F4F8);
 			Draw.outline(context, kx, ky, knob, knob, knob / 2, Theme.alpha(axis, 0xFF));
-			Draw.text(context, font, value, x + w - 4 - font.getWidth(value), y + 6, Theme.TEXT);
+			Draw.text(context, font, value, x + w - 4 - font.width(value), y + 6, Theme.TEXT);
 		}
 
 		@Override
@@ -1613,21 +1731,21 @@ public class SettingsScreen extends Screen {
 	}
 
 	private final class DropdownControl extends Control {
-		private final Text label;
+		private final Component label;
 		private final Setting.Mode setting;
 		private int boxX;
 		private int boxY;
 		private int boxW;
 
-		DropdownControl(Text label, Setting.Mode setting) {
+		DropdownControl(Component label, Setting.Mode setting) {
 			this.label = label;
 			this.setting = setting;
 		}
 
 		@Override
-		void render(DrawContext context, int x, int y, int w, boolean hover, int mouseX, int mouseY) {
+		void render(GuiGraphics context, int x, int y, int w, boolean hover, int mouseX, int mouseY) {
 			this.row(context, x, y, w, hover, this.label);
-			TextRenderer font = SettingsScreen.this.textRenderer;
+			Font font = SettingsScreen.this.font;
 			int cw = this.controlW(w);
 			this.boxX = x + w - cw - 4;
 			this.boxY = y + 2;
@@ -1659,13 +1777,13 @@ public class SettingsScreen extends Screen {
 			return below + h <= SettingsScreen.this.wy + SettingsScreen.this.wh - 4 ? below : this.boxY - h - 2;
 		}
 
-		void renderList(DrawContext context, int mouseX, int mouseY) {
-			TextRenderer font = SettingsScreen.this.textRenderer;
+		void renderList(GuiGraphics context, int mouseX, int mouseY) {
+			Font font = SettingsScreen.this.font;
 			float t = Anim.ease(SettingsScreen.this.dropdownAnim.to(1.0F));
 			int h = this.setting.options.length * 16 + 6;
 			int ly = this.listY();
 			int shown = Math.max(1, Math.round(h * t));
-			context.createNewRootLayer();
+			context.nextStratum();
 			Draw.shadow(context, this.boxX, ly, this.boxW, shown, 4, 4);
 			Draw.round(context, this.boxX, ly, this.boxW, shown, 4, Theme.POPUP);
 			Draw.outline(context, this.boxX, ly, this.boxW, shown, 4, Theme.BORDER_STRONG);
@@ -1703,18 +1821,18 @@ public class SettingsScreen extends Screen {
 	}
 
 	private final class ColorControl extends Control {
-		private final Text label;
+		private final Component label;
 		private final Setting.Color setting;
 		private final Module module;
 
-		ColorControl(Text label, Setting.Color setting, Module module) {
+		ColorControl(Component label, Setting.Color setting, Module module) {
 			this.label = label;
 			this.setting = setting;
 			this.module = module;
 		}
 
 		@Override
-		void render(DrawContext context, int x, int y, int w, boolean hover, int mouseX, int mouseY) {
+		void render(GuiGraphics context, int x, int y, int w, boolean hover, int mouseX, int mouseY) {
 			this.row(context, x, y, w, hover, this.label);
 			int cw = this.controlW(w);
 			int bx = x + w - cw - 4;
@@ -1724,27 +1842,31 @@ public class SettingsScreen extends Screen {
 			context.fill(bx + 4, y + 5, bx + 14, y + 15, this.setting.argb());
 			Draw.outline(context, bx + 3, y + 4, 12, 12, 2, Theme.BORDER_STRONG);
 			String hex = this.setting.hasAlpha ? String.format(Locale.ROOT, "#%08X", this.setting.get()) : String.format(Locale.ROOT, "#%06X", this.setting.get() & 0xFFFFFF);
-			Draw.text(context, SettingsScreen.this.textRenderer, hex, bx + 22, y + 6, Theme.TEXT_2);
+			Draw.text(context, SettingsScreen.this.font, hex, bx + 22, y + 6, Theme.TEXT_2);
 		}
 
 		@Override
 		void click(double mx, double my, int button, int x, int y, int w) {
-			SettingsScreen.this.client.setScreen(new ColorScreen(SettingsScreen.this, this.setting, this.module));
+			//? if <26.2 {
+			SettingsScreen.this.minecraft.setScreen(new ColorScreen(SettingsScreen.this, this.setting, this.module));
+			//?} else {
+			/*SettingsScreen.this.minecraft.gui.setScreen(new ColorScreen(SettingsScreen.this, this.setting, this.module));
+			*///?}
 		}
 	}
 
 	private final class TextControl extends Control {
-		private final Text label;
-		final TextFieldWidget field;
+		private final Component label;
+		final EditBox field;
 
-		TextControl(Text label, Setting.Str setting) {
+		TextControl(Component label, Setting.Str setting) {
 			this.label = label;
-			this.field = new TextFieldWidget(SettingsScreen.this.textRenderer, 0, 0, 100, 12, label);
-			this.field.setDrawsBackground(false);
+			this.field = new EditBox(SettingsScreen.this.font, 0, 0, 100, 12, label);
+			this.field.setBordered(false);
 			this.field.setMaxLength(2000);
-			this.field.setText(setting.get());
-			this.field.setCursorToStart(false);
-			this.field.setChangedListener(setting::set);
+			this.field.setValue(setting.get());
+			this.field.moveCursorToStart(false);
+			this.field.setResponder(setting::set);
 		}
 
 		@Override
@@ -1753,8 +1875,8 @@ public class SettingsScreen extends Screen {
 		}
 
 		@Override
-		void render(DrawContext context, int x, int y, int w, boolean hover, int mouseX, int mouseY) {
-			context.drawText(SettingsScreen.this.textRenderer, this.label, x + 6, y + 4, Theme.TEXT_2, false);
+		void render(GuiGraphics context, int x, int y, int w, boolean hover, int mouseX, int mouseY) {
+			context.drawString(SettingsScreen.this.font, this.label, x + 6, y + 4, Theme.TEXT_2, false);
 			boolean focused = SettingsScreen.this.getFocused() == this.field;
 			Draw.round(context, x + 2, y + 15, w - 4, 18, 4, Theme.SURFACE_2);
 			Draw.outline(context, x + 2, y + 15, w - 4, 18, 4, focused ? Theme.alpha(Theme.ACCENT, 0xC0) : Theme.BORDER);
@@ -1770,17 +1892,17 @@ public class SettingsScreen extends Screen {
 	private final class BindControl extends Control {
 		static final int KEY_W = 64;
 		final Modules.CommandKeys.Bind bind;
-		final TextFieldWidget field;
+		final EditBox field;
 
 		BindControl(Modules.CommandKeys.Bind bind) {
 			this.bind = bind;
-			this.field = new TextFieldWidget(SettingsScreen.this.textRenderer, 0, 0, 100, 12, Text.literal(Lang.t("Komenda")));
-			this.field.setDrawsBackground(false);
+			this.field = new EditBox(SettingsScreen.this.font, 0, 0, 100, 12, Component.literal(Lang.t("Komenda")));
+			this.field.setBordered(false);
 			this.field.setMaxLength(Modules.CommandKeys.MAX_LENGTH);
-			this.field.setText(bind.command);
-			this.field.setCursorToStart(false);
-			this.field.setPlaceholder(Text.literal(Lang.t("/spawn")).withColor(Theme.TEXT_4 & 0xFFFFFF));
-			this.field.setChangedListener(text -> bind.command = text);
+			this.field.setValue(bind.command);
+			this.field.moveCursorToStart(false);
+			this.field.setHint(Component.literal(Lang.t("/spawn")).withColor(Theme.TEXT_4 & 0xFFFFFF));
+			this.field.setResponder(text -> bind.command = text);
 		}
 
 		@Override
@@ -1789,8 +1911,8 @@ public class SettingsScreen extends Screen {
 		}
 
 		@Override
-		void render(DrawContext context, int x, int y, int w, boolean hover, int mouseX, int mouseY) {
-			TextRenderer font = SettingsScreen.this.textRenderer;
+		void render(GuiGraphics context, int x, int y, int w, boolean hover, int mouseX, int mouseY) {
+			Font font = SettingsScreen.this.font;
 			boolean capturing = SettingsScreen.this.capturingBind == this;
 			boolean keyHover = inside(mouseX, mouseY, x + 2, y + 4, KEY_W, 18);
 			Draw.round(context, x + 2, y + 4, KEY_W, 18, 4, capturing ? Theme.alpha(Theme.ACCENT, 0x26) : Theme.SURFACE_2);
@@ -1798,7 +1920,7 @@ public class SettingsScreen extends Screen {
 			String key = capturing ? "Naciśnij…" : this.bind.key < 0 ? "Klawisz" : ModuleKeys.name(this.bind.key);
 			key = Draw.fit(font, key, KEY_W - 8);
 			int keyColor = capturing ? Theme.ACCENT : this.bind.key < 0 ? Theme.TEXT_4 : Theme.TEXT;
-			Draw.text(context, font, key, x + 2 + (KEY_W - font.getWidth(key)) / 2, y + 9, keyColor);
+			Draw.text(context, font, key, x + 2 + (KEY_W - font.width(key)) / 2, y + 9, keyColor);
 			if (keyHover && !capturing) {
 				Tip.offer("Kliknij i naciśnij klawisz albo boczny/środkowy przycisk myszy. Backspace usuwa.");
 			}
@@ -1851,12 +1973,12 @@ public class SettingsScreen extends Screen {
 		}
 
 		@Override
-		void render(DrawContext context, int x, int y, int w, boolean hover, int mouseX, int mouseY) {
+		void render(GuiGraphics context, int x, int y, int w, boolean hover, int mouseX, int mouseY) {
 			float h = this.hover.to(hover);
 			Draw.round(context, x + 2, y + 4, w - 4, 20, 4, Theme.mix(Theme.alpha(Theme.ACCENT, 0x30), Theme.alpha(Theme.ACCENT, 0x55), h));
 			Draw.outline(context, x + 2, y + 4, w - 4, 20, 4, Theme.alpha(Theme.ACCENT, 0xA0));
-			String text = Draw.fit(SettingsScreen.this.textRenderer, this.label, w - 16);
-			Draw.text(context, SettingsScreen.this.textRenderer, text, x + (w - SettingsScreen.this.textRenderer.getWidth(text)) / 2, y + 10, Theme.TEXT);
+			String text = Draw.fit(SettingsScreen.this.font, this.label, w - 16);
+			Draw.text(context, SettingsScreen.this.font, text, x + (w - SettingsScreen.this.font.width(text)) / 2, y + 10, Theme.TEXT);
 		}
 
 		@Override

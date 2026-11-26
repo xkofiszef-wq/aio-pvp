@@ -1,10 +1,11 @@
+//? if <26.1.2 {
 package pl.kerf.project.mixin;
 
 import java.util.Set;
-import net.minecraft.client.render.chunk.ChunkRenderData;
-import net.minecraft.client.render.chunk.NormalizedRelativePos;
-import net.minecraft.client.render.chunk.SectionBuilder;
-import net.minecraft.client.texture.SpriteContents;
+import net.minecraft.client.renderer.chunk.CompiledSectionMesh;
+import net.minecraft.client.renderer.chunk.SectionCompiler;
+import net.minecraft.client.renderer.chunk.TranslucencyPointOfView;
+import net.minecraft.client.renderer.texture.SpriteContents;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -13,13 +14,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import pl.kerf.project.render.AnimatedSprites;
 
 /** Dane renderowania fragmentu (to, co zostaje po budowie) przejmują zbiór animowanych tekstur z wyniku budowy. */
-@Mixin(ChunkRenderData.class)
+@Mixin(CompiledSectionMesh.class)
 public class ChunkRenderDataMixin implements AnimatedSprites.SpritesHolder {
 	@Unique
 	private Set<SpriteContents> aio$sprites;
 
 	@Inject(method = "<init>", at = @At("RETURN"))
-	private void aio$copySprites(NormalizedRelativePos pos, SectionBuilder.RenderData renderData, CallbackInfo ci) {
+	private void aio$copySprites(TranslucencyPointOfView pos, SectionCompiler.Results renderData, CallbackInfo ci) {
 		this.aio$sprites = ((AnimatedSprites.SpritesHolder) (Object) renderData).aio$sprites();
 	}
 
@@ -33,3 +34,4 @@ public class ChunkRenderDataMixin implements AnimatedSprites.SpritesHolder {
 		this.aio$sprites = sprites;
 	}
 }
+//?}

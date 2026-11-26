@@ -3,11 +3,11 @@ package pl.kerf.project.module;
 import pl.kerf.project.Lang;
 
 import com.google.gson.JsonObject;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.ConfirmScreen;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.ConfirmScreen;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 import pl.kerf.project.gui.Notifications;
 import pl.kerf.project.gui.theme.Theme;
 
@@ -47,15 +47,24 @@ public class RiskyModule extends Module {
 			return;
 		}
 
-		MinecraftClient client = MinecraftClient.getInstance();
-		Screen parent = client.currentScreen;
+		Minecraft client = Minecraft.getInstance();
+		//? if <26.2 {
+		Screen parent = client.screen;
 		client.setScreen(new ConfirmScreen(confirmed -> {
+		//?} else {
+		/*Screen parent = client.gui.screen();
+		client.gui.setScreen(new ConfirmScreen(confirmed -> {
+		*///?}
 			if (confirmed) {
 				this.enableForSession();
 			}
 
+			//? if <26.2 {
 			client.setScreen(parent);
-		}, Text.literal(this.name + Lang.t(" może dać bana")).formatted(Formatting.RED), Text.literal(Lang.t(this.what) + Lang.t(WARNING)), Text.literal(Lang.t("Włącz do końca sesji")).formatted(Formatting.RED), Text.literal(Lang.t("Anuluj"))));
+			//?} else {
+			/*client.gui.setScreen(parent);
+			*///?}
+		}, Component.literal(this.name + Lang.t(" może dać bana")).withStyle(ChatFormatting.RED), Component.literal(Lang.t(this.what) + Lang.t(WARNING)), Component.literal(Lang.t("Włącz do końca sesji")).withStyle(ChatFormatting.RED), Component.literal(Lang.t("Anuluj"))));
 	}
 
 	private void enableForSession() {
