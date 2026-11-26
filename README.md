@@ -45,6 +45,11 @@ No other mod in the list above is incompatible with AIO PvP.
   - Entity Culling (the mod): the Entity Culling option.
 - **Sodium and chunk options.** Sodium replaces the vanilla chunk renderer, so the AIO PvP chunk options (Fog Occlusion, Animate Only Visible Textures) have no effect with it. Sodium has its own versions of these.
 - **Replay Mod** works on all four versions. While it records, its "RECORDING" label sits over the top-left corner of the screen, so move AIO PvP elements away from there if they overlap.
+- **Seen only in automated tests, not confirmed in normal play:**
+  - Xaero's World Map 1.47.2 on Minecraft 26.1.2 and 26.2: the game froze while leaving a world. Xaero's Minimap alone was fine.
+  - Sodium 0.9.2 on Minecraft 26.1.2: the game crashed while the test took a screenshot (`Global terrain uniforms have not been updated`). Sodium crashed the same way without the other mods in the test.
+
+  No AIO PvP code appeared in either error. If you see the same in normal play, please open an issue with the game log.
 - The test checks that the game starts and runs with the mods. It does not check every feature of every mod. If you find a problem with a specific mod, please open an issue with the game log.
 
 ## Installation
