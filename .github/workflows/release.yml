@@ -1,0 +1,66 @@
+name: Release
+
+# Push a tag like v1.0.53 (mod version only). This builds all versions and creates one GitHub release
+# per Minecraft version (tag v1.0.53+<mc>), with changelog/1.0.53.md as the notes. 1.21.11 is marked Latest.
+on:
+  push:
+    tags:
+      - 'v*'
+      - '!v*\+*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and release all Minecraft versions
+    runs-on: ubuntu-latest
+    env:
+      LATEST_MC: '1.21.11'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check version and notes
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          mod_version=$(sed -n 's/^mod_version *= *//p' gradle.properties | tr -d '\r')
+          if [ "$version" != "$mod_version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match mod_version $mod_version in gradle.properties"; exit 1
+          fi
+          if [ ! -s "changelog/$version.md" ]; then
+            echo "::error::Missing changelog/$version.md (the release notes)"; exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: |
+            21
+            25
+          cache: gradle
+
+      - name: Build
+        run: |
+          chmod +x gradlew
+          ./gradlew build --no-daemon
+
+      - name: Create releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Every jar must exist before anything is published.
+          for dir in versions/*/; do
+            mc=$(basename "$dir")
+            jar="versions/$mc/build/libs/aio-pvp-$VERSION+$mc.jar"
+            [ -f "$jar" ] || { echo "::error::Missing $jar"; exit 1; }
+          done
+          # 1.21.11 first, as in earlier releases; only it gets the Latest label.
+          for mc in "$LATEST_MC" $(ls versions | grep -vx "$LATEST_MC"); do
+            if [ "$mc" = "$LATEST_MC" ]; then latest=true; else latest=false; fi
+            gh release create "v$VERSION+$mc" "versions/$mc/build/libs/aio-pvp-$VERSION+$mc.jar" \
+              --target "$GITHUB_SHA" \
+              --title "AIO PvP $VERSION for Minecraft $mc" \
+              --notes-file "changelog/$VERSION.md" \
+              --latest="$latest"
+          done
