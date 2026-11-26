@@ -90,6 +90,7 @@ Any module can get its own toggle key in its settings.
 | Coordinates | X / Y / Z with colored axes, in one line or stacked. |
 | Locator Bar | Player heads on the locator bar with an outline in their color, names and the direction you face. The "On XP bar" option keeps the experience bar and draws the icons on it. |
 | FPS, Ping, CPS, Day, Clock | Small info labels. |
+| Reach Display | Distance to the target on your last hit, from your eyes to its hitbox (the way the server measures it). Misses don't count. It hides a few seconds after the hit. |
 | Sprint/Sneak Status | Shows `[Sprint (Toggled)]`, `[Sneak]` and similar, useful with Toggle Sprint. |
 | Lag Detector | Warns when the server stops sending packets, so you know a miss was lag. |
 | Direction | Compass strip with cardinal directions. |

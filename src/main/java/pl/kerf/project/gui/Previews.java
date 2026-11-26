@@ -80,6 +80,7 @@ public final class Previews {
 		icon(Modules.SPRINT_STATUS, Items.LEATHER_BOOTS);
 		icon(Modules.FIGHT_REPORT, Items.PAPER);
 		icon(Modules.LAG_DETECTOR, Items.REDSTONE_TORCH);
+		icon(Modules.REACH, Items.SPYGLASS);
 		icon(Modules.OLD_ANIMATIONS, Items.GOLDEN_SWORD);
 		//? if <26.2 {
 		icon(Modules.INSTANT_HIT, Items.LIGHTNING_ROD);

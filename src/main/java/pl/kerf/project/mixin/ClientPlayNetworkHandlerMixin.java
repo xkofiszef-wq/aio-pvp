@@ -38,6 +38,7 @@ public class ClientPlayNetworkHandlerMixin {
 		if (client.level != null) {
 			net.minecraft.world.entity.Entity target = client.level.getEntity(packet.entityId());
 			FightTracker.damaged(target);
+			pl.kerf.project.hud.ReachHud.damaged(target);
 			// Obrażenia ze sprawcą (gracz, mob, pocisk) to uderzenie; ogień, lawa i upadek nie mają sprawcy (id -1).
 			if (target != null && (packet.sourceCauseId() >= 0 || packet.sourceDirectId() >= 0) && !aio$fireIgnored(target, packet)) {
 				pl.kerf.project.render.HitTracker.mark(target);

@@ -85,6 +85,7 @@ public class AioPvp implements ClientModInitializer {
 		AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
 			if (world.isClientSide()) {
 				FightTracker.attack(Minecraft.getInstance(), entity);
+				pl.kerf.project.hud.ReachHud.attack(Minecraft.getInstance(), entity);
 				Modules.INSTANT_HIT.onAttack(Minecraft.getInstance(), entity);
 			}
 

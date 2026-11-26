@@ -83,6 +83,7 @@ public final class Modules {
 		}
 	);
 	public static final LagDetectorHud LAG_DETECTOR = new LagDetectorHud();
+	public static final pl.kerf.project.hud.ReachHud REACH = new pl.kerf.project.hud.ReachHud();
 	public static final CompassHud COMPASS = new CompassHud();
 	public static final MediaHud MEDIA = new MediaHud();
 	public static final HudTweaker HUD_TWEAKER = new HudTweaker();
@@ -145,7 +146,7 @@ public final class Modules {
 
 	public static final List<Module> ALL = List.of(
 		ARMOR_HUD, ITEM_PREVIEW, POTION_STATUS, KEY_OVERLAY, ELYTRA_PITCH, BOW_PITCH,
-		COORDINATES, FPS, PING, CPS, DAY, CLOCK, SPRINT_STATUS, LAG_DETECTOR, COMPASS, MEDIA, PARTY_VOTE, HUD_TWEAKER, SATURATION, LOCATOR_BAR,
+		COORDINATES, FPS, PING, CPS, REACH, DAY, CLOCK, SPRINT_STATUS, LAG_DETECTOR, COMPASS, MEDIA, PARTY_VOTE, HUD_TWEAKER, SATURATION, LOCATOR_BAR,
 		CROSSHAIR, HITBOXES, HIT_COLOR, HEALTH, FIGHT_REPORT, INSTANT_HIT, DAMAGE_CALC, COOLDOWN_FIX,
 		LOW_FIRE, NO_POTION_PARTICLES, NO_EXPLOSION_PARTICLES, FULLBRIGHT, BLOCK_OUTLINE, NAMETAGS, OWN_NAME, NO_CAMERA_SHAKE, CLEAR_VIEW, FREELOOK,
 		VIEW_MODEL, SHIELD, TOTEM, BOAT_VIEW, FAST_XP, INVISIBLE_HAND, OLD_ANIMATIONS,
@@ -153,11 +154,11 @@ public final class Modules {
 	);
 
 	public static final List<HudModule> HUD = List.of(
-		ARMOR_HUD, ITEM_PREVIEW, POTION_STATUS, ELYTRA_PITCH, BOW_PITCH, COORDINATES, FPS, PING, CPS, DAY, CLOCK, SPRINT_STATUS, LAG_DETECTOR, COMPASS, MEDIA, KEY_OVERLAY, PARTY_VOTE
+		ARMOR_HUD, ITEM_PREVIEW, POTION_STATUS, ELYTRA_PITCH, BOW_PITCH, COORDINATES, FPS, PING, CPS, REACH, DAY, CLOCK, SPRINT_STATUS, LAG_DETECTOR, COMPASS, MEDIA, KEY_OVERLAY, PARTY_VOTE
 	);
 
 	/** Kolejność dodawania modułów od najstarszego (tylko te dodane w nowszych wersjach); reszta ma rangę 0. Służy do sortowania "najnowsze". */
-	private static final List<String> ADDED_ORDER = List.of("waypoints", "markers", "party", "sounds", "optimization", "locator_bar");
+	private static final List<String> ADDED_ORDER = List.of("waypoints", "markers", "party", "sounds", "optimization", "locator_bar", "reach_display");
 
 	public static int addedRank(Module module) {
 		return ADDED_ORDER.indexOf(module.id) + 1;

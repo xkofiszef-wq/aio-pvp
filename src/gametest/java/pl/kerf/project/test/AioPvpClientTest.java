@@ -1279,6 +1279,11 @@ public class AioPvpClientTest implements FabricClientGameTest {
 			server.runCommand("execute at @p run summon iron_golem ^ ^ ^-2 {NoAI:1b,DeathLootTable:\"minecraft:empty\"}");
 			context.waitTicks(10);
 			attackTwice(context, entity -> entity instanceof net.minecraft.world.entity.animal.golem.IronGolem);
+			// Reach Display: golem stoi 2 bloki za graczem (szerokość 1.4), więc od oczu do hitboxa wychodzi ok. 1.3 bloku.
+			double reach = context.computeOnClient(client -> pl.kerf.project.hud.ReachHud.lastDistance());
+			if (!(reach > 0.8 && reach < 2.0)) {
+				throw new AssertionError("Reach Display: zla odleglosc trafienia " + reach);
+			}
 			server.runCommand("kill @e[type=iron_golem]");
 			context.waitTicks(10);
 			if (context.computeOnClient(client -> pl.kerf.project.module.FightTracker.last()) != null) {
